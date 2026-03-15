@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useData } from '@/context/DataContext'
 import { createEvaluation, fetchRecentEvaluations, type ScoutEvaluation, type PlayerSource } from '@/services/scoutEvaluationService'
-import { setPlayerStatus, fetchAllStatuses } from '@/services/monitoringService'
+import { addToSeguimiento } from '@/lib/supabase'
 import { smartSearch } from '@/lib/search'
 
 // Position options
@@ -196,23 +196,9 @@ export default function ScoutEvaluationPage() {
   // Recent evaluations for sidebar
   const [recentEvaluations, setRecentEvaluations] = useState<ScoutEvaluation[]>([])
 
-  // Monitoring statuses to check if player is in seguimiento
-  const [monitoringStatuses, setMonitoringStatuses] = useState<Record<string, { status: string }>>({})
-
   useEffect(() => {
     fetchRecentEvaluations(5).then(setRecentEvaluations)
   }, [success])
-
-  // Load monitoring statuses
-  useEffect(() => {
-    fetchAllStatuses().then(statuses => {
-      const statusMap: Record<string, { status: string }> = {}
-      Object.entries(statuses).forEach(([id, record]) => {
-        statusMap[id] = { status: record.status }
-      })
-      setMonitoringStatuses(statusMap)
-    })
-  }, [])
 
   // Update scout name when user changes
   useEffect(() => {
@@ -250,20 +236,18 @@ export default function ScoutEvaluationPage() {
     // External players
     external.forEach(p => {
       if (!players.find(x => x.name === p.Jugador)) {
-        // Check if in seguimiento
-        const isInMonitoring = monitoringStatuses[p.Jugador]?.status === 'seguimiento'
         players.push({
           name: p.Jugador,
           team: p.Equipo || '',
           position: String(p['Posicion'] || ''),
-          source: isInMonitoring ? 'seguimiento' : 'externo',
+          source: 'externo',
           id: p.Jugador,
         })
       }
     })
 
     return players
-  }, [external, internal, monitoringStatuses])
+  }, [external, internal])
 
   // Filtered players for autocomplete - using smart search
   const filteredPlayers = useMemo(() => {
@@ -291,8 +275,7 @@ export default function ScoutEvaluationPage() {
     if (internalPlayerIds.has(name)) {
       setPlayerSource('interno')
     } else {
-      const isInMonitoring = monitoringStatuses[name]?.status === 'seguimiento'
-      setPlayerSource(isInMonitoring ? 'seguimiento' : 'externo')
+      setPlayerSource('externo')
     }
     setSelectedPlayerId(name)
   }
@@ -330,21 +313,19 @@ export default function ScoutEvaluationPage() {
 
     // Auto-add to seguimiento if external player
     if (result && shouldAutoAddToMonitoring && selectedPlayerId) {
-      await setPlayerStatus(
-        selectedPlayerId,
-        'en_seguimiento',
-        user.id,
-        scoutName,
-        `Auto-agregado al crear reporte scout`
+      const seguimientoResult = await addToSeguimiento(
+        {
+          playerKey: selectedPlayerId,
+          playerName: playerName,
+          team: team || undefined,
+          position: position || undefined,
+        },
+        'reporte',
+        `Auto-agregado desde reporte scout por ${scoutName}`
       )
-      setAddedToMonitoring(true)
-      // Refresh monitoring statuses
-      const statuses = await fetchAllStatuses()
-      const statusMap: Record<string, { status: string }> = {}
-      Object.entries(statuses).forEach(([id, record]) => {
-        statusMap[id] = { status: record.status }
-      })
-      setMonitoringStatuses(statusMap)
+      if (seguimientoResult.success) {
+        setAddedToMonitoring(true)
+      }
     }
 
     setSubmitting(false)
