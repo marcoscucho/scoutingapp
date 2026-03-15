@@ -9,7 +9,7 @@ export default function LoadingSpinner({ message, fullScreen = false }: LoadingS
   const { theme } = useTheme()
 
   // Default message for fullscreen loading
-  const displayMessage = message ?? (fullScreen ? 'Cargando Doble G Scout Platform' : 'Cargando datos...')
+  const displayMessage = message ?? (fullScreen ? 'Cargando Scout Platform' : 'Cargando datos...')
 
   const content = (
     <div className="flex flex-col items-center gap-6 animate-fade-in">

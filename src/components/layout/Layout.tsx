@@ -56,13 +56,13 @@ export default function Layout() {
               {/* Logo */}
               <img
                 src="/logo-light.png"
-                alt="Doble G Sports"
+                alt="Scout Platform"
                 className="w-32 h-32 xl:w-40 xl:h-40 mb-8 object-contain"
               />
 
               {/* Title */}
               <h1 className="text-4xl xl:text-5xl font-bold text-white mb-4 tracking-tight">
-                Doble G Sports
+                Scout Platform
               </h1>
 
               {/* Subtitle */}
@@ -109,15 +109,15 @@ export default function Layout() {
             <div className="lg:hidden text-center mb-10">
               <img
                 src="/logo-dark.png"
-                alt="Doble G Sports"
+                alt="Scout Platform"
                 className="w-20 h-20 mx-auto mb-4 object-contain dark:hidden"
               />
               <img
                 src="/logo-light.png"
-                alt="Doble G Sports"
+                alt="Scout Platform"
                 className="w-20 h-20 mx-auto mb-4 object-contain hidden dark:block"
               />
-              <h1 className="text-2xl font-bold text-apple-gray-900 dark:text-white">Doble G Sports</h1>
+              <h1 className="text-2xl font-bold text-apple-gray-900 dark:text-white">Scout Platform</h1>
             </div>
 
             {/* Welcome text */}

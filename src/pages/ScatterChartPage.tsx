@@ -106,7 +106,7 @@ const METRIC_OPTIONS = Object.values(METRIC_GROUPS).flatMap(g => g.metrics)
 // Get display name for metric
 function getMetricDisplayName(metric: string): string {
   const names: Record<string, string> = {
-    'ggScore': 'GG Score',
+    'ggScore': 'Scoring datos',
     'minutesPlayed': 'Minutos jugados',
     'ageNum': 'Edad',
     'marketValueRaw': 'Valor de mercado (€)',
@@ -1067,7 +1067,7 @@ export default function ScatterChartPage() {
 
         {/* Footer for PDF */}
         <div className="mt-8 pt-4 border-t border-apple-gray-100 dark:border-apple-gray-700 flex items-center justify-between text-xs text-apple-gray-400">
-          <span>Scout Platform by Doble G Sports</span>
+          <span>Scout Platform</span>
           <span>{new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
         </div>
       </div>

@@ -4,6 +4,8 @@ import { useData } from '@/context/DataContext'
 import { useAuth } from '@/context/AuthContext'
 import { useMonitoringStatus, STATUS_CONFIG, formatStatusWithScout } from '@/hooks/useMonitoringStatus'
 import type { MonitoringStatusRecord } from '@/services/monitoringService'
+import { getSeguimientoList, type DbSeguimiento } from '@/lib/supabase'
+import { normalizeName } from '@/utils/scoring'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import EmptyState from '@/components/ui/EmptyState'
 import ScoreBar from '@/components/ui/ScoreBar'
@@ -166,7 +168,7 @@ function ComparisonBadge({ scoreDiff, avgScore }: { scoreDiff: number | null | u
           ? 'text-green-500'
           : 'text-amber-500'
       }`}
-      title={`Promedio Doble G: ${avgScore?.toFixed(1) ?? '-'}`}
+      title={`Promedio plantel: ${avgScore?.toFixed(1) ?? '-'}`}
     >
       {isPositive ? (
         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -177,7 +179,7 @@ function ComparisonBadge({ scoreDiff, avgScore }: { scoreDiff: number | null | u
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
         </svg>
       ) : null}
-      <span>{scoreDiff > 0 ? '+' : ''}{scoreDiff.toFixed(1)} vs Doble G</span>
+      <span>{scoreDiff > 0 ? '+' : ''}{scoreDiff.toFixed(1)} vs plantel</span>
     </div>
   )
 }
@@ -267,7 +269,7 @@ function saveFilters(filters: MonitoringFilters): void {
 
 export default function MonitoringPage() {
   const navigate = useNavigate()
-  const { monitoring, loading, error } = useData()
+  const { monitoring, external, loading, error } = useData()
   const { user } = useAuth()
   const {
     getPlayerStatus,
@@ -276,6 +278,60 @@ export default function MonitoringPage() {
     loading: statusLoading,
   } = useMonitoringStatus()
   const [showAuthModal, setShowAuthModal] = useState(false)
+  const [supabaseSeguimiento, setSupabaseSeguimiento] = useState<DbSeguimiento[]>([])
+  const [supabaseLoading, setSupabaseLoading] = useState(true)
+
+  // Load seguimiento from Supabase
+  useEffect(() => {
+    getSeguimientoList()
+      .then(setSupabaseSeguimiento)
+      .finally(() => setSupabaseLoading(false))
+  }, [])
+
+  // Combine Google Sheets monitoring with Supabase seguimiento
+  const combinedMonitoring = useMemo(() => {
+    // Start with Google Sheets data
+    const result: MonitoringPlayer[] = [...monitoring]
+    const existingKeys = new Set(monitoring.map(m =>
+      `${normalizeName(m.Jugador)}|${normalizeName(m.Club || '')}`
+    ))
+
+    // Add Supabase players that aren't in Google Sheets
+    for (const seg of supabaseSeguimiento) {
+      if (!existingKeys.has(seg.player_key)) {
+        // Find player data in external
+        const extPlayer = external.find(p =>
+          `${normalizeName(p.Jugador)}|${normalizeName(p.Equipo)}` === seg.player_key
+        )
+
+        const newPlayer: MonitoringPlayer = {
+          Jugador: seg.player_name,
+          'Nombre jugador': seg.player_name,
+          Club: seg.team || '',
+          Liga: seg.league || '',
+          Nacionalidad: '',
+          'Fecha de nacimiento': '',
+          Edad: seg.age?.toString() || '',
+          'Posición': seg.position || '',
+          Rol: '',
+          Repre: '',
+          Datos: '',
+          'Ficha técnica': '',
+          // Enrich with external data if found
+          ggScore: extPlayer?.ggScore ?? null,
+          hasEnoughData: !!extPlayer,
+          metricsPlayer: extPlayer ?? null,
+          marketValueRaw: extPlayer?.marketValueRaw,
+          marketValueFormatted: extPlayer?.marketValueFormatted,
+          monthsRemaining: extPlayer?.monthsRemaining,
+          contractStatus: extPlayer?.contractStatus,
+        }
+        result.push(newPlayer)
+      }
+    }
+
+    return result
+  }, [monitoring, supabaseSeguimiento, external])
 
   // Load persisted filters on mount
   const savedFilters = loadFilters()
@@ -318,7 +374,7 @@ export default function MonitoringPage() {
       descartado: 0,
     }
 
-    monitoring.forEach(p => {
+    combinedMonitoring.forEach(p => {
       if (p['Posición']) posSet.add(p['Posición'])
       if (p.Liga) ligaSet.add(p.Liga)
       if (p.Rol) rolSet.add(p.Rol)
@@ -336,7 +392,7 @@ export default function MonitoringPage() {
       representantes: [...repreSet].filter(r => r && r !== '-').sort(),
       statusCounts: counts,
     }
-  }, [monitoring, getPlayerStatus])
+  }, [combinedMonitoring, getPlayerStatus])
 
   const toggleFilter = (arr: string[], setArr: (v: string[]) => void, item: string) => {
     setArr(arr.includes(item) ? arr.filter(x => x !== item) : [...arr, item])
@@ -344,7 +400,7 @@ export default function MonitoringPage() {
 
   // Filter and sort players
   const filtered = useMemo(() => {
-    let result = monitoring.filter(p => {
+    let result = combinedMonitoring.filter(p => {
       // Text search
       if (search) {
         const s = search.toLowerCase()
@@ -412,7 +468,7 @@ export default function MonitoringPage() {
     }
 
     return result
-  }, [monitoring, search, posFilters, ligaFilters, clubSearch, rolFilter, repreFilter, statusFilter, sortByScore, sortByOpportunity, sortByMetric, getPlayerStatus, pie, minHeight, maxHeight])
+  }, [combinedMonitoring, search, posFilters, ligaFilters, clubSearch, rolFilter, repreFilter, statusFilter, sortByScore, sortByOpportunity, sortByMetric, getPlayerStatus, pie, minHeight, maxHeight])
 
   const activeFilters = posFilters.length + ligaFilters.length + (clubSearch ? 1 : 0) + (rolFilter ? 1 : 0) + (repreFilter ? 1 : 0) + (statusFilter ? 1 : 0) + (pie ? 1 : 0) + (minHeight > 0 ? 1 : 0) + (maxHeight > 0 ? 1 : 0)
   const resetFilters = () => {
@@ -435,13 +491,19 @@ export default function MonitoringPage() {
 
   const handleRowClick = (player: MonitoringPlayer) => {
     if (player.metricsPlayer) {
-      const id = encodeURIComponent(player.Jugador)
+      const id = encodeURIComponent(player.metricsPlayer.Jugador)
       // Get position from metricsPlayer (Wyscout codes like RCB, LCB) for radar
       const pos = player.metricsPlayer['Posición específica'] || player.metricsPlayer['Posición'] || player['Posición'] || ''
-      navigate(`/jugador/${id}?source=seguimiento&pos=${encodeURIComponent(pos)}`)
+      navigate(`/jugador/${id}?source=externo&pos=${encodeURIComponent(pos)}`)
     } else if (player.externalPlayer) {
       const id = encodeURIComponent(player.externalPlayer.Jugador)
       navigate(`/jugador/${id}?source=externo`)
+    } else {
+      // Fallback: try to find in external by name
+      const id = encodeURIComponent(player.Jugador || player['Nombre jugador'] || '')
+      if (id) {
+        navigate(`/jugador/${id}?source=externo`)
+      }
     }
   }
 
@@ -469,7 +531,7 @@ export default function MonitoringPage() {
     })
   }
 
-  if (loading) return <LoadingSpinner fullScreen message="Cargando jugadores en seguimiento..." />
+  if (loading || supabaseLoading) return <LoadingSpinner fullScreen message="Cargando jugadores en seguimiento..." />
   if (error) return (
     <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-8">
       <EmptyState title="Error al cargar datos" description={error} icon="error" />
@@ -485,7 +547,7 @@ export default function MonitoringPage() {
             Jugadores en Seguimiento
           </h1>
           <p className="text-sm text-apple-gray-500 dark:text-apple-gray-400 mt-0.5">
-            {filtered.length.toLocaleString('es')} de {monitoring.length.toLocaleString('es')} jugadores monitoreados
+            {filtered.length.toLocaleString('es')} de {combinedMonitoring.length.toLocaleString('es')} jugadores monitoreados
           </p>
         </div>
 
@@ -755,7 +817,7 @@ export default function MonitoringPage() {
                         </span>
                       </th>
                       <th className="px-3 py-3 text-left text-2xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider">
-                        vs Doble G
+                        vs Plantel
                       </th>
                       <th className="px-3 py-3 text-left text-2xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider">
                         Estado

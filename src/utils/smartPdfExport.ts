@@ -360,12 +360,12 @@ class SmartPDF {
       } catch {
         this.doc.setFontSize(8)
         this.doc.setTextColor(...C.textMuted)
-        this.doc.text('Doble G Sports', this.M, headerY)
+        this.doc.text('Scout Platform', this.M, headerY)
       }
     } else {
       this.doc.setFontSize(8)
       this.doc.setTextColor(...C.textMuted)
-      this.doc.text('Doble G Sports', this.M, headerY)
+      this.doc.text('Scout Platform', this.M, headerY)
     }
 
     // Page title (centered)
@@ -537,7 +537,7 @@ class SmartPDF {
 
     if (includeBranding) {
       this.doc.setTextColor(...C.grayDark)
-      this.doc.text('Doble G Sports Group', this.M, this.H - 8)
+      this.doc.text('Scout Platform', this.M, this.H - 8)
     }
   }
 

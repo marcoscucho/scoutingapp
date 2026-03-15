@@ -195,7 +195,7 @@ export default function SimilarPlayersPage() {
               </p>
             </div>
             <div className="text-right">
-              <div className="text-xs text-apple-gray-500 dark:text-apple-gray-400 mb-1">Score GG</div>
+              <div className="text-xs text-apple-gray-500 dark:text-apple-gray-400 mb-1">Scoring datos</div>
               <ScoreBar score={selectedPlayer.ggScore} size="sm" />
             </div>
             <button

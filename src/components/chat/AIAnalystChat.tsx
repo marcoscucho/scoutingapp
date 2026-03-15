@@ -232,10 +232,10 @@ function generateResponse(criteria: SearchCriteria, results: EnrichedPlayer[]): 
     response += `El #1 es quien mejor combina esas características.\n\n`
   } else if (criteria.minScore) {
     response += `📊 **¿Por qué este orden?**\n`
-    response += `Filtré jugadores con Score GG ${criteria.minScore}+ y los ordené del mejor al peor.\n`
-    response += `El Score GG considera todas las métricas importantes de su posición.\n\n`
+    response += `Filtré jugadores con Scoring datos ${criteria.minScore}+ y los ordené del mejor al peor.\n`
+    response += `El Scoring datos considera todas las métricas importantes de su posición.\n\n`
   } else {
-    response += `📊 **Ordenados por Score GG**\n`
+    response += `📊 **Ordenados por Scoring datos**\n`
     response += `El Score evalúa el rendimiento general considerando las métricas clave de cada posición.\n\n`
   }
 

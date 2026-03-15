@@ -11,11 +11,11 @@ export default function Footer() {
         <div className="flex items-center gap-3">
           <img
             src={theme === 'dark' ? '/logo-light.png' : '/logo-dark.png'}
-            alt="Doble G"
+            alt="Scout Platform"
             className="w-5 h-5 object-contain opacity-50"
           />
           <span className="text-xs text-apple-gray-400 dark:text-apple-gray-500">
-            Doble G Sports Group
+            Scout Platform
           </span>
         </div>
         <div className="flex items-center gap-4 text-xs text-apple-gray-400 dark:text-apple-gray-500">

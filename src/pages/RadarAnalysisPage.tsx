@@ -11,7 +11,7 @@ import type { EnrichedPlayer } from '@/types'
 // Metrics organized by category for dropdown
 const METRIC_CATEGORIES = {
   'Goles y Creacion': [
-    { key: 'ggScore', label: 'GG Score' },
+    { key: 'ggScore', label: 'Scoring datos' },
     { key: 'Goles', label: 'Goles' },
     { key: 'Asistencias', label: 'Asistencias' },
     { key: 'xG', label: 'xG (Goles esperados)' },
@@ -937,7 +937,7 @@ export default function RadarAnalysisPage() {
                 <div>
                   <h4 className="font-semibold text-apple-gray-800 dark:text-white mb-1">El número verde en cada jugador</h4>
                   <p>
-                    Es el <span className="text-brand-green font-semibold">GG Score</span>, una puntuación propia que resume el rendimiento general
+                    Es el <span className="text-brand-green font-semibold">Scoring datos</span>, una puntuación propia que resume el rendimiento general
                     del jugador considerando múltiples estadísticas clave según su posición. Va de 0 a 10.
                   </p>
                 </div>

@@ -245,7 +245,7 @@ export default function PlayerTable({ players, source, isLoading, selectedMetric
                       </span>
                     </td>
                   ))}
-                  {/* Score GG */}
+                  {/* Scoring datos */}
                   <td className="px-3 py-3">
                     <div className="flex justify-center">
                       <ScoreBar score={player.ggScore} size="sm" />

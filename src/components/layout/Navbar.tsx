@@ -8,8 +8,7 @@ import { PDFBuilderFloatingButton } from '@/components/pdf/AddToReportButton'
 
 const navLinks = [
   { to: '/', label: 'Scout Externo', icon: 'globe', exact: true },
-  { to: '/interno', label: 'Scout Interno', icon: 'users' },
-  { to: '/dashboard', label: 'Dashboard', icon: 'chart' },
+  { to: '/interno', label: 'Plantel', icon: 'users' },
   { to: '/seguimiento', label: 'Seguimiento', icon: 'eye' },
   { to: '/evaluar', label: 'Reporte', icon: 'clipboard' },
 ]
@@ -103,9 +102,6 @@ export default function Navbar() {
             <div className="hidden sm:flex flex-col">
               <span className="font-semibold text-apple-gray-800 dark:text-white text-sm tracking-tight leading-none">
                 Scout Platform
-              </span>
-              <span className="text-2xs text-apple-gray-400 dark:text-apple-gray-500 leading-none mt-0.5">
-                Doble G Sports
               </span>
             </div>
           </NavLink>
@@ -320,9 +316,6 @@ export default function Navbar() {
           <div className="mt-8 pt-6 border-t border-apple-gray-200 dark:border-apple-gray-800 px-4">
             <p className="text-xs text-apple-gray-400 dark:text-apple-gray-500">
               Scout Platform v1.0
-            </p>
-            <p className="text-xs text-apple-gray-400 dark:text-apple-gray-500 mt-1">
-              Doble G Sports Group
             </p>
           </div>
         </nav>

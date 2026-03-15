@@ -141,10 +141,10 @@ export default function InternalScoutingPage() {
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-apple-gray-800 dark:text-white tracking-tight">
-            Scouting Interno
+            Plantel
           </h1>
           <p className="text-sm text-apple-gray-500 dark:text-apple-gray-400 mt-0.5">
-            {filtered.length.toLocaleString('es')} de {internal.length.toLocaleString('es')} jugadores · Doble G Sports Group
+            {filtered.length.toLocaleString('es')} de {internal.length.toLocaleString('es')} jugadores
           </p>
         </div>
         <div className="flex items-center gap-3">

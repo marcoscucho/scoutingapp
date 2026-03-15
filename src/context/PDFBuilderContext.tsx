@@ -148,7 +148,7 @@ export function PDFBuilderProvider({ children }: { children: ReactNode }) {
     elements: [],
     theme: 'light',
     reportTitle: 'Informe Scout',
-    reportSubtitle: 'Doble G Sports Group',
+    reportSubtitle: '',
     includeDate: true,
     includeLogo: true,
     includeCover: true,

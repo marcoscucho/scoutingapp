@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { useParams, useSearchParams, Link } from 'react-router-dom'
 import { useData } from '@/context/DataContext'
+import { useAuth } from '@/context/AuthContext'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import EmptyState from '@/components/ui/EmptyState'
 import ContractBadge from '@/components/ui/ContractBadge'
@@ -15,6 +16,7 @@ import AddToReportButton from '@/components/pdf/AddToReportButton'
 import { normalizeName } from '@/utils/scoring'
 import { POSITION_MAP, DISPLAY_POSITION_MAP, DISPLAY_METRICS, RADAR_METRICS } from '@/constants/scoring'
 import { fetchPlayerEvaluations, fetchEvaluationsByName, type ScoutEvaluation } from '@/services/scoutEvaluationService'
+import { addToSeguimiento, removeFromSeguimiento, isInSeguimiento } from '@/lib/supabase'
 import type { EnrichedPlayer, SubjectiveMetric } from '@/types'
 
 // ─── PLAYER COMMENTS SYSTEM ───────────────────────────────────────────────────
@@ -571,10 +573,15 @@ export default function PlayerDetailPage() {
   const source = (searchParams.get('source') ?? 'externo') as 'externo' | 'interno' | 'seguimiento'
   const overridePosition = searchParams.get('pos')
   const { external, internal, monitoring, normalized, evolution, subjectiveMetrics, marketValueHistory, gpsData, loading, error } = useData()
+  const { user } = useAuth()
   const [activeTab, setActiveTab] = useState('General')
   const [comparisonLeague, setComparisonLeague] = useState<string>('all')
   const [showExportModal, setShowExportModal] = useState(false)
   const contentRef = useRef<HTMLDivElement>(null)
+
+  // Seguimiento state
+  const [isInSeguimientoState, setIsInSeguimientoState] = useState(false)
+  const [seguimientoLoading, setSeguimientoLoading] = useState(false)
 
   const player: EnrichedPlayer | null = useMemo(() => {
     if (!id) return null
@@ -733,6 +740,46 @@ export default function PlayerDetailPage() {
       }
     }
   }, [player?.Jugador, player?.Liga, availableLeagues])
+
+  // Check if player is in seguimiento
+  useEffect(() => {
+    if (player && source === 'externo') {
+      const playerKey = `${normalizeName(player.Jugador)}|${normalizeName(player.Equipo)}`
+      isInSeguimiento(playerKey).then(setIsInSeguimientoState)
+    }
+  }, [player?.Jugador, player?.Equipo, source])
+
+  // Handle seguimiento toggle
+  const handleSeguimientoToggle = useCallback(async () => {
+    if (!player || !user) return
+
+    setSeguimientoLoading(true)
+    const playerKey = `${normalizeName(player.Jugador)}|${normalizeName(player.Equipo)}`
+
+    try {
+      if (isInSeguimientoState) {
+        const result = await removeFromSeguimiento(playerKey)
+        if (result.success) {
+          setIsInSeguimientoState(false)
+        }
+      } else {
+        const result = await addToSeguimiento({
+          playerKey,
+          playerName: player.Jugador,
+          team: player.Equipo,
+          league: player.Liga,
+          position: player['Posición'] || player['Posición específica'],
+          age: player.ageNum,
+          imageUrl: player.Imagen,
+        }, 'ficha')
+        if (result.success) {
+          setIsInSeguimientoState(true)
+        }
+      }
+    } finally {
+      setSeguimientoLoading(false)
+    }
+  }, [player, user, isInSeguimientoState])
 
   const playerMarketValueHistory = useMemo(() => {
     if (!player || source !== 'interno') return []
@@ -944,11 +991,11 @@ export default function PlayerDetailPage() {
             </div>
           </div>
 
-          {/* Score GG - THE HERO */}
+          {/* Scoring datos - THE HERO */}
           <div className="card-apple p-6" id="player-score-card">
             <div className="text-center mb-4">
               <h2 className="text-xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider">
-                Score GG
+                Scoring datos
               </h2>
             </div>
             <GaugeScore
@@ -1062,6 +1109,29 @@ export default function PlayerDetailPage() {
               variant="menu-item"
               players={[player.Jugador]}
             />
+            {/* Seguimiento button - only for external players */}
+            {source === 'externo' && user && (
+              <button
+                onClick={handleSeguimientoToggle}
+                disabled={seguimientoLoading}
+                className={`flex items-center justify-between w-full px-3 py-2.5 rounded-lg transition-colors ${
+                  isInSeguimientoState
+                    ? 'bg-amber-500/10 hover:bg-amber-500/20'
+                    : 'bg-blue-500/10 hover:bg-blue-500/20'
+                } ${seguimientoLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                <span className={`text-sm font-medium ${isInSeguimientoState ? 'text-amber-600 dark:text-amber-400' : 'text-blue-600 dark:text-blue-400'}`}>
+                  {seguimientoLoading ? 'Cargando...' : isInSeguimientoState ? 'En seguimiento' : 'Agregar a seguimiento'}
+                </span>
+                <svg className={`w-4 h-4 ${isInSeguimientoState ? 'text-amber-500' : 'text-blue-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  {isInSeguimientoState ? (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  ) : (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  )}
+                </svg>
+              </button>
+            )}
             <button
               onClick={() => setShowExportModal(true)}
               className="flex items-center justify-between w-full px-3 py-2.5 rounded-lg bg-brand-green/10 hover:bg-brand-green/20 transition-colors"
@@ -1195,7 +1265,7 @@ export default function PlayerDetailPage() {
                           {' '}de <span className="font-medium">{player.Edad} años</span>
                           {player.Liga && <> que juega en <span className="font-medium">{player.Liga}</span></>}.
                           {player.ggScore !== null && (
-                            <> Su Score GG de <span className="font-bold text-brand-green">{player.ggScore.toFixed(1)}</span>
+                            <> Su Scoring datos de <span className="font-bold text-brand-green">{player.ggScore.toFixed(1)}</span>
                             {positionAverageScore && player.ggScore > positionAverageScore ? (
                               <> está <span className="text-emerald-600 font-medium">por encima</span> del promedio de su posición</>
                             ) : positionAverageScore && player.ggScore < positionAverageScore ? (

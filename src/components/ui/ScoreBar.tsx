@@ -79,7 +79,7 @@ export default function ScoreBar({ score, size = 'md', showLabel = true }: Score
     return (
       <div className="space-y-3">
         <div className="flex items-end justify-between">
-          <span className="text-sm text-apple-gray-500 dark:text-apple-gray-400">Score GG</span>
+          <span className="text-sm text-apple-gray-500 dark:text-apple-gray-400">Scoring datos</span>
           <span className={`text-4xl font-bold tabular-nums ${colors.text}`}>
             {score.toFixed(1)}
           </span>

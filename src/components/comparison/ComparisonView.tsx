@@ -107,7 +107,7 @@ export default function ComparisonView({ players, allNormalized, allPlayers }: C
               <p>{player.Equipo || '—'} · {player['Posición'] || '—'}</p>
               <p>Edad: {player.Edad} · {player.marketValueFormatted}</p>
               <p className="font-semibold text-sm mt-2" style={{ color: PLAYER_COLORS[i] }}>
-                Score GG: {player.ggScore?.toFixed(1) ?? '—'}
+                Scoring datos: {player.ggScore?.toFixed(1) ?? '—'}
               </p>
             </div>
           </div>

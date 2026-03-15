@@ -10,6 +10,12 @@ function buildTransfermarktMap(tmData: TransfermarktData[]): Map<string, Transfe
   const map = new Map<string, TransfermarktData>()
   for (const tm of tmData) {
     if (tm.Jugador) {
+      // Primary key: name + team (more precise)
+      const team = tm.Equipo || tm.equipo_csv || ''
+      if (team) {
+        map.set(`${normalizeName(tm.Jugador)}|${normalizeName(team)}`, tm)
+      }
+      // Fallback key: name only (for backwards compatibility)
       map.set(normalizeName(tm.Jugador), tm)
     }
   }
@@ -308,14 +314,23 @@ function enrichWithTransfermarkt(
   player: EnrichedPlayer,
   tmMap: Map<string, TransfermarktData>
 ): EnrichedPlayer {
-  const key = normalizeName(player.Jugador)
-  const tm = tmMap.get(key)
+  // Try precise match first: name + team
+  const keyWithTeam = `${normalizeName(player.Jugador)}|${normalizeName(player.Equipo)}`
+  let tm = tmMap.get(keyWithTeam)
+
+  // Fallback to name-only match
+  if (!tm) {
+    const keyNameOnly = normalizeName(player.Jugador)
+    tm = tmMap.get(keyNameOnly)
+  }
 
   if (!tm) return player
 
-  // Get updated values from Transfermarkt
-  const newMarketValueStr = tm['Valor de mercado'] || player['Valor de mercado (Transfermarkt)']
-  const newContractStr = tm['Fin de contrato'] || player['Vencimiento contrato']
+  // Support both old and new column formats
+  const newMarketValueStr = tm['Valor Mercado €'] || tm['Valor de mercado'] || player['Valor de mercado (Transfermarkt)']
+  const newContractStr = tm['Fin Contrato'] || tm['Fin de contrato'] || player['Vencimiento contrato']
+  const newRepresentante = tm['Agente'] || tm.Representante || ''
+  const newImagen = tm['URL Imagen'] || tm.Imagen || ''
 
   // Recalculate derived values
   const marketValueRaw = parseMarketValue(newMarketValueStr)
@@ -336,8 +351,8 @@ function enrichWithTransfermarkt(
     'Valor de mercado (Transfermarkt)': newMarketValueStr,
     'Vencimiento contrato': newContractStr,
     Transfermkt: tm.Transfermkt || player.Transfermkt,
-    Representante: tm.Representante || '',
-    Imagen: tm.Imagen || '',
+    Representante: newRepresentante,
+    Imagen: newImagen,
     // Recalculated derived values
     marketValueRaw,
     marketValueFormatted,

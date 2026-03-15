@@ -12,13 +12,17 @@ function buildSheetUrl(path: string): string {
   return `/.netlify/functions/sheets?url=${encodeURIComponent(fullUrl)}`
 }
 
+// New spreadsheet base for club platform
+const CLUB_SHEET_BASE = '/spreadsheets/d/e/2PACX-1vTcd6UXpIKwzscpkPXkst_8oYu4t0FtQz-s2X2PQlmczMI4Mb4UnhtilGIm2O_TmLR_Pivbd-gw7JWH/pub'
+
 export const SHEET_URLS = {
-  externo: buildSheetUrl('/spreadsheets/d/e/2PACX-1vSneBjGlw2I3SyXV-uw1V8Cs_O4lbiQw39melKEZJNhunpshakPrn7AZQBN2L8N9Yw_HA-EeVOt3qvf/pub?gid=2002620668&single=true&output=csv'),
-  interno: buildSheetUrl('/spreadsheets/d/e/2PACX-1vSneBjGlw2I3SyXV-uw1V8Cs_O4lbiQw39melKEZJNhunpshakPrn7AZQBN2L8N9Yw_HA-EeVOt3qvf/pub?gid=1089729044&single=true&output=csv'),
-  seguimiento: buildSheetUrl('/spreadsheets/d/e/2PACX-1vSneBjGlw2I3SyXV-uw1V8Cs_O4lbiQw39melKEZJNhunpshakPrn7AZQBN2L8N9Yw_HA-EeVOt3qvf/pub?gid=1608054850&single=true&output=csv'),
+  externo: buildSheetUrl(`${CLUB_SHEET_BASE}?gid=0&single=true&output=csv`),
+  interno: buildSheetUrl(`${CLUB_SHEET_BASE}?gid=1004139572&single=true&output=csv`),
+  seguimiento: buildSheetUrl(`${CLUB_SHEET_BASE}?gid=887155501&single=true&output=csv`),
+  transfermarkt: buildSheetUrl(`${CLUB_SHEET_BASE}?gid=1547930353&single=true&output=csv`),
+  // Legacy URLs - may need updating
   seguimientoMetricas: buildSheetUrl('/spreadsheets/d/e/2PACX-1vSneBjGlw2I3SyXV-uw1V8Cs_O4lbiQw39melKEZJNhunpshakPrn7AZQBN2L8N9Yw_HA-EeVOt3qvf/pub?gid=1167296651&single=true&output=csv'),
   normalizado: buildSheetUrl('/spreadsheets/d/e/2PACX-1vSneBjGlw2I3SyXV-uw1V8Cs_O4lbiQw39melKEZJNhunpshakPrn7AZQBN2L8N9Yw_HA-EeVOt3qvf/pub?gid=1398676062&single=true&output=csv'),
-  transfermarkt: buildSheetUrl('/spreadsheets/d/e/2PACX-1vSneBjGlw2I3SyXV-uw1V8Cs_O4lbiQw39melKEZJNhunpshakPrn7AZQBN2L8N9Yw_HA-EeVOt3qvf/pub?gid=1508649688&single=true&output=csv'),
   masDatos: buildSheetUrl('/spreadsheets/d/e/2PACX-1vSneBjGlw2I3SyXV-uw1V8Cs_O4lbiQw39melKEZJNhunpshakPrn7AZQBN2L8N9Yw_HA-EeVOt3qvf/pub?gid=150864968&single=true&output=csv'),
   evolucion: buildSheetUrl('/spreadsheets/d/e/2PACX-1vS7cuAywNQtcMc1R7Nzai9vUHHv8ZK09fTcm5GbwWD2_u0pRUeBRsVu_6SjLbdnMIL5SAJy-Liwn1yd/pub?gid=1395066371&single=true&output=csv'),
   metricas: buildSheetUrl('/spreadsheets/d/e/2PACX-1vS7cuAywNQtcMc1R7Nzai9vUHHv8ZK09fTcm5GbwWD2_u0pRUeBRsVu_6SjLbdnMIL5SAJy-Liwn1yd/pub?gid=2041650226&single=true&output=csv'),
@@ -480,15 +484,24 @@ export const ALL_METRICS: string[] = Array.from(new Set(
 ))
 
 // ─── LEAGUE ORDERING ──────────────────────────────────────────────────────────
-// Leagues available in the platform, ordered by priority
+// Leagues ordered by competitive level (tier), then alphabetically within tier
+// Tier 1: Top first divisions (Argentina, Brasil, MX)
+// Tier 2: First divisions (Colombia, Uruguay, Chile, Paraguay, Ecuador)
+// Tier 3: Second divisions
+// Tier 4: Third divisions
 export const ORDERED_LEAGUES = [
   'Liga Argentina',
-  '2° Argentina',
+  'Liga Brasil',
+  'Liga MX',
+  'Liga Colombia',
   'Liga Uruguay',
   'Liga Chile',
   'Liga Paraguay',
-  'Liga Colombia',
+  'Liga Ecuador',
+  '2° Argentina',
   '2° Colombia',
+  '2° Chile',
+  'B Metro (3° Arg)',
 ] as const
 
 // Helper to sort leagues by priority (unknown leagues go to the end)
