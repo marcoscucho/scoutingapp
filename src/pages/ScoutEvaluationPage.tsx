@@ -23,6 +23,8 @@ const ROLES = [
   'Lateral ofensivo',
   'Lateral defensivo',
   'Lateral completo',
+  'Defensor central iniciador',
+  'Defensor central clásico',
   'Volante central posicional',
   'Volante central defensivo',
   'Volante interno mixto',
