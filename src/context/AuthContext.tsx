@@ -21,30 +21,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Handle OAuth callback - check for tokens in URL hash
-    const handleOAuthCallback = async () => {
-      const hashParams = new URLSearchParams(window.location.hash.substring(1))
-      const accessToken = hashParams.get('access_token')
+    // Set up auth state listener FIRST (before checking session)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Auth state change:', event, session?.user?.email)
+      setSession(session)
+      setUser(session?.user ?? null)
+      setLoading(false)
 
-      if (accessToken) {
-        // Clear the hash from URL
+      // Clear hash from URL after successful OAuth
+      if (event === 'SIGNED_IN' && window.location.hash.includes('access_token')) {
         window.history.replaceState(null, '', window.location.pathname)
       }
+    })
 
-      // Get initial session (this will also process the OAuth tokens)
-      const { data: { session } } = await supabase.auth.getSession()
-      setSession(session)
-      setUser(session?.user ?? null)
-      setLoading(false)
-    }
-
-    handleOAuthCallback()
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session)
-      setUser(session?.user ?? null)
-      setLoading(false)
+    // Then get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      // Only set if not already set by onAuthStateChange
+      if (loading) {
+        setSession(session)
+        setUser(session?.user ?? null)
+        setLoading(false)
+      }
     })
 
     return () => subscription.unsubscribe()
