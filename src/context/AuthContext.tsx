@@ -21,7 +21,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Set up auth state listener FIRST (before checking session)
+    // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('Auth state change:', event, session?.user?.email)
       setSession(session)
@@ -34,15 +34,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     })
 
-    // Then get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      // Only set if not already set by onAuthStateChange
-      if (loading) {
-        setSession(session)
-        setUser(session?.user ?? null)
-        setLoading(false)
+    // Handle OAuth callback - check for tokens in URL hash
+    const initAuth = async () => {
+      const hash = window.location.hash
+
+      // If we have OAuth tokens in URL, let Supabase process them
+      if (hash && hash.includes('access_token')) {
+        // Extract tokens from hash
+        const params = new URLSearchParams(hash.substring(1))
+        const accessToken = params.get('access_token')
+        const refreshToken = params.get('refresh_token')
+
+        if (accessToken && refreshToken) {
+          // Set session manually from URL tokens
+          const { data, error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken
+          })
+
+          if (error) {
+            console.error('Error setting session from URL:', error)
+          } else if (data.session) {
+            setSession(data.session)
+            setUser(data.session.user)
+            // Clear the hash from URL
+            window.history.replaceState(null, '', window.location.pathname)
+          }
+          setLoading(false)
+          return
+        }
       }
-    })
+
+      // No OAuth tokens, just get existing session
+      const { data: { session } } = await supabase.auth.getSession()
+      setSession(session)
+      setUser(session?.user ?? null)
+      setLoading(false)
+    }
+
+    initAuth()
 
     return () => subscription.unsubscribe()
   }, [])
