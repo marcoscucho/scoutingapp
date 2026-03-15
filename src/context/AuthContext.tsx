@@ -21,12 +21,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // Handle OAuth callback - check for tokens in URL hash
+    const handleOAuthCallback = async () => {
+      const hashParams = new URLSearchParams(window.location.hash.substring(1))
+      const accessToken = hashParams.get('access_token')
+
+      if (accessToken) {
+        // Clear the hash from URL
+        window.history.replaceState(null, '', window.location.pathname)
+      }
+
+      // Get initial session (this will also process the OAuth tokens)
+      const { data: { session } } = await supabase.auth.getSession()
       setSession(session)
       setUser(session?.user ?? null)
       setLoading(false)
-    })
+    }
+
+    handleOAuthCallback()
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
