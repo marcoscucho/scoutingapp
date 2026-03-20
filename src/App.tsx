@@ -23,7 +23,7 @@ export default function App() {
         <Routes>
           <Route element={<Layout />}>
             <Route path="/" element={<ExternalScoutingPage />} />
-            <Route path="/interno" element={<InternalScoutingPage />} />
+            <Route path="/plantel" element={<InternalScoutingPage />} />
             <Route path="/seguimiento" element={<MonitoringPage />} />
             <Route path="/oportunidades" element={<OpportunitiesPage />} />
             <Route path="/similares" element={<SimilarPlayersPage />} />

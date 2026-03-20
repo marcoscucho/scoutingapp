@@ -10,6 +10,7 @@ export default defineConfig({
     },
   },
   server: {
+    port: 5180,
     proxy: {
       '/sheets-proxy': {
         target: 'https://docs.google.com',

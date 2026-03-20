@@ -308,7 +308,8 @@ export default function AIAnalystChat() {
 
   const handlePlayerClick = (player: EnrichedPlayer) => {
     const encoded = encodeURIComponent(player.Jugador)
-    navigate(`/jugador/${encoded}?source=${player.source}`)
+    const equipo = player.Equipo ? `&equipo=${encodeURIComponent(player.Equipo)}` : ''
+    navigate(`/jugador/${encoded}?source=${player.source}${equipo}`)
     setIsOpen(false)
   }
 

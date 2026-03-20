@@ -1067,7 +1067,7 @@ export default function ScatterChartPage() {
 
         {/* Footer for PDF */}
         <div className="mt-8 pt-4 border-t border-apple-gray-100 dark:border-apple-gray-700 flex items-center justify-between text-xs text-apple-gray-400">
-          <span>Scout Platform</span>
+          <span>Club Atlético Lanús Platform</span>
           <span>{new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
         </div>
       </div>

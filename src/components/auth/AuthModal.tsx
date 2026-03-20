@@ -166,18 +166,19 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', forc
           )}
 
           {success && (
-            <div className="flex items-center gap-3 p-4 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
-              <svg className="w-5 h-5 text-emerald-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="flex items-center gap-3 p-4 rounded-xl bg-apple-gray-50 dark:bg-apple-gray-800 border border-apple-gray-200 dark:border-apple-gray-700">
+              <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ color: '#7B1C2C' }}>
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <p className="text-sm text-emerald-600 dark:text-emerald-400">{success}</p>
+              <p className="text-sm text-apple-gray-700 dark:text-apple-gray-300">{success}</p>
             </div>
           )}
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-brand-green to-emerald-600 hover:from-emerald-600 hover:to-brand-green text-white font-semibold transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-brand-green/25 hover:shadow-xl hover:shadow-brand-green/30 hover:-translate-y-0.5"
+            className="w-full py-3.5 px-4 rounded-xl text-white font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed hover:-translate-y-0.5"
+            style={{ background: 'linear-gradient(135deg, #7B1C2C 0%, #5a1420 100%)', boxShadow: '0 4px 20px rgba(111,25,41,0.35)' }}
           >
             {loading ? (
               <span className="flex items-center justify-center gap-2">
@@ -269,7 +270,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', forc
           </h2>
           <p className="text-sm text-apple-gray-500 dark:text-apple-gray-400 mt-1">
             {mode === 'login'
-              ? 'Ingresá con tu cuenta de Scout Platform'
+              ? 'Ingresá con tu cuenta de Club Atlético Lanús Platform'
               : 'Registrate para guardar tus formaciones'}
           </p>
         </div>

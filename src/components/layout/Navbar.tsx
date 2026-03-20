@@ -8,7 +8,7 @@ import { PDFBuilderFloatingButton } from '@/components/pdf/AddToReportButton'
 
 const navLinks = [
   { to: '/', label: 'Scout Externo', icon: 'globe', exact: true },
-  { to: '/interno', label: 'Plantel', icon: 'users' },
+  { to: '/plantel', label: 'Plantel', icon: 'users' },
   { to: '/seguimiento', label: 'Seguimiento', icon: 'eye' },
   { to: '/evaluar', label: 'Reporte', icon: 'clipboard' },
 ]
@@ -94,14 +94,14 @@ export default function Navbar() {
           <NavLink to="/" className="flex items-center gap-2.5 flex-shrink-0">
             <div className="relative w-10 h-10 flex items-center justify-center">
               <img
-                src={theme === 'dark' ? '/logo-light.png' : '/logo-dark.png'}
-                alt="Scout Platform"
+                src="/lanus-escudo.png"
+                alt="Club Atlético Lanús Platform"
                 className="w-10 h-10 object-contain"
               />
             </div>
             <div className="hidden sm:flex flex-col">
               <span className="font-semibold text-apple-gray-800 dark:text-white text-sm tracking-tight leading-none">
-                Scout Platform
+                Club Atlético Lanús Platform
               </span>
             </div>
           </NavLink>
@@ -116,7 +116,7 @@ export default function Navbar() {
                 className={({ isActive }) =>
                   `px-3.5 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
                     isActive
-                      ? 'bg-brand-green text-gray-900 shadow-sm'
+                      ? 'bg-brand-green text-white shadow-sm'
                       : 'text-apple-gray-600 dark:text-apple-gray-300 hover:text-apple-gray-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-apple-gray-700/50'
                   }`
                 }
@@ -131,7 +131,7 @@ export default function Navbar() {
                 onClick={() => setShowTalentMenu(!showTalentMenu)}
                 className={`flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
                   isTalentRoute
-                    ? 'bg-brand-green text-gray-900 shadow-sm'
+                    ? 'bg-brand-green text-white shadow-sm'
                     : 'text-apple-gray-600 dark:text-apple-gray-300 hover:text-apple-gray-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-apple-gray-700/50'
                 }`}
               >
@@ -151,7 +151,7 @@ export default function Navbar() {
                       className={({ isActive }) =>
                         `flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${
                           isActive
-                            ? 'bg-brand-green/10 text-brand-green font-medium'
+                            ? 'bg-brand-green/10 text-brand-green font-medium dark:bg-brand-green/20'
                             : 'text-apple-gray-700 dark:text-apple-gray-300 hover:bg-apple-gray-50 dark:hover:bg-apple-gray-700'
                         }`
                       }
@@ -178,7 +178,7 @@ export default function Navbar() {
                     onClick={() => setShowUserMenu(!showUserMenu)}
                     className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-apple-gray-100 dark:bg-apple-gray-800 hover:bg-apple-gray-200 dark:hover:bg-apple-gray-700 transition-colors"
                   >
-                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-brand-green to-emerald-600 flex items-center justify-center text-white text-sm font-semibold">
+                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-brand-green to-brand-greenHover flex items-center justify-center text-white text-sm font-semibold">
                       {userDisplayName.charAt(0).toUpperCase()}
                     </div>
                     <span className="hidden sm:block text-sm font-medium text-apple-gray-700 dark:text-apple-gray-300 max-w-24 truncate">
@@ -221,7 +221,7 @@ export default function Navbar() {
               ) : (
                 <button
                   onClick={() => setShowAuthModal(true)}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-green hover:bg-emerald-600 text-white text-sm font-medium transition-colors"
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-green hover:bg-brand-greenHover text-white text-sm font-medium transition-colors"
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -276,7 +276,7 @@ export default function Navbar() {
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all duration-200 ${
                     isActive
-                      ? 'bg-brand-green text-gray-900'
+                      ? 'bg-brand-green text-white'
                       : 'text-apple-gray-700 dark:text-apple-gray-300 hover:bg-apple-gray-100 dark:hover:bg-apple-gray-800'
                   }`
                 }
@@ -315,7 +315,7 @@ export default function Navbar() {
           {/* Footer in menu */}
           <div className="mt-8 pt-6 border-t border-apple-gray-200 dark:border-apple-gray-800 px-4">
             <p className="text-xs text-apple-gray-400 dark:text-apple-gray-500">
-              Scout Platform v1.0
+              Club Atlético Lanús Platform v1.0
             </p>
           </div>
         </nav>

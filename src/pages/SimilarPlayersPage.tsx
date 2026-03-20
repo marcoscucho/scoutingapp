@@ -236,7 +236,8 @@ export default function SimilarPlayersPage() {
                   key={`${player.Jugador}-${player.Equipo}`}
                   onClick={() => {
                     const encoded = encodeURIComponent(player.Jugador)
-                    navigate(`/jugador/${encoded}?source=${player.source}`)
+                    const equipo = player.Equipo ? `&equipo=${encodeURIComponent(player.Equipo)}` : ''
+                    navigate(`/jugador/${encoded}?source=${player.source}${equipo}`)
                   }}
                   className="w-full px-6 py-4 flex items-center gap-4 hover:bg-apple-gray-50 dark:hover:bg-apple-gray-800/50 transition-colors text-left"
                 >

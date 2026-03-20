@@ -57,7 +57,7 @@
 
   /* Selection */
   ::selection {
-    background-color: rgba(34, 197, 94, 0.25);
+    background-color: rgba(111, 25, 41, 0.2);
   }
 }
 
@@ -74,7 +74,7 @@
   }
 
   .btn-apple-primary {
-    @apply btn-apple bg-brand-green text-black hover:bg-green-400 shadow-apple hover:shadow-apple-md;
+    @apply btn-apple bg-brand-green text-white hover:bg-brand-greenHover shadow-apple hover:shadow-apple-md;
   }
 
   .btn-apple-secondary {
@@ -172,7 +172,7 @@
 
   /* Text gradient utility */
   .text-gradient-green {
-    @apply bg-gradient-to-r from-brand-green to-emerald-400 bg-clip-text text-transparent;
+    @apply bg-gradient-to-r from-brand-green to-brand-greenHover bg-clip-text text-transparent;
   }
 
   /* Subtle background patterns */

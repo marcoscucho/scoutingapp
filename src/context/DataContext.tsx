@@ -3,6 +3,7 @@ import { loadAllData, type MasDatosEntry, type SeguimientoMetricsPlayer } from '
 import { computeGGScores, normalizeName, parseMarketValue, formatMarketValue, parseContractDate, monthsBetween, getNumericValue } from '@/utils/scoring'
 import { POSITION_MAP, SCORING_CONFIG } from '@/constants/scoring'
 import type { AppData, EnrichedPlayer, EvolutionEntry, TransfermarktData, MonitoringPlayer, MarketValueHistoryEntry, GPSEntry } from '@/types'
+import TM_DATA from '@/constants/plantelTMData'
 
 const DataContext = createContext<AppData | null>(null)
 
@@ -78,7 +79,7 @@ function enrichInternalWithTransfermarktLink(
   const contractStatus: 'ok' | 'warning' | 'critical' =
     monthsRemaining === null ? 'ok'
     : monthsRemaining < 7 ? 'critical'
-    : monthsRemaining < 13 ? 'warning'
+    : monthsRemaining < 12 ? 'warning'
     : 'ok'
 
   return {
@@ -89,6 +90,34 @@ function enrichInternalWithTransfermarktLink(
     Representante: representante,
     marketValueRaw: marketValueRaw > 0 ? marketValueRaw : player.marketValueRaw,
     marketValueFormatted: marketValueRaw > 0 ? formatMarketValue(marketValueRaw) : player.marketValueFormatted,
+    monthsRemaining: monthsRemaining ?? player.monthsRemaining,
+    contractStatus,
+  }
+}
+
+// Enrich internal players with scraped TM data (nombre completo, imagen, representante, etc.)
+function enrichInternalWithScrapedTM(player: EnrichedPlayer): EnrichedPlayer {
+  const tm = TM_DATA[player.Jugador]
+  if (!tm) return player
+
+  const contractDate = parseContractDate(tm.fin_contrato)
+  const now = new Date()
+  const monthsRemaining = contractDate ? monthsBetween(now, contractDate) : null
+  const contractStatus: 'ok' | 'warning' | 'critical' =
+    monthsRemaining === null ? 'ok'
+    : monthsRemaining < 7 ? 'critical'
+    : monthsRemaining < 12 ? 'warning'
+    : 'ok'
+
+  return {
+    ...player,
+    'Nombre Completo': tm.nombre_completo,
+    Imagen: player.Imagen || tm.imagen,
+    Representante: tm.representante ?? player.Representante ?? '',
+    'Valor de mercado (Transfermarkt)': tm.valor_mercado_fmt,
+    'Vencimiento contrato': tm.fin_contrato,
+    marketValueRaw: tm.valor_mercado > 0 ? tm.valor_mercado : player.marketValueRaw,
+    marketValueFormatted: tm.valor_mercado > 0 ? tm.valor_mercado_fmt : player.marketValueFormatted,
     monthsRemaining: monthsRemaining ?? player.monthsRemaining,
     contractStatus,
   }
@@ -342,7 +371,7 @@ function enrichWithTransfermarkt(
   const contractStatus: 'ok' | 'warning' | 'critical' =
     monthsRemaining === null ? 'ok'
     : monthsRemaining < 7 ? 'critical'
-    : monthsRemaining < 13 ? 'warning'
+    : monthsRemaining < 12 ? 'warning'
     : 'ok'
 
   return {
@@ -672,7 +701,7 @@ function linkMonitoringToMetrics(
           const contractDate = parseContractDate(tm['Fin de contrato'] || '')
           if (contractDate) {
             monthsRemaining = monthsBetween(new Date(), contractDate)
-            contractStatus = monthsRemaining < 7 ? 'critical' : monthsRemaining < 13 ? 'warning' : 'ok'
+            contractStatus = monthsRemaining < 7 ? 'critical' : monthsRemaining < 12 ? 'warning' : 'ok'
           }
           break
         }
@@ -892,11 +921,12 @@ function scoreSeguimientoPlayer(
     'Posición específica': player['Posición específica'] ?? player['Posición'],
     id: '',
     Transfermkt: player.Transfermkt ?? '',
+    'Nombre Completo': '',
     Representante: player['Representante'] ?? '',
     Imagen: player['Imagen'] ?? '',
     ggScore: finalScore,
     source: 'externo',
-    contractStatus: monthsRemaining === null ? 'ok' : monthsRemaining < 7 ? 'critical' : monthsRemaining < 13 ? 'warning' : 'ok',
+    contractStatus: monthsRemaining === null ? 'ok' : monthsRemaining < 7 ? 'critical' : monthsRemaining < 12 ? 'warning' : 'ok',
     monthsRemaining,
     marketValueFormatted: formatMarketValue(marketValueRaw),
     marketValueRaw,
@@ -977,6 +1007,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<AppData>({
     external: [],
     internal: [],
+    plantelPrimera: [],
     monitoring: [],
     normalized: [],
     evolution: [],
@@ -1000,9 +1031,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const tmByLinkMap = buildTransfermarktByLinkMap(raw.transfermarkt)
         const masDatosMap = buildMasDatosMap(raw.masDatos)
 
-        // Compute scores using ALL players as baseline (internal + external together)
+        // Compute scores using ALL players as baseline (internal + external + plantelPrimera together)
         // This ensures consistent scoring across both sources
-        const allPlayers = [...raw.external, ...raw.internal]
+        const allPlayers = [...raw.external, ...raw.internal, ...raw.plantelPrimera]
         const allScored = computeGGScores(allPlayers, 'externo') // source is overwritten below
 
         // Split back into external and internal, preserving scores
@@ -1024,15 +1055,24 @@ export function DataProvider({ children }: { children: ReactNode }) {
         // 4. Estimated value if still missing
         const internal: EnrichedPlayer[] = internalScored.map(p => {
           const jsk = matchPlayerToJugadorSK(p, raw.evolution)
-          // First try to enrich using Transfermarkt link (most accurate)
-          let enriched = enrichInternalWithTransfermarktLink(p, tmByLinkMap)
-          // Fallback to MasDatos if no value yet
+          // 1. Scraped TM data (nombre completo, imagen, agente, valor, contrato)
+          let enriched = enrichInternalWithScrapedTM(p)
+          // 2. Transfermarkt link enrichment (may add more precise data)
+          enriched = enrichInternalWithTransfermarktLink(enriched, tmByLinkMap)
+          // 3. MasDatos fallback if still no market value
           enriched = enrichWithMasDatos(enriched, masDatosMap)
-          // Estimate if still no value
+          // 4. Estimate if still nothing
           enriched = enrichWithEstimatedValue(enriched)
-          // Add jugadorSK
           return { ...enriched, jugadorSK: jsk ?? '' }
         })
+
+        // Plantel Primera División - same enrichment pipeline as external
+        const plantelPrimeraScored = computeGGScores(raw.plantelPrimera, 'interno', scoreMap)
+        const plantelPrimera: EnrichedPlayer[] = plantelPrimeraScored
+          .map(p => enrichInternalWithScrapedTM(p))
+          .map(p => enrichWithTransfermarkt(p, tmMap))
+          .map(p => enrichWithMasDatos(p, masDatosMap))
+          .map(p => enrichWithEstimatedValue(p))
 
         // Link monitoring players to seguimiento metrics for ggScore
         // Use combined external + internal for CONSISTENT scoring across all sources
@@ -1047,6 +1087,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setData({
           external,
           internal,
+          plantelPrimera,
           monitoring,
           normalized: raw.normalized,
           evolution: raw.evolution,

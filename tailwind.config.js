@@ -6,7 +6,8 @@ export default {
     extend: {
       colors: {
         brand: {
-          green: '#22C55E',
+          green: '#6F1929',
+          greenHover: '#8B2234',
           dark: '#111111',
         },
         apple: {

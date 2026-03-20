@@ -17,6 +17,8 @@ import { normalizeName } from '@/utils/scoring'
 import { POSITION_MAP, DISPLAY_POSITION_MAP, DISPLAY_METRICS, RADAR_METRICS } from '@/constants/scoring'
 import { fetchPlayerEvaluations, fetchEvaluationsByName, type ScoutEvaluation } from '@/services/scoutEvaluationService'
 import { addToSeguimiento, removeFromSeguimiento, isInSeguimiento } from '@/lib/supabase'
+import PlantelLayout from '@/components/plantel/PlantelLayout'
+import FootballPitch from '@/components/charts/FootballPitch'
 import type { EnrichedPlayer, SubjectiveMetric } from '@/types'
 
 // ─── PLAYER COMMENTS SYSTEM ───────────────────────────────────────────────────
@@ -101,7 +103,7 @@ function PlayerComments({ player }: CommentsProps) {
   }, [playerKey])
 
   const sentimentConfig = {
-    positive: { icon: '👍', label: 'Positivo', bg: 'bg-emerald-500/10', border: 'border-emerald-500/30', text: 'text-emerald-600 dark:text-emerald-400' },
+    positive: { icon: '👍', label: 'Positivo', bg: 'bg-[#D4A843]/10', border: 'border-[#D4A843]/30', text: 'text-[#C47830] dark:text-[#D4A843]' },
     neutral: { icon: '➖', label: 'Neutral', bg: 'bg-amber-500/10', border: 'border-amber-500/30', text: 'text-amber-600 dark:text-amber-400' },
     negative: { icon: '👎', label: 'Negativo', bg: 'bg-red-500/10', border: 'border-red-500/30', text: 'text-red-600 dark:text-red-400' },
   }
@@ -311,14 +313,14 @@ function ScoreScoutTimeline({ playerId, playerName }: ScoreScoutTimelineProps) {
   // Get score color
   const getScoreColor = (score: number) => {
     if (score >= 8) return 'text-brand-green'
-    if (score >= 6) return 'text-emerald-500'
+    if (score >= 6) return 'text-[#D4A843]'
     if (score >= 4) return 'text-amber-500'
     return 'text-red-500'
   }
 
   const getScoreBg = (score: number) => {
     if (score >= 8) return 'bg-brand-green/10 border-brand-green/30'
-    if (score >= 6) return 'bg-emerald-500/10 border-emerald-500/30'
+    if (score >= 6) return 'bg-[#D4A843]/10 border-[#D4A843]/30'
     if (score >= 4) return 'bg-amber-500/10 border-amber-500/30'
     return 'bg-red-500/10 border-red-500/30'
   }
@@ -360,7 +362,7 @@ function ScoreScoutTimeline({ playerId, playerName }: ScoreScoutTimelineProps) {
           <div
             className={`h-full rounded-full transition-all duration-500 ${
               avgScore >= 8 ? 'bg-brand-green' :
-              avgScore >= 6 ? 'bg-emerald-500' :
+              avgScore >= 6 ? 'bg-[#D4A843]' :
               avgScore >= 4 ? 'bg-amber-500' : 'bg-red-500'
             }`}
             style={{ width: `${avgScore * 10}%` }}
@@ -388,7 +390,7 @@ function ScoreScoutTimeline({ playerId, playerName }: ScoreScoutTimelineProps) {
                   {score && (
                     <div className={`w-2 h-2 rounded-full ${
                       score >= 8 ? 'bg-brand-green' :
-                      score >= 6 ? 'bg-emerald-500' :
+                      score >= 6 ? 'bg-[#D4A843]' :
                       score >= 4 ? 'bg-amber-500' : 'bg-red-500'
                     }`} />
                   )}
@@ -524,7 +526,7 @@ function MetricRowWithPercentile({ label, value, percentile }: MetricWithPercent
 
   const getQualityInfo = (p: number | null | undefined) => {
     if (p === null || p === undefined) return { label: '', color: 'bg-apple-gray-300', textColor: 'text-apple-gray-800 dark:text-white' }
-    if (p >= 80) return { label: 'Elite', color: 'bg-emerald-500', textColor: 'text-emerald-500' }
+    if (p >= 80) return { label: 'Elite', color: 'bg-[#EFE0A0]', textColor: 'text-[#D4A843]' }
     if (p >= 60) return { label: 'Bueno', color: 'bg-yellow-500', textColor: 'text-yellow-600 dark:text-yellow-400' }
     if (p >= 40) return { label: 'Promedio', color: 'bg-amber-500', textColor: 'text-amber-500' }
     if (p >= 20) return { label: 'Bajo', color: 'bg-orange-500', textColor: 'text-orange-500' }
@@ -572,6 +574,7 @@ export default function PlayerDetailPage() {
   const [searchParams] = useSearchParams()
   const source = (searchParams.get('source') ?? 'externo') as 'externo' | 'interno' | 'seguimiento'
   const overridePosition = searchParams.get('pos')
+  const equipoParam = searchParams.get('equipo')
   const { external, internal, monitoring, normalized, evolution, subjectiveMetrics, marketValueHistory, gpsData, loading, error } = useData()
   const { user } = useAuth()
   const [activeTab, setActiveTab] = useState('General')
@@ -583,24 +586,38 @@ export default function PlayerDetailPage() {
   const [isInSeguimientoState, setIsInSeguimientoState] = useState(false)
   const [seguimientoLoading, setSeguimientoLoading] = useState(false)
 
+  // Evaluations for plantel layout
+  const [plantelEvaluations, setPlantelEvaluations] = useState<ScoutEvaluation[]>([])
+
   const player: EnrichedPlayer | null = useMemo(() => {
     if (!id) return null
     const decodedId = decodeURIComponent(id)
+    const normName = normalizeName(decodedId)
 
     if (source === 'interno') {
-      return internal.find(p => String(p.id) === decodedId || normalizeName(p.Jugador) === normalizeName(decodedId)) ?? null
+      return internal.find(p => String(p.id) === decodedId || normalizeName(p.Jugador) === normName) ?? null
     }
 
     if (source === 'seguimiento') {
       const monPlayer = monitoring.find(p =>
-        normalizeName(p.Jugador) === normalizeName(decodedId) ||
-        normalizeName(p['Nombre jugador']) === normalizeName(decodedId)
+        normalizeName(p.Jugador) === normName ||
+        normalizeName(p['Nombre jugador']) === normName
       )
       return monPlayer?.metricsPlayer ?? null
     }
 
-    return external.find(p => normalizeName(p.Jugador) === normalizeName(decodedId)) ?? null
-  }, [id, source, external, internal, monitoring])
+    // External: if equipo param provided, match name + team exactly first
+    if (equipoParam) {
+      const normEquipo = normalizeName(equipoParam)
+      const exact = external.find(p =>
+        normalizeName(p.Jugador) === normName &&
+        normalizeName(p.Equipo) === normEquipo
+      )
+      if (exact) return exact
+    }
+    // Fallback: name only (backward compat / abbreviated names)
+    return external.find(p => normalizeName(p.Jugador) === normName) ?? null
+  }, [id, source, equipoParam, external, internal, monitoring])
 
   const monitoringPlayer = useMemo(() => {
     if (source !== 'seguimiento' || !id) return null
@@ -854,6 +871,23 @@ export default function PlayerDetailPage() {
     })
   }
 
+  // Fetch evaluations for plantel layout
+  useEffect(() => {
+    if (source !== 'interno' || !player) return
+    async function load() {
+      const results: ScoutEvaluation[] = []
+      const seen = new Set<string>()
+      const playerId = player!.id || player!.Jugador
+      const byId = await fetchPlayerEvaluations(playerId)
+      for (const e of byId) { if (!seen.has(e.id)) { seen.add(e.id); results.push(e) } }
+      const byName = await fetchEvaluationsByName(player!.Jugador)
+      for (const e of byName) { if (!seen.has(e.id)) { seen.add(e.id); results.push(e) } }
+      results.sort((a, b) => new Date(b.match_date).getTime() - new Date(a.match_date).getTime())
+      setPlantelEvaluations(results)
+    }
+    load()
+  }, [player?.Jugador, player?.id, source])
+
   if (loading) return <LoadingSpinner fullScreen message="Cargando ficha del jugador..." />
   if (error) return <EmptyState title="Error" description={error} icon="error" />
   if (!player) return (
@@ -861,6 +895,39 @@ export default function PlayerDetailPage() {
       <EmptyState title="Jugador no encontrado" description="No se encontró el jugador solicitado." icon="search" />
     </div>
   )
+
+  // ── Plantel (interno) players use the new dedicated layout ──
+  // Using cast to prevent TS from narrowing `source` type for the existing code below
+  if ((source as string) === 'interno') {
+    return (
+      <div className="max-w-screen-xl mx-auto px-4 sm:px-6 py-6">
+        <PlantelLayout
+          player={player}
+          normalized={normalized}
+          allPlayers={[...external, ...internal]}
+          evolution={evolution}
+          subjectiveMetrics={subjectiveMetrics}
+          gpsData={gpsData}
+          posKey={posKey}
+          rawPosition={rawPosition}
+          positionAverageScore={positionAverageScore}
+          metricPercentiles={metricPercentiles}
+          evaluations={plantelEvaluations}
+          playerJugadorSK={playerJugadorSK}
+          onExportPdf={() => setShowExportModal(true)}
+        />
+        <ExportPDFModal
+          isOpen={showExportModal}
+          onClose={() => setShowExportModal(false)}
+          onExport={handleExportPdf}
+          player={player}
+          source={source}
+          availableEvolutionCharts={[]}
+          selectedEvolutionCharts={[]}
+        />
+      </div>
+    )
+  }
 
   const displayMetrics = DISPLAY_METRICS[posKey] ?? DISPLAY_METRICS['_default']
   const contractColor =
@@ -873,10 +940,10 @@ export default function PlayerDetailPage() {
       {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-sm text-apple-gray-500 dark:text-apple-gray-400 mb-5">
         <Link
-          to={source === 'interno' ? '/interno' : source === 'seguimiento' ? '/seguimiento' : '/'}
+          to={source === 'interno' ? '/plantel' : source === 'seguimiento' ? '/seguimiento' : '/'}
           className="hover:text-brand-green transition-colors"
         >
-          {source === 'interno' ? 'Scout Interno' : source === 'seguimiento' ? 'Seguimiento' : 'Scout Externo'}
+          {source === 'interno' ? 'Plantel' : source === 'seguimiento' ? 'Seguimiento' : 'Scout Externo'}
         </Link>
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -893,9 +960,9 @@ export default function PlayerDetailPage() {
             {/* Header with gradient, pattern and logo */}
             <div className="relative h-28 overflow-hidden">
               {/* Base gradient */}
-              <div className="absolute inset-0 bg-gradient-to-br from-brand-green/25 via-emerald-500/15 to-apple-gray-100/50 dark:to-apple-gray-800/50" />
+              <div className="absolute inset-0 bg-gradient-to-br from-[#8B1530]/18 via-[#6B1020]/10 to-apple-gray-100/50 dark:to-apple-gray-800/50" />
               {/* Radial glow */}
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_30%,rgba(34,197,94,0.2),transparent_60%)]" />
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_30%,rgba(139,21,48,0.15),transparent_60%)]" />
               {/* Subtle pattern */}
               <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05]" style={{
                 backgroundImage: 'radial-gradient(circle, currentColor 1px, transparent 1px)',
@@ -904,14 +971,9 @@ export default function PlayerDetailPage() {
               {/* Logo watermark - centered in header */}
               <div className="absolute inset-0 flex items-center justify-center">
                 <img
-                  src="/logo-light.png"
+                  src="/lanus-escudo.png"
                   alt=""
-                  className="w-28 h-28 object-contain opacity-50 dark:hidden"
-                />
-                <img
-                  src="/logo-dark.png"
-                  alt=""
-                  className="w-28 h-28 object-contain opacity-60 hidden dark:block"
+                  className="w-28 h-28 object-contain opacity-20"
                 />
               </div>
             </div>
@@ -1067,6 +1129,18 @@ export default function PlayerDetailPage() {
               </div>
             )}
           </div>
+
+          {/* Football pitch — position zone */}
+          {posKey && (
+            <div className="card-apple p-4">
+              <FootballPitch
+                posKey={posKey}
+                rawPosition={rawPosition}
+                positionLabel={displayPosition}
+                compact
+              />
+            </div>
+          )}
 
           {/* Score Scout Timeline - self-contained, renders its own card if evaluations exist */}
           <ScoreScoutTimeline playerId={player.id || player.Jugador} playerName={player.Jugador} />
@@ -1251,7 +1325,7 @@ export default function PlayerDetailPage() {
                   <h3 className="text-xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider mb-3">
                     Resumen Rápido
                   </h3>
-                  <div className="bg-gradient-to-br from-brand-green/5 to-emerald-500/5 dark:from-brand-green/10 dark:to-emerald-500/10 rounded-xl p-5 border border-brand-green/10">
+                  <div className="bg-gradient-to-br from-[#8B1530]/5 to-[#6B1020]/5 dark:from-[#8B1530]/10 dark:to-[#6B1020]/8 rounded-xl p-5 border border-[#8B1530]/10">
                     <div className="flex items-start gap-4">
                       <div className="w-12 h-12 rounded-full bg-brand-green/10 flex items-center justify-center flex-shrink-0">
                         <svg className="w-6 h-6 text-brand-green" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1267,7 +1341,7 @@ export default function PlayerDetailPage() {
                           {player.ggScore !== null && (
                             <> Su Scoring datos de <span className="font-bold text-brand-green">{player.ggScore.toFixed(1)}</span>
                             {positionAverageScore && player.ggScore > positionAverageScore ? (
-                              <> está <span className="text-emerald-600 font-medium">por encima</span> del promedio de su posición</>
+                              <> está <span className="text-[#D4A843] font-medium">por encima</span> del promedio de su posición</>
                             ) : positionAverageScore && player.ggScore < positionAverageScore ? (
                               <> está por debajo del promedio de su posición</>
                             ) : null}.

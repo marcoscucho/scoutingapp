@@ -30,6 +30,11 @@ export const SHEET_URLS = {
   gps: buildSheetUrl('/spreadsheets/d/e/2PACX-1vSneBjGlw2I3SyXV-uw1V8Cs_O4lbiQw39melKEZJNhunpshakPrn7AZQBN2L8N9Yw_HA-EeVOt3qvf/pub?gid=1233910424&single=true&output=csv'),
 } as const
 
+// Local CSV files (served from /public/data/, no proxy needed)
+export const LOCAL_URLS = {
+  plantelPrimera: '/data/plantel-primera.csv',
+} as const
+
 // ─── COLUMN ALIASES ───────────────────────────────────────────────────────────
 // Maps from source CSV column name → canonical column name
 // Applied at parse time so scoring and radar always use canonical names

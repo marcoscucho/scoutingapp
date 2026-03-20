@@ -1,5 +1,5 @@
 import Papa from 'papaparse'
-import { SHEET_URLS, COLUMN_ALIASES } from '@/constants/scoring'
+import { SHEET_URLS, LOCAL_URLS, COLUMN_ALIASES } from '@/constants/scoring'
 import type {
   RawRow, RawExternalPlayer, RawInternalPlayer,
   MonitoringPlayer, NormalizedPlayer, EvolutionEntry, SubjectiveMetric,
@@ -95,6 +95,7 @@ export interface SeguimientoMetricsPlayer {
 export interface AllRawData {
   external: RawExternalPlayer[]
   internal: RawInternalPlayer[]
+  plantelPrimera: RawExternalPlayer[]
   monitoring: MonitoringPlayer[]
   seguimientoMetrics: SeguimientoMetricsPlayer[]
   normalized: NormalizedPlayer[]
@@ -107,9 +108,10 @@ export interface AllRawData {
 }
 
 export async function loadAllData(): Promise<AllRawData> {
-  const [extRaw, intRaw, monRaw, segMetRaw, normRaw, evoRaw, metRaw, tmRaw, masDatosRaw, mvHistRaw, gpsRaw] = await Promise.all([
+  const [extRaw, intRaw, plantelPrimeraRaw, monRaw, segMetRaw, normRaw, evoRaw, metRaw, tmRaw, masDatosRaw, mvHistRaw, gpsRaw] = await Promise.all([
     fetchCSV(SHEET_URLS.externo),
     fetchCSV(SHEET_URLS.interno),
+    fetchCSV(LOCAL_URLS.plantelPrimera),
     fetchCSV(SHEET_URLS.seguimiento),
     fetchCSV(SHEET_URLS.seguimientoMetricas),
     fetchCSV(SHEET_URLS.normalizado),
@@ -123,6 +125,10 @@ export async function loadAllData(): Promise<AllRawData> {
 
   const external = resolveAliases(extRaw).filter(r => r['Jugador']?.trim()) as RawExternalPlayer[]
   const internal = resolveAliases(intRaw).filter(r => r['Jugador']?.trim()) as RawInternalPlayer[]
+  // Plantel Primera: inject Liga field for scoring pipeline compatibility
+  const plantelPrimera = resolveAliases(plantelPrimeraRaw)
+    .filter(r => r['Jugador']?.trim())
+    .map(r => ({ Liga: 'Liga Argentina', ...r })) as RawExternalPlayer[]
 
   const monitoring: MonitoringPlayer[] = monRaw
     .filter(r => r['Jugador']?.trim() || r['Nombre jugador']?.trim())
@@ -245,6 +251,13 @@ export async function loadAllData(): Promise<AllRawData> {
       Jugador: r['Jugador'] ?? '',
       Equipo: r['Equipo'] ?? r['equipo_csv'] ?? '',
       Liga: r['Liga'] ?? r['liga_csv'] ?? '',
+      // New format columns
+      'Nombre TM': r['Nombre TM'] ?? '',
+      'Valor Mercado €': r['Valor Mercado €'] ?? '',
+      'Fin Contrato': r['Fin Contrato'] ?? '',
+      'Agente': r['Agente'] ?? '',
+      'URL Imagen': r['URL Imagen'] ?? '',
+      // Legacy format columns
       nombre_tm: r['nombre_tm'] ?? '',
       equipo_csv: r['equipo_csv'] ?? '',
       liga_csv: r['liga_csv'] ?? '',
@@ -353,5 +366,5 @@ export async function loadAllData(): Promise<AllRawData> {
     .filter(e => !isNaN(e.Fecha.getTime()))
     .sort((a, b) => a.Fecha.getTime() - b.Fecha.getTime())
 
-  return { external, internal, monitoring, seguimientoMetrics, normalized, evolution, subjectiveMetrics, transfermarkt, masDatos, marketValueHistory, gpsData }
+  return { external, internal, plantelPrimera, monitoring, seguimientoMetrics, normalized, evolution, subjectiveMetrics, transfermarkt, masDatos, marketValueHistory, gpsData }
 }

@@ -81,8 +81,8 @@ export default function AddToReportButton({
         disabled={adding}
         className={`p-2 rounded-lg transition-all ${
           added
-            ? 'bg-brand-green text-black'
-            : 'bg-apple-gray-100 dark:bg-apple-gray-800 text-apple-gray-500 hover:text-brand-green hover:bg-brand-green/10'
+            ? 'bg-[#8B1530] text-white'
+            : 'bg-apple-gray-100 dark:bg-apple-gray-800 text-apple-gray-500 hover:text-[#D4A843] hover:bg-[#8B1530]/10'
         } ${className}`}
         title="Agregar al informe PDF"
       >
@@ -108,8 +108,8 @@ export default function AddToReportButton({
         disabled={adding}
         className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
           added
-            ? 'bg-brand-green text-black'
-            : 'bg-apple-gray-100 dark:bg-apple-gray-800 text-apple-gray-600 dark:text-apple-gray-400 hover:text-brand-green hover:bg-brand-green/10'
+            ? 'bg-[#8B1530] text-white'
+            : 'bg-apple-gray-100 dark:bg-apple-gray-800 text-apple-gray-600 dark:text-apple-gray-400 hover:text-[#D4A843] hover:bg-[#8B1530]/10'
         } ${className}`}
       >
         {adding ? (
@@ -140,7 +140,7 @@ export default function AddToReportButton({
         disabled={adding}
         className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${
           added
-            ? 'bg-brand-green/10 text-brand-green'
+            ? 'bg-[#8B1530]/10 text-[#D4A843]'
             : 'text-apple-gray-700 dark:text-apple-gray-300 hover:bg-apple-gray-50 dark:hover:bg-apple-gray-800'
         } ${className}`}
       >
@@ -167,8 +167,8 @@ export default function AddToReportButton({
       disabled={adding}
       className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
         added
-          ? 'bg-brand-green text-black'
-          : 'bg-apple-gray-100 dark:bg-apple-gray-800 text-apple-gray-600 dark:text-apple-gray-400 hover:text-brand-green hover:bg-brand-green/10 border border-apple-gray-200 dark:border-apple-gray-700'
+          ? 'bg-[#8B1530] text-white'
+          : 'bg-apple-gray-100 dark:bg-apple-gray-800 text-apple-gray-600 dark:text-apple-gray-400 hover:text-[#D4A843] hover:bg-[#8B1530]/10 border border-apple-gray-200 dark:border-apple-gray-700'
       } ${className}`}
     >
       {adding ? (
@@ -216,7 +216,7 @@ export function PDFBuilderFloatingButton() {
         onClick={openBuilder}
         className={`relative flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all ${
           elementCount > 0
-            ? 'bg-brand-green/10 text-brand-green border border-brand-green/30 hover:bg-brand-green/20'
+            ? 'bg-[#8B1530]/10 text-[#D4A843] border border-[#8B1530]/30 hover:bg-[#8B1530]/20'
             : 'bg-apple-gray-100 dark:bg-apple-gray-800 text-apple-gray-700 dark:text-apple-gray-300 border border-apple-gray-200 dark:border-apple-gray-700 hover:bg-apple-gray-200 dark:hover:bg-apple-gray-700'
         } ${pulse ? 'scale-110' : ''}`}
       >
@@ -225,7 +225,7 @@ export function PDFBuilderFloatingButton() {
         </svg>
         <span className="hidden sm:inline">PDF</span>
         {elementCount > 0 && (
-          <span className={`absolute -top-1.5 -right-1.5 min-w-[20px] h-[20px] px-1.5 rounded-full bg-brand-green text-black text-xs font-bold flex items-center justify-center shadow-lg transition-transform ${pulse ? 'scale-125' : ''}`}>
+          <span className={`absolute -top-1.5 -right-1.5 min-w-[20px] h-[20px] px-1.5 rounded-full bg-[#D4A843] text-[#1a0a0a] text-xs font-bold flex items-center justify-center shadow-lg transition-transform ${pulse ? 'scale-125' : ''}`}>
             {elementCount}
           </span>
         )}
@@ -244,8 +244,8 @@ export function PDFAddedToast() {
   return (
     <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-slide-up">
       <div className="flex items-center gap-3 px-4 py-3 bg-apple-gray-900 dark:bg-white text-white dark:text-apple-gray-900 rounded-xl shadow-2xl border border-apple-gray-700 dark:border-apple-gray-200">
-        <div className="w-8 h-8 rounded-lg bg-brand-green/20 flex items-center justify-center flex-shrink-0">
-          <svg className="w-4 h-4 text-brand-green" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <div className="w-8 h-8 rounded-lg bg-[#8B1530]/20 flex items-center justify-center flex-shrink-0">
+          <svg className="w-4 h-4 text-[#D4A843]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
           </svg>
         </div>
@@ -255,7 +255,7 @@ export function PDFAddedToast() {
         </div>
         <button
           onClick={openBuilder}
-          className="px-3 py-1.5 text-xs font-medium text-brand-green hover:bg-brand-green/10 rounded-lg transition-colors"
+          className="px-3 py-1.5 text-xs font-medium text-[#D4A843] hover:bg-[#8B1530]/10 rounded-lg transition-colors"
         >
           Ver informe
         </button>

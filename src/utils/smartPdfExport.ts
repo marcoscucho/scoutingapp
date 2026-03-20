@@ -295,7 +295,7 @@ class SmartPDF {
     // Footer
     this.doc.setFontSize(8)
     this.doc.setTextColor(...C.grayDark)
-    this.doc.text('Informe generado con Scout Platform', this.W / 2, this.H - 15, { align: 'center' })
+    this.doc.text('Informe generado con Club Atlético Lanús Platform', this.W / 2, this.H - 15, { align: 'center' })
   }
 
   // ─── TABLE OF CONTENTS ────────────────────────────────────────────────────────
@@ -360,12 +360,12 @@ class SmartPDF {
       } catch {
         this.doc.setFontSize(8)
         this.doc.setTextColor(...C.textMuted)
-        this.doc.text('Scout Platform', this.M, headerY)
+        this.doc.text('Club Atlético Lanús Platform', this.M, headerY)
       }
     } else {
       this.doc.setFontSize(8)
       this.doc.setTextColor(...C.textMuted)
-      this.doc.text('Scout Platform', this.M, headerY)
+      this.doc.text('Club Atlético Lanús Platform', this.M, headerY)
     }
 
     // Page title (centered)
@@ -537,7 +537,7 @@ class SmartPDF {
 
     if (includeBranding) {
       this.doc.setTextColor(...C.grayDark)
-      this.doc.text('Scout Platform', this.M, this.H - 8)
+      this.doc.text('Club Atlético Lanús Platform', this.M, this.H - 8)
     }
   }
 

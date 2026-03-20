@@ -3,6 +3,7 @@ import { useAuth } from '@/context/AuthContext'
 import { useData } from '@/context/DataContext'
 import { createEvaluation, fetchRecentEvaluations, type ScoutEvaluation, type PlayerSource } from '@/services/scoutEvaluationService'
 import { addToSeguimiento } from '@/lib/supabase'
+import { normalizeName } from '@/utils/scoring'
 import { smartSearch } from '@/lib/search'
 
 // Position options
@@ -313,9 +314,11 @@ export default function ScoutEvaluationPage() {
 
     // Auto-add to seguimiento if external player
     if (result && shouldAutoAddToMonitoring && selectedPlayerId) {
+      // Create player_key in the same format used by MonitoringPage for matching
+      const playerKey = `${normalizeName(playerName)}|${normalizeName(team || '')}`
       const seguimientoResult = await addToSeguimiento(
         {
-          playerKey: selectedPlayerId,
+          playerKey: playerKey,
           playerName: playerName,
           team: team || undefined,
           position: position || undefined,

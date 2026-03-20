@@ -187,6 +187,7 @@ export interface EnrichedPlayer {
   id: string
   Transfermkt: string
   // Transfermarkt enriched fields
+  'Nombre Completo': string
   Representante: string
   Imagen: string
   // Enrichment
@@ -237,6 +238,7 @@ export interface SortState {
 export interface AppData {
   external: EnrichedPlayer[]
   internal: EnrichedPlayer[]
+  plantelPrimera: EnrichedPlayer[]
   monitoring: MonitoringPlayer[]
   normalized: NormalizedPlayer[]
   evolution: EvolutionEntry[]

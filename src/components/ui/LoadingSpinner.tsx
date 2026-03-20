@@ -1,15 +1,11 @@
-import { useTheme } from '@/context/ThemeContext'
-
 interface LoadingSpinnerProps {
   message?: string
   fullScreen?: boolean
 }
 
 export default function LoadingSpinner({ message, fullScreen = false }: LoadingSpinnerProps) {
-  const { theme } = useTheme()
-
   // Default message for fullscreen loading
-  const displayMessage = message ?? (fullScreen ? 'Cargando Scout Platform' : 'Cargando datos...')
+  const displayMessage = message ?? (fullScreen ? 'Cargando Club Atlético Lanús Platform' : 'Cargando datos...')
 
   const content = (
     <div className="flex flex-col items-center gap-6 animate-fade-in">
@@ -18,9 +14,9 @@ export default function LoadingSpinner({ message, fullScreen = false }: LoadingS
         <div className="absolute inset-0 w-24 h-24 bg-brand-green/20 rounded-full animate-ping" />
         <div className="relative w-24 h-24 flex items-center justify-center">
           <img
-            src={theme === 'dark' ? '/logo-light.png' : '/logo-dark.png'}
+            src="/lanus-escudo.png"
             alt="Loading"
-            className="w-20 h-20 object-contain animate-pulse-soft"
+            className="w-24 h-24 object-contain animate-pulse-soft"
           />
         </div>
       </div>

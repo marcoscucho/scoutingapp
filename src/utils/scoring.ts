@@ -16,8 +16,14 @@ export function parseMarketValue(raw: string): number {
     if (!isNaN(num)) return num * 1_000
   }
 
+  // Handle plain number with comma thousands separator: "3,000,000 €", "1,500,000 €"
+  const plainMillions = str.match(/^([\d,]+)\s*€?$/)
+  if (plainMillions) {
+    const n = parseFloat(plainMillions[1].replace(/,/g, ''))
+    if (!isNaN(n)) return n
+  }
+
   // Handle Transfermarkt format: €200k, €2.80m, €1.5M, etc.
-  // Match patterns like: €200k, €2.80m, 500k, 1.5m
   const match = str.match(/[€$]?\s*([\d.,]+)\s*(k|m)?/i)
   if (match) {
     const numStr = match[1].replace(',', '.')
@@ -113,6 +119,7 @@ function enrichPlayer(
     'Posición específica': player['Posición específica'] ?? '',
     id: player['id'] ?? '',
     Transfermkt: player['Transfermkt'] ?? '',
+    'Nombre Completo': '',
     Representante: player['Representante'] ?? '',
     Imagen: player['Imagen'] ?? '',
     ggScore,
@@ -120,7 +127,7 @@ function enrichPlayer(
     contractStatus:
       monthsRemaining === null ? 'ok'
       : monthsRemaining < 7   ? 'critical'
-      : monthsRemaining < 13  ? 'warning'
+      : monthsRemaining < 12  ? 'warning'
       : 'ok',
     monthsRemaining,
     marketValueFormatted: formatMarketValue(marketValueRaw),

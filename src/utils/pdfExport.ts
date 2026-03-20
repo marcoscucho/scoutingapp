@@ -282,12 +282,12 @@ class PDF {
       } catch {
         this.doc.setFontSize(8)
         this.doc.setTextColor(...C.grayDark)
-        this.doc.text('Scout Platform', this.M, headerY)
+        this.doc.text('Club Atlético Lanús Platform', this.M, headerY)
       }
     } else {
       this.doc.setFontSize(8)
       this.doc.setTextColor(...C.grayDark)
-      this.doc.text('Scout Platform', this.M, headerY)
+      this.doc.text('Club Atlético Lanús Platform', this.M, headerY)
     }
 
     // Player name centered
@@ -315,7 +315,7 @@ class PDF {
 
     // Brand footer
     this.doc.setFontSize(6)
-    this.doc.text('Scout Platform', this.M, this.H - 5)
+    this.doc.text('Club Atlético Lanús Platform', this.M, this.H - 5)
   }
 
   card(x: number, y: number, w: number, h: number) {

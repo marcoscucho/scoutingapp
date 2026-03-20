@@ -88,11 +88,29 @@ function applyFilters(players: EnrichedPlayer[], filters: FilterState): Enriched
   })
 }
 
+const DIVISIONS = [
+  { id: 'primera', label: 'Primera División' },
+  { id: 'reserva', label: 'Reserva' },
+  { id: '4ta', label: '4ta División' },
+  { id: '5ta', label: '5ta División' },
+  { id: '6ta', label: '6ta División' },
+  { id: '7ma', label: '7ma División' },
+  { id: '8va', label: '8va División' },
+  { id: '9na', label: '9na División' },
+  { id: 'pre9', label: 'Pre Novena' },
+] as const
+
+type DivisionId = typeof DIVISIONS[number]['id']
+
 export default function InternalScoutingPage() {
-  const { internal, loading, error } = useData()
+  const { plantelPrimera, loading, error } = useData()
+  const [activeTab, setActiveTab] = useState<DivisionId>('primera')
   const [filters, setFilters] = useState<FilterState>(loadFiltersFromStorage)
   const [exporting, setExporting] = useState(false)
   const [showMobileFilters, setShowMobileFilters] = useState(false)
+
+  // Data source for each tab (only primera has data for now)
+  const tabPlayers = activeTab === 'primera' ? plantelPrimera : []
 
   // Count active filters
   const activeFiltersCount = [
@@ -117,7 +135,7 @@ export default function InternalScoutingPage() {
     saveFiltersToStorage(filters)
   }, [filters])
 
-  const filtered = useMemo(() => applyFilters(internal, filters), [internal, filters])
+  const filtered = useMemo(() => applyFilters(tabPlayers, filters), [tabPlayers, filters])
   const handleReset = useCallback(() => {
     setFilters(DEFAULT_FILTERS)
     sessionStorage.removeItem(FILTERS_STORAGE_KEY)
@@ -128,7 +146,7 @@ export default function InternalScoutingPage() {
     try { await exportTableToPdf('interno') } finally { setExporting(false) }
   }
 
-  if (loading) return <LoadingSpinner fullScreen message="Cargando scouting interno..." />
+  if (loading) return <LoadingSpinner fullScreen message="Cargando plantel..." />
   if (error) return (
     <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-8">
       <EmptyState title="Error al cargar datos" description={error} icon="error" />
@@ -138,13 +156,13 @@ export default function InternalScoutingPage() {
   return (
     <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-6">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
         <div>
           <h1 className="text-2xl font-bold text-apple-gray-800 dark:text-white tracking-tight">
             Plantel
           </h1>
           <p className="text-sm text-apple-gray-500 dark:text-apple-gray-400 mt-0.5">
-            {filtered.length.toLocaleString('es')} de {internal.length.toLocaleString('es')} jugadores
+            {filtered.length.toLocaleString('es')} de {tabPlayers.length.toLocaleString('es')} jugadores
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -182,13 +200,39 @@ export default function InternalScoutingPage() {
         </div>
       </div>
 
-      {/* Layout */}
-      <div className="flex gap-6">
-        <FilterSidebar players={internal} filters={filters} onChange={setFilters} onReset={handleReset} />
-        <div className="flex-1 min-w-0">
-          <PlayerTable players={filtered} source="interno" selectedMetrics={filters.selectedMetrics} />
+      {/* Division Tabs */}
+      <div className="mb-6 overflow-x-auto">
+        <div className="flex gap-1 bg-apple-gray-100/70 dark:bg-apple-gray-800/70 rounded-xl p-1 w-max min-w-full">
+          {DIVISIONS.map(div => (
+            <button
+              key={div.id}
+              onClick={() => { setActiveTab(div.id); setFilters(DEFAULT_FILTERS) }}
+              className={`px-3.5 py-2 text-sm font-medium rounded-lg whitespace-nowrap transition-all duration-200 ${
+                activeTab === div.id
+                  ? 'bg-brand-green text-white shadow-sm'
+                  : 'text-apple-gray-600 dark:text-apple-gray-300 hover:text-apple-gray-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-apple-gray-700/50'
+              }`}
+            >
+              {div.label}
+            </button>
+          ))}
         </div>
       </div>
+
+      {/* Layout */}
+      {tabPlayers.length === 0 && activeTab !== 'primera' ? (
+        <EmptyState
+          title="Sin datos disponibles"
+          description="Los datos de esta división aún no han sido cargados."
+        />
+      ) : (
+        <div className="flex gap-6">
+          <FilterSidebar players={tabPlayers} filters={filters} onChange={setFilters} onReset={handleReset} />
+          <div className="flex-1 min-w-0">
+            <PlayerTable players={filtered} source="interno" selectedMetrics={filters.selectedMetrics} />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

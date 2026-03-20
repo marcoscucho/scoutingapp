@@ -4,73 +4,42 @@ interface ScoreBarProps {
   showLabel?: boolean
 }
 
-function getScoreColor(score: number): { text: string; bg: string; bar: string; glow: string; isElite?: boolean } {
-  // 80+ elite green (special), 55-79 green, 35-54 yellow, 20-34 orange, 0-19 red
-  if (score >= 80) return {
-    text: 'text-emerald-400',
-    bg: 'bg-emerald-400/15',
-    bar: 'bg-gradient-to-r from-emerald-400 via-green-300 to-emerald-400',
-    glow: 'shadow-lg shadow-emerald-400/30',
-    isElite: true
-  }
-  if (score >= 55) return {
-    text: 'text-emerald-500',
-    bg: 'bg-emerald-500/10',
-    bar: 'bg-gradient-to-r from-emerald-500 to-green-500',
-    glow: 'shadow-emerald-500/20'
-  }
-  if (score >= 35) return {
-    text: 'text-amber-500',
-    bg: 'bg-amber-500/10',
-    bar: 'bg-gradient-to-r from-amber-500 to-yellow-400',
-    glow: 'shadow-amber-500/20'
-  }
-  if (score >= 20) return {
-    text: 'text-orange-500',
-    bg: 'bg-orange-500/10',
-    bar: 'bg-gradient-to-r from-orange-500 to-orange-400',
-    glow: 'shadow-orange-500/20'
-  }
-  return {
-    text: 'text-red-500',
-    bg: 'bg-red-500/10',
-    bar: 'bg-gradient-to-r from-red-500 to-red-400',
-    glow: 'shadow-red-500/20'
-  }
+// Lanús palette: lighter = best, darker = worst. No green.
+const SCORE_PALETTE = [
+  { min: 80, hex: '#EFE0A0', isElite: true  },  // champagne
+  { min: 65, hex: '#D4A843', isElite: false },  // gold
+  { min: 50, hex: '#C47830', isElite: false },  // amber
+  { min: 35, hex: '#B04828', isElite: false },  // burnt orange
+  { min: 20, hex: '#943030', isElite: false },  // medium red
+  { min: -1, hex: '#7B1830', isElite: false },  // dark granate
+]
+
+export function getScoreHex(score: number | null): string {
+  if (score === null) return '#6b7280'
+  return SCORE_PALETTE.find(c => score >= c.min)?.hex ?? '#7B1830'
 }
 
-// Export for use in other components
-export function getScoreColorClass(score: number | null): string {
-  if (score === null) return 'text-apple-gray-400'
-  if (score >= 80) return 'text-emerald-400'
-  if (score >= 55) return 'text-emerald-500'
-  if (score >= 35) return 'text-amber-500'
-  if (score >= 20) return 'text-orange-500'
-  return 'text-red-500'
-}
-
-export function getScoreBgClass(score: number | null): string {
-  if (score === null) return 'bg-apple-gray-400/10'
-  if (score >= 80) return 'bg-emerald-400/20'
-  if (score >= 55) return 'bg-emerald-500/15'
-  if (score >= 35) return 'bg-amber-500/15'
-  if (score >= 20) return 'bg-orange-500/15'
-  return 'bg-red-500/15'
-}
+// Legacy exports — return inline-safe values using hex
+export function getScoreColorClass(_score: number | null): string { return '' }
+export function getScoreBgClass(_score: number | null): string { return '' }
 
 export default function ScoreBar({ score, size = 'md', showLabel = true }: ScoreBarProps) {
   if (score === null) {
     return <span className="text-apple-gray-400 text-sm">—</span>
   }
 
-  const colors = getScoreColor(score)
+  const entry = SCORE_PALETTE.find(c => score >= c.min) ?? SCORE_PALETTE[SCORE_PALETTE.length - 1]
+  const hex = entry.hex
   const clampedScore = Math.max(0, Math.min(100, score))
 
   if (size === 'sm') {
     return (
-      <span className={`font-semibold text-sm tabular-nums ${colors.text} ${colors.isElite ? 'drop-shadow-[0_0_4px_rgba(52,211,153,0.5)]' : ''}`}>
+      <span
+        className="font-semibold text-sm tabular-nums"
+        style={{ color: hex }}
+      >
         {score.toFixed(1)}
-        {colors.isElite && <span className="ml-0.5 text-2xs">★</span>}
+        {entry.isElite && <span className="ml-0.5 text-2xs">★</span>}
       </span>
     )
   }
@@ -80,18 +49,17 @@ export default function ScoreBar({ score, size = 'md', showLabel = true }: Score
       <div className="space-y-3">
         <div className="flex items-end justify-between">
           <span className="text-sm text-apple-gray-500 dark:text-apple-gray-400">Scoring datos</span>
-          <span className={`text-4xl font-bold tabular-nums ${colors.text}`}>
+          <span className="text-4xl font-bold tabular-nums" style={{ color: hex }}>
             {score.toFixed(1)}
           </span>
         </div>
         <div className="relative">
           <div className="w-full h-2 bg-apple-gray-200 dark:bg-apple-gray-700 rounded-full overflow-hidden">
             <div
-              className={`h-full ${colors.bar} rounded-full transition-all duration-700 ease-apple shadow-lg ${colors.glow}`}
-              style={{ width: `${clampedScore}%` }}
+              className="h-full rounded-full transition-all duration-700 ease-apple"
+              style={{ width: `${clampedScore}%`, backgroundColor: hex }}
             />
           </div>
-          {/* Tick marks */}
           <div className="absolute inset-x-0 top-0 h-2 flex justify-between pointer-events-none">
             <div className="w-px h-full bg-apple-gray-300 dark:bg-apple-gray-600 opacity-50" />
             <div className="w-px h-full bg-apple-gray-300 dark:bg-apple-gray-600 opacity-50" />
@@ -110,14 +78,14 @@ export default function ScoreBar({ score, size = 'md', showLabel = true }: Score
   return (
     <div className="flex items-center gap-2.5 min-w-[110px]">
       {showLabel && (
-        <span className={`text-sm font-semibold w-10 text-right tabular-nums ${colors.text}`}>
+        <span className="text-sm font-semibold w-10 text-right tabular-nums" style={{ color: hex }}>
           {score.toFixed(1)}
         </span>
       )}
       <div className="flex-1 h-1.5 bg-apple-gray-200 dark:bg-apple-gray-700 rounded-full overflow-hidden">
         <div
-          className={`h-full ${colors.bar} rounded-full transition-all duration-500 ease-apple`}
-          style={{ width: `${clampedScore}%` }}
+          className="h-full rounded-full transition-all duration-500 ease-apple"
+          style={{ width: `${clampedScore}%`, backgroundColor: hex }}
         />
       </div>
     </div>

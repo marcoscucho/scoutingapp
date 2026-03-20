@@ -133,7 +133,8 @@ export default function PlayerTable({ players, source, isLoading, selectedMetric
     const id = source === 'interno' && player.id
       ? encodeURIComponent(player.id)
       : encodeURIComponent(player.Jugador)
-    navigate(`/jugador/${id}?source=${source}`)
+    const equipo = player.Equipo ? `&equipo=${encodeURIComponent(player.Equipo)}` : ''
+    navigate(`/jugador/${id}?source=${source}${equipo}`)
   }
 
   if (!isLoading && players.length === 0) {

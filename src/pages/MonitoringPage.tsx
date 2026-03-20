@@ -1,14 +1,15 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, type ChangeEvent, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useData } from '@/context/DataContext'
 import { useAuth } from '@/context/AuthContext'
 import { useMonitoringStatus, STATUS_CONFIG, formatStatusWithScout } from '@/hooks/useMonitoringStatus'
 import type { MonitoringStatusRecord } from '@/services/monitoringService'
-import { getSeguimientoList, type DbSeguimiento } from '@/lib/supabase'
+import { getSeguimientoList, addToSeguimiento, type DbSeguimiento } from '@/lib/supabase'
 import { normalizeName } from '@/utils/scoring'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import EmptyState from '@/components/ui/EmptyState'
 import ScoreBar from '@/components/ui/ScoreBar'
+import ContractBadge from '@/components/ui/ContractBadge'
 import AuthModal from '@/components/auth/AuthModal'
 import { SELECTABLE_METRICS } from '@/components/filters/FilterSidebar'
 // ScoreEvolutionMini removed - now showing status history instead
@@ -133,10 +134,10 @@ function OpportunityBadge({ score }: { score: number | null | undefined }) {
   if (score === null || score === undefined) return null
 
   const getLevel = (s: number) => {
-    if (s >= 8) return { label: 'Excelente', color: 'text-green-500 bg-green-500/10' }
-    if (s >= 5) return { label: 'Buena', color: 'text-emerald-500 bg-emerald-500/10' }
+    if (s >= 8) return { label: 'Excelente', color: 'text-[#D4A843] bg-[#D4A843]/10' }
+    if (s >= 5) return { label: 'Buena', color: 'text-[#C47830] bg-[#C47830]/10' }
     if (s >= 3) return { label: 'Regular', color: 'text-amber-500 bg-amber-500/10' }
-    return { label: 'Baja', color: 'text-gray-400 bg-gray-500/10' }
+    return { label: 'Baja', color: 'text-apple-gray-400 bg-apple-gray-500/10' }
   }
 
   const level = getLevel(score)
@@ -163,9 +164,9 @@ function ComparisonBadge({ scoreDiff, avgScore }: { scoreDiff: number | null | u
     <div
       className={`inline-flex items-center gap-1 text-xs font-medium ${
         isNeutral
-          ? 'text-gray-400'
+          ? 'text-apple-gray-400'
           : isPositive
-          ? 'text-green-500'
+          ? 'text-[#D4A843]'
           : 'text-amber-500'
       }`}
       title={`Promedio plantel: ${avgScore?.toFixed(1) ?? '-'}`}
@@ -187,34 +188,14 @@ function ComparisonBadge({ scoreDiff, avgScore }: { scoreDiff: number | null | u
 // ─── ALERT BADGES ────────────────────────────────────────────────────────────
 
 function AlertBadges({ player }: { player: MonitoringPlayer }) {
-  const alerts = []
-
-  // Contract alert
-  if (player.monthsRemaining !== null && player.monthsRemaining !== undefined) {
-    if (player.monthsRemaining < 7) {
-      alerts.push(
-        <span key="contract" className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-red-500/10 text-red-500 text-2xs font-medium">
-          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          {player.monthsRemaining}m
-        </span>
-      )
-    } else if (player.monthsRemaining < 13) {
-      alerts.push(
-        <span key="contract" className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 text-2xs font-medium">
-          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          {player.monthsRemaining}m
-        </span>
-      )
-    }
-  }
-
-  if (alerts.length === 0) return null
-
-  return <div className="flex items-center gap-1">{alerts}</div>
+  const status = player.contractStatus ?? 'ok'
+  if (status === 'ok') return null
+  return (
+    <ContractBadge
+      status={status}
+      monthsRemaining={player.monthsRemaining ?? null}
+    />
+  )
 }
 
 // ─── LOW DATA WARNING ────────────────────────────────────────────────────────
@@ -226,6 +207,213 @@ function LowDataWarning() {
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
       </svg>
       <span>Datos insuficientes</span>
+    </div>
+  )
+}
+
+// ─── ADD PLAYER MODAL ────────────────────────────────────────────────────────
+
+const POSITIONS = ['Portero', 'Defensor Central', 'Lateral derecho', 'Lateral izquierdo', 'Volante central', 'Volante interno', 'Extremo derecho', 'Extremo izquierdo', 'Delantero']
+
+interface AddPlayerForm {
+  nombre: string
+  apellido: string
+  club: string
+  edad: string
+  fechaNac: string
+  posicion: string
+  rol: string
+  liga: string
+  agente: string
+  valorMercado: string
+  fechaFinContrato: string
+  linkTM: string
+  comentario: string
+}
+
+const EMPTY_FORM: AddPlayerForm = {
+  nombre: '', apellido: '', club: '', edad: '', fechaNac: '',
+  posicion: '', rol: '', liga: '', agente: '', valorMercado: '',
+  fechaFinContrato: '', linkTM: '', comentario: '',
+}
+
+function AddPlayerModal({ onClose, onAdded }: { onClose: () => void; onAdded: () => void }) {
+  const [form, setForm] = useState<AddPlayerForm>(EMPTY_FORM)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const set = (key: keyof AddPlayerForm) => (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
+    setForm(f => ({ ...f, [key]: e.target.value }))
+
+  const isValid = form.nombre.trim() && form.apellido.trim() && form.edad.trim() && form.posicion.trim()
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!isValid) return
+    setSaving(true)
+    setError(null)
+
+    const initial = form.nombre.trim().charAt(0).toUpperCase()
+    const apellido = form.apellido.trim()
+    const jugadorName = `${initial}. ${apellido}`
+    const playerKey = `${jugadorName.toLowerCase().replace(/\s+/g, '_')}|${(form.club || '').toLowerCase().replace(/\s+/g, '_')}`
+
+    const notes = [
+      form.agente && `Agente: ${form.agente}`,
+      form.valorMercado && `Valor: ${form.valorMercado}`,
+      form.fechaFinContrato && `Fin contrato: ${form.fechaFinContrato}`,
+      form.linkTM && `TM: ${form.linkTM}`,
+      form.comentario,
+    ].filter(Boolean).join(' | ')
+
+    const result = await addToSeguimiento(
+      {
+        playerKey,
+        playerName: jugadorName,
+        team: form.club || undefined,
+        league: form.liga || undefined,
+        position: form.posicion || undefined,
+        age: form.edad ? parseInt(form.edad) : undefined,
+      },
+      'manual',
+      notes || undefined
+    )
+
+    setSaving(false)
+    if (!result.success) {
+      setError(result.error || 'Error al guardar')
+    } else {
+      onAdded()
+      onClose()
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-white dark:bg-apple-gray-800 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-apple-gray-200/50 dark:border-apple-gray-700/50">
+          <div>
+            <h2 className="text-lg font-semibold text-apple-gray-800 dark:text-white">Agregar jugador</h2>
+            <p className="text-xs text-apple-gray-500 mt-0.5">Los campos marcados con * son obligatorios</p>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-lg hover:bg-apple-gray-100 dark:hover:bg-apple-gray-700 transition-colors text-apple-gray-500">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
+          {/* Nombre + Apellido */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-apple-gray-600 dark:text-apple-gray-400 mb-1">Nombre *</label>
+              <input type="text" value={form.nombre} onChange={set('nombre')} className="input-apple text-sm" required />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-apple-gray-600 dark:text-apple-gray-400 mb-1">Apellido *</label>
+              <input type="text" value={form.apellido} onChange={set('apellido')} className="input-apple text-sm" required />
+            </div>
+          </div>
+
+          {/* Preview name */}
+          {(form.nombre.trim() || form.apellido.trim()) && (
+            <p className="text-xs text-apple-gray-500 -mt-1">
+              Se guardará como: <span className="font-semibold text-apple-gray-700 dark:text-apple-gray-300">
+                {form.nombre.trim().charAt(0).toUpperCase()}{form.nombre.trim() ? '.' : ''} {form.apellido.trim()}
+              </span>
+            </p>
+          )}
+
+          {/* Edad + Posición */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-apple-gray-600 dark:text-apple-gray-400 mb-1">Edad *</label>
+              <input type="number" min="14" max="45" value={form.edad} onChange={set('edad')} className="input-apple text-sm" required />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-apple-gray-600 dark:text-apple-gray-400 mb-1">Posición *</label>
+              <select value={form.posicion} onChange={set('posicion')} className="input-apple text-sm" required>
+                <option value="">Seleccionar...</option>
+                {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {/* Club + Liga */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-apple-gray-600 dark:text-apple-gray-400 mb-1">Club</label>
+              <input type="text" value={form.club} onChange={set('club')} className="input-apple text-sm" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-apple-gray-600 dark:text-apple-gray-400 mb-1">Liga</label>
+              <input type="text" value={form.liga} onChange={set('liga')} className="input-apple text-sm" />
+            </div>
+          </div>
+
+          {/* Rol + Fecha nacimiento */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-apple-gray-600 dark:text-apple-gray-400 mb-1">Rol</label>
+              <input type="text" value={form.rol} onChange={set('rol')} className="input-apple text-sm" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-apple-gray-600 dark:text-apple-gray-400 mb-1">Fecha de nacimiento</label>
+              <input type="date" value={form.fechaNac} onChange={set('fechaNac')} className="input-apple text-sm" />
+            </div>
+          </div>
+
+          {/* Agente + Valor mercado */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-apple-gray-600 dark:text-apple-gray-400 mb-1">Agente</label>
+              <input type="text" value={form.agente} onChange={set('agente')} className="input-apple text-sm" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-apple-gray-600 dark:text-apple-gray-400 mb-1">Valor de mercado</label>
+              <input type="text" value={form.valorMercado} onChange={set('valorMercado')} className="input-apple text-sm" />
+            </div>
+          </div>
+
+          {/* Fecha fin contrato + Link TM */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-apple-gray-600 dark:text-apple-gray-400 mb-1">Fin de contrato</label>
+              <input type="date" value={form.fechaFinContrato} onChange={set('fechaFinContrato')} className="input-apple text-sm" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-apple-gray-600 dark:text-apple-gray-400 mb-1">Link Transfermarkt</label>
+              <input type="url" value={form.linkTM} onChange={set('linkTM')} className="input-apple text-sm" />
+            </div>
+          </div>
+
+          {/* Comentario */}
+          <div>
+            <label className="block text-xs font-medium text-apple-gray-600 dark:text-apple-gray-400 mb-1">Comentario</label>
+            <textarea value={form.comentario} onChange={set('comentario')} rows={2} className="input-apple text-sm resize-none" />
+          </div>
+
+          {error && (
+            <p className="text-xs text-red-500 bg-red-500/10 px-3 py-2 rounded-lg">{error}</p>
+          )}
+
+          {/* Actions */}
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={onClose} className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium bg-apple-gray-100 dark:bg-apple-gray-700 text-apple-gray-600 dark:text-apple-gray-300 hover:bg-apple-gray-200 dark:hover:bg-apple-gray-600 transition-colors">
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={!isValid || saving}
+              className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium bg-[#8B1530] text-white hover:bg-[#A01A38] transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {saving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : null}
+              {saving ? 'Guardando...' : 'Agregar a seguimiento'}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   )
 }
@@ -278,8 +466,13 @@ export default function MonitoringPage() {
     loading: statusLoading,
   } = useMonitoringStatus()
   const [showAuthModal, setShowAuthModal] = useState(false)
+  const [showAddPlayerModal, setShowAddPlayerModal] = useState(false)
   const [supabaseSeguimiento, setSupabaseSeguimiento] = useState<DbSeguimiento[]>([])
   const [supabaseLoading, setSupabaseLoading] = useState(true)
+
+  const refreshSeguimiento = () => {
+    getSeguimientoList().then(setSupabaseSeguimiento)
+  }
 
   // Load seguimiento from Supabase
   useEffect(() => {
@@ -287,6 +480,13 @@ export default function MonitoringPage() {
       .then(setSupabaseSeguimiento)
       .finally(() => setSupabaseLoading(false))
   }, [])
+
+  // Map player_key -> seguimiento entry for quick lookup
+  const seguimientoByKey = useMemo(() => {
+    const m = new Map<string, DbSeguimiento>()
+    for (const s of supabaseSeguimiento) m.set(s.player_key, s)
+    return m
+  }, [supabaseSeguimiento])
 
   // Combine Google Sheets monitoring with Supabase seguimiento
   const combinedMonitoring = useMemo(() => {
@@ -492,17 +692,18 @@ export default function MonitoringPage() {
   const handleRowClick = (player: MonitoringPlayer) => {
     if (player.metricsPlayer) {
       const id = encodeURIComponent(player.metricsPlayer.Jugador)
-      // Get position from metricsPlayer (Wyscout codes like RCB, LCB) for radar
       const pos = player.metricsPlayer['Posición específica'] || player.metricsPlayer['Posición'] || player['Posición'] || ''
-      navigate(`/jugador/${id}?source=externo&pos=${encodeURIComponent(pos)}`)
+      const equipo = player.metricsPlayer.Equipo ? `&equipo=${encodeURIComponent(player.metricsPlayer.Equipo)}` : ''
+      navigate(`/jugador/${id}?source=externo&pos=${encodeURIComponent(pos)}${equipo}`)
     } else if (player.externalPlayer) {
       const id = encodeURIComponent(player.externalPlayer.Jugador)
-      navigate(`/jugador/${id}?source=externo`)
+      const equipo = player.externalPlayer.Equipo ? `&equipo=${encodeURIComponent(player.externalPlayer.Equipo)}` : ''
+      navigate(`/jugador/${id}?source=externo${equipo}`)
     } else {
-      // Fallback: try to find in external by name
       const id = encodeURIComponent(player.Jugador || player['Nombre jugador'] || '')
+      const equipo = player.Club ? `&equipo=${encodeURIComponent(player.Club)}` : ''
       if (id) {
-        navigate(`/jugador/${id}?source=externo`)
+        navigate(`/jugador/${id}?source=externo${equipo}`)
       }
     }
   }
@@ -551,6 +752,16 @@ export default function MonitoringPage() {
           </p>
         </div>
 
+        {/* Actions + Status pills */}
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => setShowAddPlayerModal(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-[#8B1530] text-white hover:bg-[#A01A38] transition-colors shadow-sm"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+            Agregar jugador
+          </button>
+        </div>
         {/* Status summary pills */}
         <div className="flex flex-wrap items-center gap-2">
           {(Object.entries(STATUS_CONFIG) as [ManagementStatus, typeof STATUS_CONFIG.en_seguimiento][]).map(([key, cfg]) => (
@@ -597,7 +808,7 @@ export default function MonitoringPage() {
                 )}
               </span>
               {activeFilters > 0 && (
-                <button onClick={resetFilters} className="text-xs font-medium text-brand-green hover:text-green-400 transition-colors">
+                <button onClick={resetFilters} className="text-xs font-medium text-brand-green hover:opacity-70 transition-opacity">
                   Limpiar
                 </button>
               )}
@@ -767,7 +978,7 @@ export default function MonitoringPage() {
               description="No se encontraron jugadores con los filtros aplicados"
             />
           ) : (
-            <div className="card-apple overflow-hidden">
+            <div className="card-apple">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
@@ -860,6 +1071,8 @@ export default function MonitoringPage() {
                       const initials = displayName.split(' ').map(w => w[0]).slice(0, 2).join('')
                       const statusRecord = getPlayerStatus(player.Jugador)
                       const playerStatus = statusRecord?.status || 'en_seguimiento'
+                      const playerKey = `${normalizeName(player.Jugador)}|${normalizeName(player.Club || '')}`
+                      const segEntry = seguimientoByKey.get(playerKey)
 
                       return (
                         <tr
@@ -895,7 +1108,7 @@ export default function MonitoringPage() {
                                 </div>
                                 <div className="flex items-center gap-2 text-xs text-apple-gray-500">
                                   <span>{player.Nacionalidad}</span>
-                                  <span>|</span>
+                                  {player.Nacionalidad && <span>|</span>}
                                   <span>{player.Edad} años</span>
                                   {player.marketValueFormatted && (
                                     <>
@@ -904,6 +1117,11 @@ export default function MonitoringPage() {
                                     </>
                                   )}
                                 </div>
+                                {segEntry?.added_by_name && (
+                                  <p className="text-2xs text-apple-gray-400 mt-0.5 truncate max-w-[160px]">
+                                    por {segEntry.added_by_name}
+                                  </p>
+                                )}
                               </div>
                             </div>
                           </td>
@@ -1045,6 +1263,14 @@ export default function MonitoringPage() {
 
       {/* Auth Modal */}
       <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
+
+      {/* Add Player Modal */}
+      {showAddPlayerModal && (
+        <AddPlayerModal
+          onClose={() => setShowAddPlayerModal(false)}
+          onAdded={refreshSeguimiento}
+        />
+      )}
     </div>
   )
 }

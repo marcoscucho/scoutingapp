@@ -256,7 +256,8 @@ export default function OpportunitiesPage() {
                 key={`${opp.player.Jugador}-${idx}`}
                 onClick={() => {
                   const encoded = encodeURIComponent(opp.player.Jugador)
-                  navigate(`/jugador/${encoded}?source=${opp.player.source}`)
+                  const equipo = opp.player.Equipo ? `&equipo=${encodeURIComponent(opp.player.Equipo)}` : ''
+                  navigate(`/jugador/${encoded}?source=${opp.player.source}${equipo}`)
                 }}
                 className="bg-white dark:bg-apple-gray-800 rounded-xl border border-apple-gray-200 dark:border-apple-gray-700 p-4 cursor-pointer hover:shadow-lg transition-all hover:-translate-y-0.5"
               >

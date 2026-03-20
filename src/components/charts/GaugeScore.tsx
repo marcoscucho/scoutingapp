@@ -9,14 +9,14 @@ interface GaugeScoreProps {
   comparisonLabel?: string
 }
 
-// Get color based on score ranges
+// Score color scale: lightest = best, darkest = worst. Lanús palette (gold → granate).
 function getScoreColor(score: number): string {
-  if (score >= 80) return '#10B981'  // emerald-500 - Elite
-  if (score >= 65) return '#22C55E'  // green-500 - Muy bueno
-  if (score >= 50) return '#84CC16'  // lime-500 - Bueno
-  if (score >= 35) return '#EAB308'  // yellow-500 - Promedio
-  if (score >= 20) return '#F97316'  // orange-500 - Bajo
-  return '#EF4444'                   // red-500 - Crítico
+  if (score >= 80) return '#EFE0A0'  // champagne/gold — Elite
+  if (score >= 65) return '#D4A843'  // warm gold — Muy bueno
+  if (score >= 50) return '#C47830'  // amber — Bueno
+  if (score >= 35) return '#B04828'  // burnt orange — Promedio
+  if (score >= 20) return '#943030'  // medium red — Bajo
+  return '#7B1830'                   // dark granate — Crítico
 }
 
 function getScoreLabel(score: number): string {
@@ -121,12 +121,12 @@ export default function GaugeScore({
 
   // Color gradient zones (very subtle background)
   const zones = [
-    { start: 0, end: 20, color: '#EF4444' },
-    { start: 20, end: 35, color: '#F97316' },
-    { start: 35, end: 50, color: '#EAB308' },
-    { start: 50, end: 65, color: '#84CC16' },
-    { start: 65, end: 80, color: '#22C55E' },
-    { start: 80, end: 100, color: '#10B981' },
+    { start: 0,  end: 20,  color: '#7B1830' },  // dark granate
+    { start: 20, end: 35,  color: '#943030' },  // medium red
+    { start: 35, end: 50,  color: '#B04828' },  // burnt orange
+    { start: 50, end: 65,  color: '#C47830' },  // amber
+    { start: 65, end: 80,  color: '#D4A843' },  // gold
+    { start: 80, end: 100, color: '#EFE0A0' },  // champagne
   ]
 
   return (
@@ -369,7 +369,7 @@ export default function GaugeScore({
               <div className="w-3 h-0.5 bg-gray-500 rounded" />
               <span>{comparisonLabel}: {comparisonScore.toFixed(1)}</span>
               {score > comparisonScore ? (
-                <span className="text-emerald-500 font-medium">
+                <span className="text-[#D4A843] font-medium">
                   (+{(score - comparisonScore).toFixed(1)})
                 </span>
               ) : score < comparisonScore ? (
