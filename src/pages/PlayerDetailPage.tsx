@@ -14,6 +14,7 @@ import ExportPDFModal, { type PDFTheme } from '@/components/ui/ExportPDFModal'
 import { exportPlayerToPdfFull } from '@/utils/pdfExport'
 import AddToReportButton from '@/components/pdf/AddToReportButton'
 import { normalizeName } from '@/utils/scoring'
+import { getScoreHex } from '@/components/ui/ScoreBar'
 import { POSITION_MAP, DISPLAY_POSITION_MAP, DISPLAY_METRICS, RADAR_METRICS } from '@/constants/scoring'
 import { fetchPlayerEvaluations, fetchEvaluationsByName, type ScoutEvaluation } from '@/services/scoutEvaluationService'
 import { addToSeguimiento, removeFromSeguimiento, isInSeguimiento } from '@/lib/supabase'
@@ -1062,6 +1063,7 @@ export default function PlayerDetailPage() {
             </div>
             <GaugeScore
               score={player.ggScore}
+              percentile={player.ggScorePercentile}
               size="lg"
               comparisonScore={positionAverageScore}
               comparisonLabel={`Promedio ${posKey || 'posición'}`}
@@ -1339,7 +1341,7 @@ export default function PlayerDetailPage() {
                           {' '}de <span className="font-medium">{player.Edad} años</span>
                           {player.Liga && <> que juega en <span className="font-medium">{player.Liga}</span></>}.
                           {player.ggScore !== null && (
-                            <> Su Scoring datos de <span className="font-bold text-brand-green">{player.ggScore.toFixed(1)}</span>
+                            <> Su Scoring datos de <span className="font-bold" style={{ color: getScoreHex(player.ggScore, player.ggScorePercentile) }}>{player.ggScore.toFixed(1)}</span>
                             {positionAverageScore && player.ggScore > positionAverageScore ? (
                               <> está <span className="text-[#D4A843] font-medium">por encima</span> del promedio de su posición</>
                             ) : positionAverageScore && player.ggScore < positionAverageScore ? (

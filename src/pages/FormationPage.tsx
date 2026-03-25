@@ -16,6 +16,7 @@ import {
   type PositionPlayer,
 } from '@/services/formationService'
 import type { EnrichedPlayer } from '@/types'
+import { getScoreHex } from '@/components/ui/ScoreBar'
 
 const FORMATIONS: Record<string, { name: string; positions: { key: string; x: number; y: number }[] }> = {
   '4-3-3': {
@@ -250,7 +251,7 @@ function PlayerSelector({
         </p>
       </div>
       <div className="text-right flex-shrink-0">
-        <p className={`text-sm font-bold ${(p.ggScore ?? 0) >= 60 ? 'text-emerald-500' : (p.ggScore ?? 0) >= 40 ? 'text-amber-500' : 'text-red-500'}`}>
+        <p className="text-sm font-bold" style={{ color: getScoreHex(p.ggScore, p.ggScorePercentile) }}>
           {p.ggScore?.toFixed(1)}
         </p>
         <p className="text-2xs text-apple-gray-400">{p.marketValueFormatted}</p>
@@ -330,7 +331,7 @@ function PlayerSelector({
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className={`text-sm font-bold ${(p.ggScore ?? 0) >= 60 ? 'text-emerald-500' : (p.ggScore ?? 0) >= 40 ? 'text-amber-500' : 'text-red-500'}`}>
+                    <span className="text-sm font-bold" style={{ color: getScoreHex(p.ggScore) }}>
                       {p.ggScore?.toFixed(1)}
                     </span>
                     <button
@@ -757,7 +758,7 @@ export default function FormationPage() {
                             <span className="font-semibold text-apple-gray-800 dark:text-white">
                               {p.playerName.split(' ').slice(-1)[0]}
                             </span>
-                            <span className={`ml-1.5 font-bold ${(p.ggScore ?? 0) >= 60 ? 'text-brand-green' : (p.ggScore ?? 0) >= 40 ? 'text-amber-500' : 'text-red-500'}`}>
+                            <span className="ml-1.5 font-bold" style={{ color: getScoreHex(p.ggScore) }}>
                               {p.ggScore?.toFixed(0)}
                             </span>
                           </div>

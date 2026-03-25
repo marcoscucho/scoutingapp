@@ -1,5 +1,6 @@
 interface ScoreBarProps {
   score: number | null
+  percentile?: number | null
   size?: 'sm' | 'md' | 'lg'
   showLabel?: boolean
 }
@@ -14,21 +15,24 @@ const SCORE_PALETTE = [
   { min: -1, hex: '#7B1830', isElite: false },  // dark granate
 ]
 
-export function getScoreHex(score: number | null): string {
+// Use percentile (position-relative rank) for color when available, score as fallback.
+export function getScoreHex(score: number | null, percentile?: number | null): string {
   if (score === null) return '#6b7280'
-  return SCORE_PALETTE.find(c => score >= c.min)?.hex ?? '#7B1830'
+  const v = percentile != null ? percentile : score
+  return SCORE_PALETTE.find(c => v >= c.min)?.hex ?? '#7B1830'
 }
 
 // Legacy exports — return inline-safe values using hex
 export function getScoreColorClass(_score: number | null): string { return '' }
 export function getScoreBgClass(_score: number | null): string { return '' }
 
-export default function ScoreBar({ score, size = 'md', showLabel = true }: ScoreBarProps) {
+export default function ScoreBar({ score, percentile, size = 'md', showLabel = true }: ScoreBarProps) {
   if (score === null) {
     return <span className="text-apple-gray-400 text-sm">—</span>
   }
 
-  const entry = SCORE_PALETTE.find(c => score >= c.min) ?? SCORE_PALETTE[SCORE_PALETTE.length - 1]
+  const colorValue = percentile != null ? percentile : score
+  const entry = SCORE_PALETTE.find(c => colorValue >= c.min) ?? SCORE_PALETTE[SCORE_PALETTE.length - 1]
   const hex = entry.hex
   const clampedScore = Math.max(0, Math.min(100, score))
 

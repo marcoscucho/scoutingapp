@@ -85,9 +85,21 @@ export function normalizeName(s: string): string {
 
 // ─── ENRICHMENT ───────────────────────────────────────────────────────────────
 
+// Rank-based normalization: value → 0-100 based on position within sorted array.
+// More robust than min-max — an outlier only takes rank 1st, not distorts everyone else.
+function rankNormalize(value: number, sortedAsc: number[]): number {
+  const N = sortedAsc.length
+  if (N <= 1) return 50
+  const below = sortedAsc.filter(v => v < value).length
+  const equal = sortedAsc.filter(v => v === value).length
+  const rank = below + (equal - 1) / 2  // average rank for ties
+  return Math.min(100, Math.max(0, (rank / (N - 1)) * 100))
+}
+
 function enrichPlayer(
   player: Record<string, string>,
   ggScore: number | null,
+  ggScorePercentile: number | null,
   source: 'externo' | 'interno'
 ): EnrichedPlayer {
   const rawValue = player['Valor de mercado (Transfermarkt)'] ?? ''
@@ -134,6 +146,7 @@ function enrichPlayer(
     marketValueRaw,
     minutesPlayed: getNumericValue(player, 'Minutos jugados'),
     ageNum: parseInt(player['Edad'] ?? '0', 10) || 0,
+    ggScorePercentile,
     // Spread all raw columns for stat access
     ...player,
   }
@@ -150,20 +163,21 @@ function getPositionKey(player: Record<string, string>): string | null {
 export function computeGGScores(
   players: (RawExternalPlayer | RawInternalPlayer)[],
   source: 'externo' | 'interno',
-  precomputedScores?: Map<string, number | null>
+  precomputedScores?: Map<string, number | null>,
+  precomputedPercentiles?: Map<string, number | null>
 ): EnrichedPlayer[] {
   // If we have precomputed scores, just use those
   if (precomputedScores) {
     return players.map(player => {
       const key = (player['Jugador'] ?? '') + '|' + (player['Equipo'] ?? '')
       const score = precomputedScores.get(key) ?? null
-      return enrichPlayer(player as Record<string, string>, score, source)
+      const percentile = precomputedPercentiles?.get(key) ?? null
+      return enrichPlayer(player as Record<string, string>, score, percentile, source)
     })
   }
 
   // Group players by normalized position key
   const byPosition = new Map<string, (RawExternalPlayer | RawInternalPlayer)[]>()
-
   for (const p of players) {
     const posKey = getPositionKey(p as Record<string, string>)
     if (!posKey) continue
@@ -171,41 +185,75 @@ export function computeGGScores(
     byPosition.get(posKey)!.push(p)
   }
 
-  // Compute min/max per metric per position group
-  const positionStats = new Map<string, Map<string, { min: number; max: number }>>()
-
+  // Compute sorted values per metric per position group (for rank-based normalization)
+  const positionSortedValues = new Map<string, Map<string, number[]>>()
   for (const [posKey, group] of byPosition) {
     const config = SCORING_CONFIG[posKey]
     if (!config) continue
-    const stats = new Map<string, { min: number; max: number }>()
-
+    const sortedMap = new Map<string, number[]>()
     for (const { column } of config) {
       const values = group.map(p => getNumericValue(p as Record<string, string>, column))
-      stats.set(column, { min: Math.min(...values), max: Math.max(...values) })
+      sortedMap.set(column, [...values].sort((a, b) => a - b))
     }
-    positionStats.set(posKey, stats)
+    positionSortedValues.set(posKey, sortedMap)
   }
 
-  // Score each player
-  return players.map(player => {
+  // First pass: compute ggScore for each player using rank-based normalization
+  const playerKey = (p: RawExternalPlayer | RawInternalPlayer) =>
+    ((p['Jugador'] ?? '') + '|' + (p['Equipo'] ?? '')) as string
+
+  const rawScores = new Map<string, number | null>()
+  for (const player of players) {
     const posKey = getPositionKey(player as Record<string, string>)
+    const key = playerKey(player)
 
     if (!posKey || !SCORING_CONFIG[posKey]) {
-      return enrichPlayer(player as Record<string, string>, null, source)
+      rawScores.set(key, null)
+      continue
     }
 
     const config = SCORING_CONFIG[posKey]
-    const stats = positionStats.get(posKey)!
+    const sortedMap = positionSortedValues.get(posKey)!
     let score = 0
-
     for (const { column, weight } of config) {
       const raw = getNumericValue(player as Record<string, string>, column)
-      const { min, max } = stats.get(column)!
-      const normalized = max > min ? ((raw - min) / (max - min)) * 100 : 50
+      const normalized = rankNormalize(raw, sortedMap.get(column)!)
       score += normalized * (weight / 100)
     }
+    rawScores.set(key, Math.round(score * 10) / 10)
+  }
 
-    return enrichPlayer(player as Record<string, string>, Math.round(score * 10) / 10, source)
+  // Second pass: compute percentile rank within each position group
+  const playerPercentiles = new Map<string, number | null>()
+  for (const [posKey, group] of byPosition) {
+    const groupWithScores = group
+      .map(p => ({ key: playerKey(p), score: rawScores.get(playerKey(p)) ?? null }))
+      .filter((x): x is { key: string; score: number } => x.score !== null)
+
+    const N = groupWithScores.length
+    if (N === 0) continue
+    if (N === 1) {
+      playerPercentiles.set(groupWithScores[0].key, 50)
+      continue
+    }
+
+    const sorted = [...groupWithScores].sort((a, b) => a.score - b.score)
+    sorted.forEach((x, i) => {
+      playerPercentiles.set(x.key, Math.round((i / (N - 1)) * 100 * 10) / 10)
+    })
+    // Handle position key usage to avoid unused warning
+    void posKey
+  }
+
+  // Build enriched players with score + percentile
+  return players.map(player => {
+    const key = playerKey(player)
+    return enrichPlayer(
+      player as Record<string, string>,
+      rawScores.get(key) ?? null,
+      playerPercentiles.get(key) ?? null,
+      source
+    )
   })
 }
 

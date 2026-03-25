@@ -249,7 +249,7 @@ export default function PlayerTable({ players, source, isLoading, selectedMetric
                   {/* Scoring datos */}
                   <td className="px-3 py-3">
                     <div className="flex justify-center">
-                      <ScoreBar score={player.ggScore} size="sm" />
+                      <ScoreBar score={player.ggScore} percentile={player.ggScorePercentile} size="sm" />
                     </div>
                   </td>
                 </tr>

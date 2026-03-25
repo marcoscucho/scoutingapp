@@ -7,6 +7,7 @@ import { RADAR_METRICS as POSITION_RADAR_METRICS, METRIC_ABBREVIATIONS, sortLeag
 import { smartSearch } from '@/lib/search'
 import AddToReportButton from '@/components/pdf/AddToReportButton'
 import type { EnrichedPlayer } from '@/types'
+import { getScoreHex } from '@/components/ui/ScoreBar'
 
 // Metrics organized by category for dropdown
 const METRIC_CATEGORIES = {
@@ -887,7 +888,7 @@ export default function RadarAnalysisPage() {
                           </p>
                         </div>
                         <div className="text-right">
-                          <p className="text-lg font-bold text-brand-green">
+                          <p className="text-lg font-bold" style={{ color: getScoreHex(player.ggScore, player.ggScorePercentile) }}>
                             {player.ggScore?.toFixed(1)}
                           </p>
                           <p className="text-xs text-apple-gray-400">

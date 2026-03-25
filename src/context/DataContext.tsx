@@ -925,6 +925,7 @@ function scoreSeguimientoPlayer(
     Representante: player['Representante'] ?? '',
     Imagen: player['Imagen'] ?? '',
     ggScore: finalScore,
+    ggScorePercentile: null,
     source: 'externo',
     contractStatus: monthsRemaining === null ? 'ok' : monthsRemaining < 7 ? 'critical' : monthsRemaining < 12 ? 'warning' : 'ok',
     monthsRemaining,
@@ -1036,17 +1037,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const allPlayers = [...raw.external, ...raw.internal, ...raw.plantelPrimera]
         const allScored = computeGGScores(allPlayers, 'externo') // source is overwritten below
 
-        // Split back into external and internal, preserving scores
+        // Split back into external and internal, preserving scores and percentiles
         const scoreMap = new Map(allScored.map(p => [p.Jugador + '|' + p.Equipo, p.ggScore]))
+        const percentileMap = new Map(allScored.map(p => [p.Jugador + '|' + p.Equipo, p.ggScorePercentile]))
 
         // Score and enrich external players with Transfermarkt data + Más Datos + Estimated values
-        const externalScored = computeGGScores(raw.external, 'externo', scoreMap)
+        const externalScored = computeGGScores(raw.external, 'externo', scoreMap, percentileMap)
         const external = externalScored
           .map(p => enrichWithTransfermarkt(p, tmMap))
           .map(p => enrichWithMasDatos(p, masDatosMap))
           .map(p => enrichWithEstimatedValue(p)) // Estimate for Colombia 2nd div
 
-        const internalScored = computeGGScores(raw.internal, 'interno', scoreMap)
+        const internalScored = computeGGScores(raw.internal, 'interno', scoreMap, percentileMap)
 
         // Enrich internal players with:
         // 1. Transfermarkt data using their TM link (valor de mercado, contrato, imagen)
@@ -1067,7 +1069,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         })
 
         // Plantel Primera División - same enrichment pipeline as external
-        const plantelPrimeraScored = computeGGScores(raw.plantelPrimera, 'interno', scoreMap)
+        const plantelPrimeraScored = computeGGScores(raw.plantelPrimera, 'interno', scoreMap, percentileMap)
         const plantelPrimera: EnrichedPlayer[] = plantelPrimeraScored
           .map(p => enrichInternalWithScrapedTM(p))
           .map(p => enrichWithTransfermarkt(p, tmMap))

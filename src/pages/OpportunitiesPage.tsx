@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useData } from '@/context/DataContext'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
-import { getScoreColorClass, getScoreBgClass } from '@/components/ui/ScoreBar'
+import { getScoreColorClass, getScoreBgClass, getScoreHex } from '@/components/ui/ScoreBar'
 import type { EnrichedPlayer } from '@/types'
 
 interface Opportunity {
@@ -250,6 +250,7 @@ export default function OpportunitiesPage() {
           {filteredOpportunities.map((opp, idx) => {
             const scoreColor = getScoreColorClass(opp.player.ggScore ?? null)
             const scoreBg = getScoreBgClass(opp.player.ggScore ?? null)
+            const scoreHex = getScoreHex(opp.player.ggScore ?? null, opp.player.ggScorePercentile)
 
             return (
               <div
@@ -292,7 +293,7 @@ export default function OpportunitiesPage() {
 
                 {/* Stats row */}
                 <div className="flex items-center gap-3 mb-3 text-sm">
-                  <span className={`px-2 py-0.5 rounded-full font-semibold ${scoreBg} ${scoreColor}`}>
+                  <span className="px-2 py-0.5 rounded-full font-semibold" style={{ color: scoreHex, backgroundColor: `${scoreHex}20` }}>
                     {opp.player.ggScore?.toFixed(1) ?? '—'}
                   </span>
                   <span className="text-apple-gray-600 dark:text-apple-gray-400">

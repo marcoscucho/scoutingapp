@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 
 interface GaugeScoreProps {
   score: number | null
+  percentile?: number | null
   size?: 'sm' | 'md' | 'lg'
   showLabel?: boolean
   animated?: boolean
@@ -9,31 +10,35 @@ interface GaugeScoreProps {
   comparisonLabel?: string
 }
 
-// Score color scale: lightest = best, darkest = worst. Lanús palette (gold → granate).
-function getScoreColor(score: number): string {
-  if (score >= 80) return '#EFE0A0'  // champagne/gold — Elite
-  if (score >= 65) return '#D4A843'  // warm gold — Muy bueno
-  if (score >= 50) return '#C47830'  // amber — Bueno
-  if (score >= 35) return '#B04828'  // burnt orange — Promedio
-  if (score >= 20) return '#943030'  // medium red — Bajo
-  return '#7B1830'                   // dark granate — Crítico
+// Score color/label scale — uses percentile (position-relative) when available.
+// Lightest = best, darkest = worst. Lanús palette (gold → granate).
+function getScoreColor(score: number, percentile?: number | null): string {
+  const v = percentile != null ? percentile : score
+  if (v >= 80) return '#EFE0A0'  // champagne/gold — Elite
+  if (v >= 65) return '#D4A843'  // warm gold — Muy bueno
+  if (v >= 50) return '#C47830'  // amber — Bueno
+  if (v >= 35) return '#B04828'  // burnt orange — Promedio
+  if (v >= 20) return '#943030'  // medium red — Bajo
+  return '#7B1830'               // dark granate — Crítico
 }
 
-function getScoreLabel(score: number): string {
-  if (score >= 80) return 'Elite'
-  if (score >= 65) return 'Muy Bueno'
-  if (score >= 50) return 'Bueno'
-  if (score >= 35) return 'Promedio'
-  if (score >= 20) return 'Bajo'
+function getScoreLabel(score: number, percentile?: number | null): string {
+  const v = percentile != null ? percentile : score
+  if (v >= 80) return 'Elite'
+  if (v >= 65) return 'Muy Bueno'
+  if (v >= 50) return 'Bueno'
+  if (v >= 35) return 'Promedio'
+  if (v >= 20) return 'Bajo'
   return 'Crítico'
 }
 
-function getScoreDescription(score: number): string {
-  if (score >= 80) return 'Rendimiento excepcional'
-  if (score >= 65) return 'Rendimiento destacado'
-  if (score >= 50) return 'Rendimiento sólido'
-  if (score >= 35) return 'Rendimiento regular'
-  if (score >= 20) return 'Necesita mejorar'
+function getScoreDescription(score: number, percentile?: number | null): string {
+  const v = percentile != null ? percentile : score
+  if (v >= 80) return 'Rendimiento excepcional'
+  if (v >= 65) return 'Rendimiento destacado'
+  if (v >= 50) return 'Rendimiento sólido'
+  if (v >= 35) return 'Rendimiento regular'
+  if (v >= 20) return 'Necesita mejorar'
   return 'Rendimiento bajo'
 }
 
@@ -52,6 +57,7 @@ function arcPath(cx: number, cy: number, r: number, startDeg: number, endDeg: nu
 
 export default function GaugeScore({
   score,
+  percentile,
   size = 'lg',
   showLabel = true,
   animated = true,
@@ -98,9 +104,9 @@ export default function GaugeScore({
   }
 
   const clampedValue = Math.max(0, Math.min(100, displayValue))
-  const color = getScoreColor(score)
-  const label = getScoreLabel(score)
-  const description = getScoreDescription(score)
+  const color = getScoreColor(score, percentile)
+  const label = getScoreLabel(score, percentile)
+  const description = getScoreDescription(score, percentile)
 
   // Gauge dimensions based on size - cy positioned to leave room for score below arc
   const config = {
@@ -386,13 +392,13 @@ export default function GaugeScore({
 }
 
 // Mini version for tables/lists
-export function GaugeScoreMini({ score }: { score: number | null }) {
+export function GaugeScoreMini({ score, percentile }: { score: number | null; percentile?: number | null }) {
   if (score === null) {
     return <span className="text-apple-gray-400 text-sm">—</span>
   }
 
-  const color = getScoreColor(score)
-  const label = getScoreLabel(score)
+  const color = getScoreColor(score, percentile)
+  const label = getScoreLabel(score, percentile)
 
   return (
     <div className="flex items-center gap-2">

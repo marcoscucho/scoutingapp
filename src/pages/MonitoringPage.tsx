@@ -1144,7 +1144,7 @@ export default function MonitoringPage() {
                           {/* Score */}
                           <td className="px-3 py-3">
                             {hasData && player.ggScore !== undefined && player.ggScore !== null ? (
-                              <ScoreBar score={player.ggScore} size="sm" />
+                              <ScoreBar score={player.ggScore} percentile={player.metricsPlayer?.ggScorePercentile ?? null} size="sm" />
                             ) : (
                               <LowDataWarning />
                             )}

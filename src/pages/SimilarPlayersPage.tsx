@@ -196,7 +196,7 @@ export default function SimilarPlayersPage() {
             </div>
             <div className="text-right">
               <div className="text-xs text-apple-gray-500 dark:text-apple-gray-400 mb-1">Scoring datos</div>
-              <ScoreBar score={selectedPlayer.ggScore} size="sm" />
+              <ScoreBar score={selectedPlayer.ggScore} percentile={selectedPlayer.ggScorePercentile} size="sm" />
             </div>
             <button
               onClick={() => {
@@ -273,7 +273,7 @@ export default function SimilarPlayersPage() {
 
                   {/* Score */}
                   <div className="w-24">
-                    <ScoreBar score={player.ggScore} size="md" />
+                    <ScoreBar score={player.ggScore} percentile={player.ggScorePercentile} size="md" />
                   </div>
 
                   {/* Similarity */}
