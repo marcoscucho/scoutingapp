@@ -7,6 +7,7 @@ import GaugeScore from '@/components/charts/GaugeScore'
 import FootballPitch from '@/components/charts/FootballPitch'
 import ContractBadge from '@/components/ui/ContractBadge'
 import { normalizeName } from '@/utils/scoring'
+import { getScoreHex } from '@/components/ui/ScoreBar'
 import { POSITION_MAP, DISPLAY_POSITION_MAP, DISPLAY_METRICS } from '@/constants/scoring'
 import type { EnrichedPlayer, NormalizedPlayer, EvolutionEntry, SubjectiveMetric, GPSEntry } from '@/types'
 import type { ScoutEvaluation } from '@/services/scoutEvaluationService'
@@ -38,470 +39,27 @@ interface PlantelLayoutProps {
   onExportPdf: () => void
 }
 
-// ─── INJURY ZONES MAP ─────────────────────────────────────────────────────────
-// Absolute coords in SVG viewBox "0 0 220 260"
-// Front figure centered at x=55, Back figure centered at x=165
+// ─── INJURY ZONES ─────────────────────────────────────────────────────────────
 
-const INJURY_ZONE_COORDS: Record<string, {
-  front?: { x: number; y: number }
-  back?: { x: number; y: number }
-}> = {
-  'Cabeza':               { front: { x: 55, y: 20 },  back: { x: 165, y: 20 } },
-  'Cuello':               { front: { x: 55, y: 42 },  back: { x: 165, y: 42 } },
-  'Hombro Izq.':          { front: { x: 32, y: 53 },  back: { x: 142, y: 53 } },
-  'Hombro Der.':          { front: { x: 78, y: 53 },  back: { x: 188, y: 53 } },
-  'Pecho':                { front: { x: 55, y: 68 } },
-  'Abdomen':              { front: { x: 55, y: 100 } },
-  'Espalda Alta':         { back:  { x: 165, y: 62 } },
-  'Espalda Baja':         { back:  { x: 165, y: 100 } },
-  'Cadera Izq.':          { front: { x: 42, y: 128 }, back: { x: 152, y: 128 } },
-  'Cadera Der.':          { front: { x: 68, y: 128 }, back: { x: 178, y: 128 } },
-  'Ingle Izq.':           { front: { x: 42, y: 138 } },
-  'Ingle Der.':           { front: { x: 68, y: 138 } },
-  'Glúteo Izq.':          { back:  { x: 152, y: 135 } },
-  'Glúteo Der.':          { back:  { x: 178, y: 135 } },
-  'Muslo Izq.':           { front: { x: 41, y: 168 }, back: { x: 151, y: 168 } },
-  'Muslo Der.':           { front: { x: 69, y: 168 }, back: { x: 179, y: 168 } },
-  'Isquiotibial Izq.':    { back:  { x: 151, y: 170 } },
-  'Isquiotibial Der.':    { back:  { x: 179, y: 170 } },
-  'Rodilla Izq.':         { front: { x: 41, y: 208 }, back: { x: 151, y: 208 } },
-  'Rodilla Der.':         { front: { x: 69, y: 208 }, back: { x: 179, y: 208 } },
-  'Gemelo Izq.':          { back:  { x: 151, y: 234 } },
-  'Gemelo Der.':          { back:  { x: 179, y: 234 } },
-  'Tobillo Izq.':         { front: { x: 41, y: 260 }, back: { x: 151, y: 260 } },
-  'Tobillo Der.':         { front: { x: 69, y: 260 }, back: { x: 179, y: 260 } },
-  'Pie Izq.':             { front: { x: 39, y: 275 }, back: { x: 149, y: 275 } },
-  'Pie Der.':             { front: { x: 71, y: 275 }, back: { x: 181, y: 275 } },
-}
-
-const ALL_INJURY_ZONES = Object.keys(INJURY_ZONE_COORDS)
+const ALL_INJURY_ZONES = [
+  'Cabeza', 'Cuello',
+  'Hombro Izq.', 'Hombro Der.',
+  'Pecho', 'Abdomen', 'Espalda Alta', 'Espalda Baja',
+  'Cadera Izq.', 'Cadera Der.',
+  'Ingle Izq.', 'Ingle Der.',
+  'Glúteo Izq.', 'Glúteo Der.',
+  'Muslo Izq.', 'Muslo Der.',
+  'Isquiotibial Izq.', 'Isquiotibial Der.',
+  'Rodilla Izq.', 'Rodilla Der.',
+  'Gemelo Izq.', 'Gemelo Der.',
+  'Tobillo Izq.', 'Tobillo Der.',
+  'Pie Izq.', 'Pie Der.',
+]
 
 const INJURY_STATUS_CONFIG = {
   recuperado:     { label: 'Recuperado',      color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/30', dot: '#22C55E' },
   en_tratamiento: { label: 'En tratamiento',  color: 'text-amber-400',   bg: 'bg-amber-500/10 border-amber-500/30',   dot: '#F59E0B' },
   baja:           { label: 'Baja',            color: 'text-red-400',     bg: 'bg-red-500/10 border-red-500/30',       dot: '#EF4444' },
-}
-
-// ─── HUMAN BODY SVG ───────────────────────────────────────────────────────────
-// Professional B&W anatomical figure — front + back — viewBox 0 0 220 295
-
-const BW_SKIN      = '#d8d8d8'   // main body fill
-const BW_LIGHT     = '#ebebeb'   // highlights (forehead, kneecap, etc)
-const BW_MID       = '#b8b8b8'   // mid-tone shadows
-const BW_DARK      = '#888888'   // deeper shadows (neck, forearms)
-const BW_STROKE    = '#4a4a4a'   // main outline
-const BW_DETAIL    = '#999999'   // muscle detail lines
-
-// One complete figure, all coords relative to figure center cx (absolute SVG x)
-function BodyFigure({ cx, view }: { cx: number; view: 'front' | 'back' }) {
-  const f = view === 'front'
-  return (
-    <g>
-      {/* ── HEAD ── */}
-      {/* Main skull */}
-      <path d={`M${cx},5 Q${cx+13},5 ${cx+13.5},14 Q${cx+14},21 ${cx+11},28 Q${cx+8},34 ${cx+5},36 Q${cx+2.5},37 ${cx},37 Q${cx-2.5},37 ${cx-5},36 Q${cx-8},34 ${cx-11},28 Q${cx-14},21 ${cx-13.5},14 Q${cx-13},5 ${cx},5 Z`}
-        fill={BW_LIGHT} stroke={BW_STROKE} strokeWidth="0.55" />
-      {/* Temporal shadow */}
-      <ellipse cx={cx-8} cy={17} rx={4.5} ry={8} fill={BW_DARK} opacity="0.18" />
-      <ellipse cx={cx+8} cy={17} rx={4.5} ry={8} fill={BW_DARK} opacity="0.18" />
-
-      {f ? (
-        /* ── FACE ── */
-        <>
-          {/* Brow ridge */}
-          <path d={`M${cx-8.5},13.5 Q${cx-4},11 ${cx},12 Q${cx+4},11 ${cx+8.5},13.5`}
-            fill="none" stroke={BW_DARK} strokeWidth="0.55" opacity="0.50" />
-          {/* Left eye socket */}
-          <ellipse cx={cx-4.5} cy={17} rx={2.8} ry={1.8} fill={BW_DARK} opacity="0.50" />
-          <ellipse cx={cx-4.2} cy={16.7} rx={0.9} ry={0.8} fill={BW_LIGHT} opacity="0.70" />
-          {/* Right eye socket */}
-          <ellipse cx={cx+4.5} cy={17} rx={2.8} ry={1.8} fill={BW_DARK} opacity="0.50" />
-          <ellipse cx={cx+4.8} cy={16.7} rx={0.9} ry={0.8} fill={BW_LIGHT} opacity="0.70" />
-          {/* Nose */}
-          <path d={`M${cx-1},20 L${cx-2},25 Q${cx-3},27 ${cx-2.5},28 Q${cx},29 ${cx+2.5},28 Q${cx+3},27 ${cx+2},25 L${cx+1},20`}
-            fill={BW_MID} stroke="none" opacity="0.28" />
-          <path d={`M${cx-2.5},28 Q${cx},30 ${cx+2.5},28`}
-            fill={BW_DARK} stroke="none" opacity="0.30" />
-          {/* Mouth */}
-          <path d={`M${cx-4},31.5 Q${cx-1.5},33 ${cx},32.5 Q${cx+1.5},33 ${cx+4},31.5`}
-            fill="none" stroke={BW_DARK} strokeWidth="0.65" opacity="0.42" />
-          {/* Chin shadow */}
-          <ellipse cx={cx} cy={35} rx={4.5} ry={1.5} fill={BW_DARK} opacity="0.14" />
-          {/* Cheekbones */}
-          <ellipse cx={cx-8} cy={24} rx={3} ry={2.5} fill={BW_LIGHT} opacity="0.30" />
-          <ellipse cx={cx+8} cy={24} rx={3} ry={2.5} fill={BW_LIGHT} opacity="0.30" />
-        </>
-      ) : (
-        /* ── BACK OF HEAD ── */
-        <>
-          <ellipse cx={cx} cy={12} rx={8} ry={5} fill={BW_DARK} opacity="0.22" />
-          <path d={`M${cx-10},8 Q${cx},5 ${cx+10},8`}
-            fill="none" stroke={BW_DARK} strokeWidth="1.4" opacity="0.28" strokeLinecap="round" />
-        </>
-      )}
-
-      {/* Ears */}
-      <path d={`M${cx-13.5},15 Q${cx-17},18.5 ${cx-16},23.5 Q${cx-14.5},26 ${cx-13},23.5`}
-        fill={BW_MID} stroke={BW_STROKE} strokeWidth="0.42" />
-      <path d={`M${cx+13.5},15 Q${cx+17},18.5 ${cx+16},23.5 Q${cx+14.5},26 ${cx+13},23.5`}
-        fill={BW_MID} stroke={BW_STROKE} strokeWidth="0.42" />
-
-      {/* ── NECK ── */}
-      <path d={`M${cx-6.5},35 Q${cx-7.5},40 ${cx-7},47 L${cx+7},47 Q${cx+7.5},40 ${cx+6.5},35 Z`}
-        fill={BW_DARK} stroke={BW_STROKE} strokeWidth="0.50" />
-      {f && (
-        <>
-          <line x1={cx-3} y1="36" x2={cx-4.5} y2="47" stroke={BW_DETAIL} strokeWidth="0.40" opacity="0.42" />
-          <line x1={cx+3} y1="36" x2={cx+4.5} y2="47" stroke={BW_DETAIL} strokeWidth="0.40" opacity="0.42" />
-        </>
-      )}
-
-      {/* ── TRAPEZIUS ── */}
-      <path d={f
-        ? `M${cx-6.5},43 Q${cx-15},44 ${cx-23},48 Q${cx-29},52 ${cx-27},61 L${cx-22},61 Q${cx-21},50 ${cx-12},47 Z`
-        : `M${cx-6.5},43 Q${cx-15},44 ${cx-24},47 Q${cx-31},51 ${cx-29},61 L${cx-24},61 Q${cx-22},50 ${cx-13},47 Z`}
-        fill={f ? BW_SKIN : BW_LIGHT} stroke={BW_STROKE} strokeWidth="0.42" />
-      <path d={f
-        ? `M${cx+6.5},43 Q${cx+15},44 ${cx+23},48 Q${cx+29},52 ${cx+27},61 L${cx+22},61 Q${cx+21},50 ${cx+12},47 Z`
-        : `M${cx+6.5},43 Q${cx+15},44 ${cx+24},47 Q${cx+31},51 ${cx+29},61 L${cx+24},61 Q${cx+22},50 ${cx+13},47 Z`}
-        fill={f ? BW_SKIN : BW_LIGHT} stroke={BW_STROKE} strokeWidth="0.42" />
-      {!f && (
-        /* trapezius diamond */
-        <path d={`M${cx},45 L${cx-16},57 L${cx},71 L${cx+16},57 Z`}
-          fill={BW_MID} stroke={BW_DETAIL} strokeWidth="0.35" opacity="0.58" />
-      )}
-
-      {/* ── DELTOIDS ── */}
-      <ellipse cx={cx-29} cy={54} rx={7} ry={8.5} fill={f ? BW_MID : BW_SKIN} stroke={BW_STROKE} strokeWidth="0.45" />
-      <ellipse cx={cx+29} cy={54} rx={7} ry={8.5} fill={f ? BW_MID : BW_SKIN} stroke={BW_STROKE} strokeWidth="0.45" />
-      {/* Deltoid highlight */}
-      <ellipse cx={cx-30} cy={51} rx={3.5} ry={4} fill={BW_LIGHT} opacity="0.38" />
-      <ellipse cx={cx+30} cy={51} rx={3.5} ry={4} fill={BW_LIGHT} opacity="0.38" />
-
-      {/* ── MAIN TORSO ── */}
-      {/* Tapered: wide chest, narrower waist, slight hip flare */}
-      <path d={`M${cx-21},48 Q${cx-24},58 ${cx-22},97 Q${cx-20},118 ${cx-20},127 L${cx+20},127 Q${cx+20},118 ${cx+22},97 Q${cx+24},58 ${cx+21},48 Z`}
-        fill={BW_SKIN} stroke={BW_STROKE} strokeWidth="0.52" />
-
-      {f ? (
-        /* ── CHEST & ABS ── */
-        <>
-          {/* Clavicle left */}
-          <path d={`M${cx-3},48 Q${cx-12},47 ${cx-21},50`}
-            fill="none" stroke={BW_DETAIL} strokeWidth="0.62" opacity="0.48" />
-          {/* Clavicle right */}
-          <path d={`M${cx+3},48 Q${cx+12},47 ${cx+21},50`}
-            fill="none" stroke={BW_DETAIL} strokeWidth="0.62" opacity="0.48" />
-          {/* Left pectoralis */}
-          <path d={`M${cx-3},54 Q${cx-15},58 ${cx-19},69 Q${cx-17},78 ${cx-5},75 Q${cx-1},68 ${cx-1},60 Z`}
-            fill={BW_MID} stroke={BW_DETAIL} strokeWidth="0.32" opacity="0.48" />
-          {/* Right pectoralis */}
-          <path d={`M${cx+3},54 Q${cx+15},58 ${cx+19},69 Q${cx+17},78 ${cx+5},75 Q${cx+1},68 ${cx+1},60 Z`}
-            fill={BW_MID} stroke={BW_DETAIL} strokeWidth="0.32" opacity="0.48" />
-          {/* Sternal midline */}
-          <line x1={cx} y1="53" x2={cx} y2="125" stroke={BW_DETAIL} strokeWidth="0.45" opacity="0.38" />
-          {/* Pec fold */}
-          <path d={`M${cx-19},68 Q${cx-9},72 ${cx},71 Q${cx+9},72 ${cx+19},68`}
-            fill="none" stroke={BW_DETAIL} strokeWidth="0.42" opacity="0.35" />
-          {/* Rectus abdominis — 3 pairs */}
-          <path d={`M${cx-14},82 Q${cx},84 ${cx+14},82`} fill="none" stroke={BW_DETAIL} strokeWidth="0.40" opacity="0.42" />
-          <path d={`M${cx-15},94 Q${cx},96 ${cx+15},94`} fill="none" stroke={BW_DETAIL} strokeWidth="0.38" opacity="0.36" />
-          <path d={`M${cx-15},106 Q${cx},108 ${cx+15},106`} fill="none" stroke={BW_DETAIL} strokeWidth="0.34" opacity="0.30" />
-          <path d={`M${cx-16},117 Q${cx},119 ${cx+16},117`} fill="none" stroke={BW_DETAIL} strokeWidth="0.30" opacity="0.24" />
-          {/* External obliques */}
-          <path d={`M${cx-22},73 Q${cx-24},97 ${cx-21},120`} fill="none" stroke={BW_DETAIL} strokeWidth="0.42" opacity="0.26" />
-          <path d={`M${cx+22},73 Q${cx+24},97 ${cx+21},120`} fill="none" stroke={BW_DETAIL} strokeWidth="0.42" opacity="0.26" />
-          {/* Serratus anterior (rib hints) */}
-          <path d={`M${cx-21},70 Q${cx-25},78 ${cx-22},87`} fill="none" stroke={BW_DETAIL} strokeWidth="0.38" opacity="0.28" />
-          <path d={`M${cx+21},70 Q${cx+25},78 ${cx+22},87`} fill="none" stroke={BW_DETAIL} strokeWidth="0.38" opacity="0.28" />
-        </>
-      ) : (
-        /* ── BACK MUSCLES ── */
-        <>
-          {/* Spine */}
-          <line x1={cx} y1="45" x2={cx} y2="125" stroke={BW_DETAIL} strokeWidth="0.58" opacity="0.50" />
-          {/* Vertebrae dots */}
-          {[56,65,74,83,92,101,110,118].map(y => (
-            <circle key={y} cx={cx} cy={y} r={0.9} fill={BW_DETAIL} opacity="0.30" />
-          ))}
-          {/* Scapulae (shoulder blades) */}
-          <path d={`M${cx-8},52 Q${cx-18},56 ${cx-18},70 Q${cx-18},78 ${cx-10},80 Q${cx-5},80 ${cx-5},72 Q${cx-5},60 ${cx-8},52 Z`}
-            fill={BW_MID} stroke={BW_DETAIL} strokeWidth="0.38" opacity="0.40" />
-          <path d={`M${cx+8},52 Q${cx+18},56 ${cx+18},70 Q${cx+18},78 ${cx+10},80 Q${cx+5},80 ${cx+5},72 Q${cx+5},60 ${cx+8},52 Z`}
-            fill={BW_MID} stroke={BW_DETAIL} strokeWidth="0.38" opacity="0.40" />
-          {/* Spine of scapula */}
-          <path d={`M${cx-8},54 Q${cx-16},57 ${cx-18},62`} fill="none" stroke={BW_DETAIL} strokeWidth="0.50" opacity="0.38" />
-          <path d={`M${cx+8},54 Q${cx+16},57 ${cx+18},62`} fill="none" stroke={BW_DETAIL} strokeWidth="0.50" opacity="0.38" />
-          {/* Left latissimus */}
-          <path d={`M${cx-15},57 Q${cx-24},85 ${cx-22},122`} fill="none" stroke={BW_DETAIL} strokeWidth="0.72" opacity="0.48" />
-          {/* Right latissimus */}
-          <path d={`M${cx+15},57 Q${cx+24},85 ${cx+22},122`} fill="none" stroke={BW_DETAIL} strokeWidth="0.72" opacity="0.48" />
-          {/* Lower trapezius */}
-          <path d={`M${cx-14},72 Q${cx},77 ${cx+14},72`} fill="none" stroke={BW_DETAIL} strokeWidth="0.42" opacity="0.35" />
-          {/* Erector spinae (para-spinals) */}
-          <path d={`M${cx-4},75 L${cx-4},122`} fill="none" stroke={BW_DETAIL} strokeWidth="0.38" opacity="0.26" />
-          <path d={`M${cx+4},75 L${cx+4},122`} fill="none" stroke={BW_DETAIL} strokeWidth="0.38" opacity="0.26" />
-          {/* Infraspinatus lines */}
-          <path d={`M${cx-8},64 Q${cx-17},72 ${cx-15},80`} fill="none" stroke={BW_DETAIL} strokeWidth="0.38" opacity="0.28" />
-          <path d={`M${cx+8},64 Q${cx+17},72 ${cx+15},80`} fill="none" stroke={BW_DETAIL} strokeWidth="0.38" opacity="0.28" />
-        </>
-      )}
-
-      {/* ── LEFT UPPER ARM ── */}
-      <path d={`M${cx-22},51 Q${cx-35},56 ${cx-36},72 L${cx-35},99 Q${cx-35},105 ${cx-31},106 L${cx-26},106 Q${cx-22},105 ${cx-22},99 L${cx-23},67 Q${cx-22},54 ${cx-22},51 Z`}
-        fill={BW_SKIN} stroke={BW_STROKE} strokeWidth="0.45" />
-      {/* Bicep (front) or tricep (back) */}
-      {f
-        ? <path d={`M${cx-35},62 Q${cx-37},78 ${cx-35},94`} fill="none" stroke={BW_DETAIL} strokeWidth="0.50" opacity="0.36" />
-        : <path d={`M${cx-31},58 Q${cx-36},78 ${cx-34},98`} fill="none" stroke={BW_DETAIL} strokeWidth="0.60" opacity="0.46" />
-      }
-
-      {/* ── LEFT FOREARM ── */}
-      <path d={`M${cx-36},101 Q${cx-39},110 ${cx-38},127 Q${cx-38},133 ${cx-34},134 L${cx-29},134 Q${cx-25},133 ${cx-25},127 L${cx-26},106 Z`}
-        fill={BW_DARK} stroke={BW_STROKE} strokeWidth="0.45" />
-      {!f && <path d={`M${cx-36},107 Q${cx-38},120 ${cx-37},130`} fill="none" stroke={BW_DETAIL} strokeWidth="0.44" opacity="0.34" />}
-
-      {/* ── LEFT HAND ── */}
-      <path d={`M${cx-39},132 Q${cx-42},139 ${cx-41},147 Q${cx-40},152 ${cx-34},152 Q${cx-28},151 ${cx-27},144 L${cx-28},132 Z`}
-        fill={BW_DARK} stroke={BW_STROKE} strokeWidth="0.45" />
-      <line x1={cx-41} y1="150" x2={cx-42} y2="157" stroke={BW_STROKE} strokeWidth="0.40" opacity="0.42" />
-      <line x1={cx-38} y1="151" x2={cx-39} y2="158" stroke={BW_STROKE} strokeWidth="0.40" opacity="0.42" />
-      <line x1={cx-35} y1="151" x2={cx-35} y2="158" stroke={BW_STROKE} strokeWidth="0.40" opacity="0.42" />
-      <line x1={cx-32} y1="150" x2={cx-32} y2="157" stroke={BW_STROKE} strokeWidth="0.40" opacity="0.42" />
-      <path d={`M${cx-27},139 Q${cx-25},144 ${cx-26},150`} fill="none" stroke={BW_STROKE} strokeWidth="0.48" opacity="0.42" />
-
-      {/* ── RIGHT UPPER ARM ── */}
-      <path d={`M${cx+22},51 Q${cx+35},56 ${cx+36},72 L${cx+35},99 Q${cx+35},105 ${cx+31},106 L${cx+26},106 Q${cx+22},105 ${cx+22},99 L${cx+23},67 Q${cx+22},54 ${cx+22},51 Z`}
-        fill={BW_SKIN} stroke={BW_STROKE} strokeWidth="0.45" />
-      {f
-        ? <path d={`M${cx+35},62 Q${cx+37},78 ${cx+35},94`} fill="none" stroke={BW_DETAIL} strokeWidth="0.50" opacity="0.36" />
-        : <path d={`M${cx+31},58 Q${cx+36},78 ${cx+34},98`} fill="none" stroke={BW_DETAIL} strokeWidth="0.60" opacity="0.46" />
-      }
-
-      {/* ── RIGHT FOREARM ── */}
-      <path d={`M${cx+36},101 Q${cx+39},110 ${cx+38},127 Q${cx+38},133 ${cx+34},134 L${cx+29},134 Q${cx+25},133 ${cx+25},127 L${cx+26},106 Z`}
-        fill={BW_DARK} stroke={BW_STROKE} strokeWidth="0.45" />
-      {!f && <path d={`M${cx+36},107 Q${cx+38},120 ${cx+37},130`} fill="none" stroke={BW_DETAIL} strokeWidth="0.44" opacity="0.34" />}
-
-      {/* ── RIGHT HAND ── */}
-      <path d={`M${cx+39},132 Q${cx+42},139 ${cx+41},147 Q${cx+40},152 ${cx+34},152 Q${cx+28},151 ${cx+27},144 L${cx+28},132 Z`}
-        fill={BW_DARK} stroke={BW_STROKE} strokeWidth="0.45" />
-      <line x1={cx+41} y1="150" x2={cx+42} y2="157" stroke={BW_STROKE} strokeWidth="0.40" opacity="0.42" />
-      <line x1={cx+38} y1="151" x2={cx+39} y2="158" stroke={BW_STROKE} strokeWidth="0.40" opacity="0.42" />
-      <line x1={cx+35} y1="151" x2={cx+35} y2="158" stroke={BW_STROKE} strokeWidth="0.40" opacity="0.42" />
-      <line x1={cx+32} y1="150" x2={cx+32} y2="157" stroke={BW_STROKE} strokeWidth="0.40" opacity="0.42" />
-      <path d={`M${cx+27},139 Q${cx+25},144 ${cx+26},150`} fill="none" stroke={BW_STROKE} strokeWidth="0.48" opacity="0.42" />
-
-      {/* ── HIPS ── */}
-      <path d={`M${cx-20},125 Q${cx-26},130 ${cx-25},141 L${cx+25},141 Q${cx+26},130 ${cx+20},125 Z`}
-        fill={BW_MID} stroke={BW_STROKE} strokeWidth="0.50" />
-      {f && (
-        <>
-          {/* Inguinal ligaments */}
-          <path d={`M${cx-4},138 Q${cx-13},133 ${cx-21},127`} fill="none" stroke={BW_DETAIL} strokeWidth="0.44" opacity="0.36" />
-          <path d={`M${cx+4},138 Q${cx+13},133 ${cx+21},127`} fill="none" stroke={BW_DETAIL} strokeWidth="0.44" opacity="0.36" />
-          <path d={`M${cx-13},140 Q${cx},143 ${cx+13},140`} fill="none" stroke={BW_DETAIL} strokeWidth="0.38" opacity="0.28" />
-        </>
-      )}
-      {!f && (
-        <>
-          {/* Gluteus maximus */}
-          <path d={`M${cx-25},136 Q${cx-19},144 ${cx-2},144 Q${cx+5},140 ${cx},132`}
-            fill={BW_LIGHT} stroke={BW_DETAIL} strokeWidth="0.35" opacity="0.48" />
-          <path d={`M${cx+25},136 Q${cx+19},144 ${cx+2},144 Q${cx-5},140 ${cx},132`}
-            fill={BW_LIGHT} stroke={BW_DETAIL} strokeWidth="0.35" opacity="0.48" />
-          <path d={`M${cx-23},143 Q${cx-11},147 ${cx-1},146`} fill="none" stroke={BW_DETAIL} strokeWidth="0.50" opacity="0.32" />
-          <path d={`M${cx+23},143 Q${cx+11},147 ${cx+1},146`} fill="none" stroke={BW_DETAIL} strokeWidth="0.50" opacity="0.32" />
-        </>
-      )}
-
-      {/* ── LEFT THIGH ── */}
-      <path d={`M${cx-24},139 L${cx-14},139 L${cx-13},200 Q${cx-13},208 ${cx-20},209 L${cx-25},209 Q${cx-31},208 ${cx-31},200 Z`}
-        fill={BW_SKIN} stroke={BW_STROKE} strokeWidth="0.45" />
-      {f && (
-        <>
-          <path d={`M${cx-28},149 Q${cx-30},175 ${cx-29},196`} fill="none" stroke={BW_DETAIL} strokeWidth="0.44" opacity="0.32" />
-          <path d={`M${cx-18},143 Q${cx-17},170 ${cx-16},198`} fill="none" stroke={BW_DETAIL} strokeWidth="0.38" opacity="0.26" />
-          {/* VMO (vastus medialis) teardrop */}
-          <path d={`M${cx-16},190 Q${cx-21},200 ${cx-23},208`} fill="none" stroke={BW_DETAIL} strokeWidth="0.55" opacity="0.42" />
-          {/* Rectus femoris */}
-          <path d={`M${cx-22},148 Q${cx-23},174 ${cx-22},198`} fill="none" stroke={BW_DETAIL} strokeWidth="0.40" opacity="0.28" />
-        </>
-      )}
-      {!f && (
-        <>
-          <path d={`M${cx-24},147 Q${cx-27},175 ${cx-26},198`} fill="none" stroke={BW_DETAIL} strokeWidth="0.56" opacity="0.44" />
-          <path d={`M${cx-18},144 Q${cx-16},172 ${cx-15},198`} fill="none" stroke={BW_DETAIL} strokeWidth="0.45" opacity="0.38" />
-          {/* Biceps femoris / semimembranosus divider */}
-          <path d={`M${cx-21},150 Q${cx-21},175 ${cx-21},198`} fill="none" stroke={BW_DETAIL} strokeWidth="0.38" opacity="0.28" />
-        </>
-      )}
-
-      {/* ── RIGHT THIGH ── */}
-      <path d={`M${cx+24},139 L${cx+14},139 L${cx+13},200 Q${cx+13},208 ${cx+20},209 L${cx+25},209 Q${cx+31},208 ${cx+31},200 Z`}
-        fill={BW_SKIN} stroke={BW_STROKE} strokeWidth="0.45" />
-      {f && (
-        <>
-          <path d={`M${cx+28},149 Q${cx+30},175 ${cx+29},196`} fill="none" stroke={BW_DETAIL} strokeWidth="0.44" opacity="0.32" />
-          <path d={`M${cx+18},143 Q${cx+17},170 ${cx+16},198`} fill="none" stroke={BW_DETAIL} strokeWidth="0.38" opacity="0.26" />
-          <path d={`M${cx+16},190 Q${cx+21},200 ${cx+23},208`} fill="none" stroke={BW_DETAIL} strokeWidth="0.55" opacity="0.42" />
-          <path d={`M${cx+22},148 Q${cx+23},174 ${cx+22},198`} fill="none" stroke={BW_DETAIL} strokeWidth="0.40" opacity="0.28" />
-        </>
-      )}
-      {!f && (
-        <>
-          <path d={`M${cx+24},147 Q${cx+27},175 ${cx+26},198`} fill="none" stroke={BW_DETAIL} strokeWidth="0.56" opacity="0.44" />
-          <path d={`M${cx+18},144 Q${cx+16},172 ${cx+15},198`} fill="none" stroke={BW_DETAIL} strokeWidth="0.45" opacity="0.38" />
-          <path d={`M${cx+21},150 Q${cx+21},175 ${cx+21},198`} fill="none" stroke={BW_DETAIL} strokeWidth="0.38" opacity="0.28" />
-        </>
-      )}
-
-      {/* ── KNEES ── */}
-      <ellipse cx={cx-22} cy={210} rx={10} ry={7.5} fill={BW_LIGHT} stroke={BW_STROKE} strokeWidth="0.48" />
-      {f && <ellipse cx={cx-22} cy={209} rx={6} ry={4.5} fill={BW_LIGHT} opacity="0.60" />}
-      <ellipse cx={cx+22} cy={210} rx={10} ry={7.5} fill={BW_LIGHT} stroke={BW_STROKE} strokeWidth="0.48" />
-      {f && <ellipse cx={cx+22} cy={209} rx={6} ry={4.5} fill={BW_LIGHT} opacity="0.60" />}
-
-      {/* ── LEFT CALF/SHIN ── */}
-      <path d={`M${cx-32},215 L${cx-13},215 L${cx-14},256 Q${cx-14},263 ${cx-21},264 L${cx-25},264 Q${cx-32},263 ${cx-32},256 Z`}
-        fill={BW_SKIN} stroke={BW_STROKE} strokeWidth="0.45" />
-      {f && <path d={`M${cx-22},217 Q${cx-22},238 ${cx-22},257`} fill="none" stroke={BW_DETAIL} strokeWidth="0.50" opacity="0.30" />}
-      {!f && (
-        <>
-          {/* Gastrocnemius heads */}
-          <path d={`M${cx-24},220 Q${cx-29},240 ${cx-28},256`} fill="none" stroke={BW_DETAIL} strokeWidth="0.68" opacity="0.50" />
-          <path d={`M${cx-19},219 Q${cx-14},240 ${cx-15},256`} fill="none" stroke={BW_DETAIL} strokeWidth="0.58" opacity="0.44" />
-          <path d={`M${cx-22},216 Q${cx-22},238 ${cx-22},256`} fill="none" stroke={BW_DETAIL} strokeWidth="0.35" opacity="0.28" />
-        </>
-      )}
-
-      {/* ── RIGHT CALF/SHIN ── */}
-      <path d={`M${cx+32},215 L${cx+13},215 L${cx+14},256 Q${cx+14},263 ${cx+21},264 L${cx+25},264 Q${cx+32},263 ${cx+32},256 Z`}
-        fill={BW_SKIN} stroke={BW_STROKE} strokeWidth="0.45" />
-      {f && <path d={`M${cx+22},217 Q${cx+22},238 ${cx+22},257`} fill="none" stroke={BW_DETAIL} strokeWidth="0.50" opacity="0.30" />}
-      {!f && (
-        <>
-          <path d={`M${cx+24},220 Q${cx+29},240 ${cx+28},256`} fill="none" stroke={BW_DETAIL} strokeWidth="0.68" opacity="0.50" />
-          <path d={`M${cx+19},219 Q${cx+14},240 ${cx+15},256`} fill="none" stroke={BW_DETAIL} strokeWidth="0.58" opacity="0.44" />
-          <path d={`M${cx+22},216 Q${cx+22},238 ${cx+22},256`} fill="none" stroke={BW_DETAIL} strokeWidth="0.35" opacity="0.28" />
-        </>
-      )}
-
-      {/* ── ANKLES ── */}
-      <path d={`M${cx-32},257 L${cx-13},257 L${cx-13},267 L${cx-32},267 Z`}
-        fill={BW_DARK} stroke={BW_STROKE} strokeWidth="0.45" />
-      {/* Malleoli */}
-      <ellipse cx={cx-30} cy={263} rx={3.2} ry={2.5} fill={BW_LIGHT} opacity="0.68" />
-      <ellipse cx={cx-15} cy={263} rx={2.4} ry={2} fill={BW_LIGHT} opacity="0.55" />
-      <path d={`M${cx+32},257 L${cx+13},257 L${cx+13},267 L${cx+32},267 Z`}
-        fill={BW_DARK} stroke={BW_STROKE} strokeWidth="0.45" />
-      <ellipse cx={cx+30} cy={263} rx={3.2} ry={2.5} fill={BW_LIGHT} opacity="0.68" />
-      <ellipse cx={cx+15} cy={263} rx={2.4} ry={2} fill={BW_LIGHT} opacity="0.55" />
-
-      {/* ── FEET ── */}
-      {/* Left */}
-      <path d={f
-        ? `M${cx-33},265 Q${cx-36},271 ${cx-35},277 Q${cx-34},284 ${cx-22},285 Q${cx-11},284 ${cx-10},276 L${cx-11},265 Z`
-        : `M${cx-33},265 Q${cx-38},272 ${cx-37},278 Q${cx-35},285 ${cx-22},286 Q${cx-11},285 ${cx-10},276 L${cx-11},265 Z`}
-        fill={BW_DARK} stroke={BW_STROKE} strokeWidth="0.45" />
-      {!f && <ellipse cx={cx-34} cy={276} rx={4} ry={5.5} fill={BW_SKIN} stroke={BW_STROKE} strokeWidth="0.35" opacity="0.72" />}
-      {/* Right */}
-      <path d={f
-        ? `M${cx+33},265 Q${cx+36},271 ${cx+35},277 Q${cx+34},284 ${cx+22},285 Q${cx+11},284 ${cx+10},276 L${cx+11},265 Z`
-        : `M${cx+33},265 Q${cx+38},272 ${cx+37},278 Q${cx+35},285 ${cx+22},286 Q${cx+11},285 ${cx+10},276 L${cx+11},265 Z`}
-        fill={BW_DARK} stroke={BW_STROKE} strokeWidth="0.45" />
-      {!f && <ellipse cx={cx+34} cy={276} rx={4} ry={5.5} fill={BW_SKIN} stroke={BW_STROKE} strokeWidth="0.35" opacity="0.72" />}
-      {/* Achilles (back only) */}
-      {!f && (
-        <>
-          <line x1={cx-22} y1="257" x2={cx-22} y2="275" stroke={BW_DETAIL} strokeWidth="0.62" opacity="0.48" />
-          <line x1={cx+22} y1="257" x2={cx+22} y2="275" stroke={BW_DETAIL} strokeWidth="0.62" opacity="0.48" />
-        </>
-      )}
-      {/* Toe lines (front only) */}
-      {f && (
-        <>
-          {[-31,-27,-23,-19,-15].map((xOff, i) => (
-            <line key={i} x1={cx+xOff} y1="283" x2={cx+xOff+0.5} y2="288"
-              stroke={BW_STROKE} strokeWidth="0.40" opacity="0.35" />
-          ))}
-          {[15,19,23,27,31].map((xOff, i) => (
-            <line key={i} x1={cx+xOff} y1="283" x2={cx+xOff-0.5} y2="288"
-              stroke={BW_STROKE} strokeWidth="0.40" opacity="0.35" />
-          ))}
-        </>
-      )}
-    </g>
-  )
-}
-
-function HumanBodySVG({
-  injuries,
-  selectedInjury,
-}: {
-  injuries: Injury[]
-  selectedInjury: string | null
-}) {
-  const activeZones = useMemo(() => {
-    const map: Record<string, string> = {}
-    for (const inj of injuries) {
-      const dot = INJURY_STATUS_CONFIG[inj.status]?.dot ?? '#EF4444'
-      map[inj.zone] = dot
-    }
-    return map
-  }, [injuries])
-
-  const selectedZone = selectedInjury
-    ? injuries.find(i => i.id === selectedInjury)?.zone
-    : null
-
-  return (
-    <svg viewBox="0 0 220 295" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-      <defs>
-        <filter id="dotGlowBW">
-          <feGaussianBlur stdDeviation="1.5" result="blur" />
-          <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
-        </filter>
-      </defs>
-
-      {/* Front figure */}
-      <BodyFigure cx={55} view="front" />
-      {/* Back figure */}
-      <BodyFigure cx={165} view="back" />
-
-      {/* Labels */}
-      <text x="55" y="292" textAnchor="middle" fontSize="7" fill="#6b7280" fontFamily="system-ui" letterSpacing="1.5">FRENTE</text>
-      <text x="165" y="292" textAnchor="middle" fontSize="7" fill="#6b7280" fontFamily="system-ui" letterSpacing="1.5">ESPALDA</text>
-
-      {/* Divider */}
-      <line x1="110" y1="10" x2="110" y2="286" stroke="#374151" strokeWidth="0.5" strokeDasharray="3 3" opacity="0.5" />
-
-      {/* ── INJURY DOTS ── */}
-      {ALL_INJURY_ZONES.map(zone => {
-        const coords = INJURY_ZONE_COORDS[zone]
-        if (!coords) return null
-        const hasInjury = zone in activeZones
-        const isSelected = selectedZone === zone
-        if (!hasInjury && !isSelected) return null
-        const color = activeZones[zone] ?? '#22C55E'
-        const pts: { x: number; y: number }[] = []
-        if (coords.front) pts.push(coords.front)
-        if (coords.back) pts.push(coords.back)
-        return pts.map((pt, i) => (
-          <g key={`${zone}-${i}`} filter={isSelected ? 'url(#dotGlowBW)' : undefined}>
-            {isSelected && (
-              <circle cx={pt.x} cy={pt.y} r="6" fill="none" stroke={color} strokeWidth="0.8" opacity="0.5">
-                <animate attributeName="r" values="5;9;5" dur="1.5s" repeatCount="indefinite" />
-                <animate attributeName="opacity" values="0.6;0;0.6" dur="1.5s" repeatCount="indefinite" />
-              </circle>
-            )}
-            <circle cx={pt.x} cy={pt.y} r={isSelected ? 4 : 3} fill={color} opacity="0.95" />
-            <circle cx={pt.x} cy={pt.y} r={isSelected ? 1.8 : 1.3} fill="white" opacity="0.9" />
-          </g>
-        ))
-      })}
-    </svg>
-  )
 }
 
 // ─── SECTION ICONS ────────────────────────────────────────────────────────────
@@ -665,20 +223,7 @@ function SaludSection() {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-        {/* Body figure */}
-        <div className="flex flex-col items-center">
-          <p className="text-2xs text-apple-gray-400 uppercase tracking-wider mb-3">Mapa corporal</p>
-          <div className="relative w-56 h-auto">
-            <HumanBodySVG injuries={injuries} selectedInjury={selectedInjury} />
-          </div>
-          {injuries.length === 0 && (
-            <p className="text-xs text-apple-gray-400 mt-3 text-center">Sin lesiones registradas</p>
-          )}
-        </div>
-
-        {/* Injury list */}
-        <div className="space-y-3">
+      <div className="space-y-3">
           {showAddForm && (
             <div className="p-4 bg-apple-gray-50 dark:bg-apple-gray-800/60 rounded-xl border border-apple-gray-200 dark:border-apple-gray-700 space-y-3">
               <p className="text-xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider">Nueva Lesión</p>
@@ -788,7 +333,6 @@ function SaludSection() {
                     )}
                     <p className="text-2xs text-apple-gray-400 mt-1 ml-4.5">
                       {new Date(inj.date).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' })}
-                      {isSelected && <span className="ml-2 text-brand-green">· Marcado en el cuerpo</span>}
                     </p>
                   </button>
                 )
@@ -796,7 +340,6 @@ function SaludSection() {
             </div>
           )}
         </div>
-      </div>
     </div>
   )
 }
@@ -1125,7 +668,7 @@ export default function PlantelLayout({
                   </span>
                 )}
                 {player.ggScore !== null && (
-                  <span className="text-sm font-bold text-brand-green">
+                  <span className="text-sm font-bold" style={{ color: getScoreHex(player.ggScore, player.ggScorePercentile) }}>
                     Score: {player.ggScore?.toFixed(1)}
                   </span>
                 )}
@@ -1198,7 +741,7 @@ export default function PlantelLayout({
                   {/* Score */}
                   <div className="bg-apple-gray-50/50 dark:bg-apple-gray-800/30 rounded-xl p-5 border border-apple-gray-100 dark:border-apple-gray-700/50">
                     <h3 className="text-xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider mb-4 text-center">Scoring Datos</h3>
-                    <GaugeScore score={player.ggScore} size="md" comparisonScore={positionAverageScore} comparisonLabel={`Promedio ${posKey || 'posición'}`} />
+                    <GaugeScore score={player.ggScore} percentile={player.ggScorePercentile} size="md" comparisonScore={positionAverageScore} comparisonLabel={`Promedio ${posKey || 'posición'}`} />
                   </div>
 
                   {/* Area previews with real quick data */}
