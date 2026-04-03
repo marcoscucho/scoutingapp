@@ -3,13 +3,29 @@
   publish = "dist"
   functions = "netlify/functions"
 
+# FotMob calendar proxy (ICS feed)
+[[redirects]]
+  from = "/fotmob-proxy/*"
+  to = "https://pub.fotmob.com/:splat"
+  status = 200
+  force = true
+  headers = {User-Agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+
+# FotMob API proxy (team/match data)
+[[redirects]]
+  from = "/fotmob-www/*"
+  to = "https://www.fotmob.com/:splat"
+  status = 200
+  force = true
+  headers = {User-Agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", Referer = "https://www.fotmob.com"}
+
 # FotMob image proxy (avoids hotlink blocking)
 [[redirects]]
   from = "/fotmob-images/*"
   to = "https://images.fotmob.com/:splat"
   status = 200
   force = true
-  headers = {X-Forwarded-Host = "images.fotmob.com", User-Agent = "Mozilla/5.0"}
+  headers = {User-Agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", Referer = "https://www.fotmob.com"}
 
 # API redirects
 [[redirects]]
