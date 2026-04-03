@@ -3,6 +3,14 @@
   publish = "dist"
   functions = "netlify/functions"
 
+# FotMob image proxy (avoids hotlink blocking)
+[[redirects]]
+  from = "/fotmob-images/*"
+  to = "https://images.fotmob.com/:splat"
+  status = 200
+  force = true
+  headers = {X-Forwarded-Host = "images.fotmob.com", User-Agent = "Mozilla/5.0"}
+
 # API redirects
 [[redirects]]
   from = "/api/*"

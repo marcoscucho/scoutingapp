@@ -18,6 +18,23 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/sheets-proxy/, ''),
         followRedirects: true,
       },
+      '/fotmob-proxy': {
+        target: 'https://pub.fotmob.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/fotmob-proxy/, ''),
+      },
+      '/fotmob-www': {
+        target: 'https://www.fotmob.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/fotmob-www/, ''),
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+      },
+      '/fotmob-images': {
+        target: 'https://images.fotmob.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/fotmob-images/, ''),
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+      },
     },
   },
   build: {

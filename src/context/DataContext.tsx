@@ -112,7 +112,7 @@ function enrichInternalWithScrapedTM(player: EnrichedPlayer): EnrichedPlayer {
   return {
     ...player,
     'Nombre Completo': tm.nombre_completo,
-    Imagen: player.Imagen || tm.imagen,
+    Imagen: tm.imagen || player.Imagen,
     Representante: tm.representante ?? player.Representante ?? '',
     'Valor de mercado (Transfermarkt)': tm.valor_mercado_fmt,
     'Vencimiento contrato': tm.fin_contrato,
@@ -1068,8 +1068,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
           return { ...enriched, jugadorSK: jsk ?? '' }
         })
 
-        // Plantel Primera División - same enrichment pipeline as external
-        const plantelPrimeraScored = computeGGScores(raw.plantelPrimera, 'interno', scoreMap, percentileMap)
+        // Plantel Primera División — include arqueros (from raw.internal) so they appear in the plantel page
+        const arqueroRows = raw.internal.filter(r =>
+          (r['Posición específica'] || r['Posición']) === 'Arquero'
+        )
+        const plantelPrimeraScored = computeGGScores(
+          [...raw.plantelPrimera, ...arqueroRows],
+          'interno', scoreMap, percentileMap
+        )
         const plantelPrimera: EnrichedPlayer[] = plantelPrimeraScored
           .map(p => enrichInternalWithScrapedTM(p))
           .map(p => enrichWithTransfermarkt(p, tmMap))

@@ -7,14 +7,14 @@ import AuthModal from '@/components/auth/AuthModal'
 import { PDFBuilderFloatingButton } from '@/components/pdf/AddToReportButton'
 
 const navLinks = [
+  { to: '/', label: 'Inicio', icon: 'home', exact: true },
   { to: '/plantel', label: 'Plantel', icon: 'users' },
-  { to: '/equipo', label: 'Equipo', icon: 'team' },
-  { to: '/', label: 'Scout Externo', icon: 'globe', exact: true },
+  { to: '/analisis', label: 'Análisis Colectivo', icon: 'team' },
   { to: '/seguimiento', label: 'Seguimiento', icon: 'eye' },
   { to: '/evaluar', label: 'Reporte', icon: 'clipboard' },
 ]
 
-const talentSearchLinks = [
+const scoutingLinks = [
   { to: '/oportunidades', label: 'Oportunidades', icon: 'star' },
   { to: '/similares', label: 'Similares', icon: 'search' },
   { to: '/comparacion', label: 'Comparaciones', icon: 'compare' },
@@ -25,6 +25,7 @@ const talentSearchLinks = [
 
 function NavIcon({ icon, className = "w-5 h-5" }: { icon: string; className?: string }) {
   const icons: Record<string, JSX.Element> = {
+    home: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />,
     team: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 10h2m14 0h2M5 10V7a7 7 0 0114 0v3M5 10l-1 8h16l-1-8M9 18v2m6-2v2M7 10h10" />,
     globe: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />,
     users: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />,
@@ -52,12 +53,12 @@ export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false)
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [showUserMenu, setShowUserMenu] = useState(false)
-  const [showTalentMenu, setShowTalentMenu] = useState(false)
+  const [showScoutingMenu, setShowScoutingMenu] = useState(false)
   const userMenuRef = useRef<HTMLDivElement>(null)
-  const talentMenuRef = useRef<HTMLDivElement>(null)
+  const scoutingMenuRef = useRef<HTMLDivElement>(null)
 
-  // Check if current route is a talent search route
-  const isTalentRoute = talentSearchLinks.some(l => location.pathname === l.to)
+  // Check if current route is a scouting route
+  const isScoutingRoute = location.pathname === '/scouting' || scoutingLinks.some(l => location.pathname === l.to)
 
   // Close menu on route change
   useEffect(() => {
@@ -70,8 +71,8 @@ export default function Navbar() {
       if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
         setShowUserMenu(false)
       }
-      if (talentMenuRef.current && !talentMenuRef.current.contains(event.target as Node)) {
-        setShowTalentMenu(false)
+      if (scoutingMenuRef.current && !scoutingMenuRef.current.contains(event.target as Node)) {
+        setShowScoutingMenu(false)
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
@@ -97,59 +98,100 @@ export default function Navbar() {
             <div className="relative w-10 h-10 flex items-center justify-center">
               <img
                 src="/lanus-escudo.png"
-                alt="Club Atlético Lanús Platform"
+                alt="Club Atlético Lanús"
                 className="w-10 h-10 object-contain"
               />
             </div>
             <div className="hidden sm:flex flex-col">
               <span className="font-semibold text-apple-gray-800 dark:text-white text-sm tracking-tight leading-none">
-                Club Atlético Lanús Platform
+                Club Atlético Lanús
               </span>
             </div>
           </NavLink>
 
           {/* Desktop Nav */}
           <nav className="hidden lg:flex items-center gap-0.5 bg-apple-gray-100/70 dark:bg-apple-gray-800/70 rounded-xl p-1 backdrop-blur-sm">
-            {navLinks.map(link => (
-              <NavLink
-                key={link.to}
-                to={link.to}
-                end={link.exact}
-                className={({ isActive }) =>
-                  `px-3.5 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
-                    isActive
-                      ? 'bg-brand-green text-white shadow-sm'
-                      : 'text-apple-gray-600 dark:text-apple-gray-300 hover:text-apple-gray-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-apple-gray-700/50'
-                  }`
-                }
-              >
-                {link.label}
-              </NavLink>
-            ))}
-
-            {/* Talent Search Dropdown */}
-            <div className="relative" ref={talentMenuRef}>
-              <button
-                onClick={() => setShowTalentMenu(!showTalentMenu)}
-                className={`flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
-                  isTalentRoute
+            {/* Inicio */}
+            <NavLink
+              to="/"
+              end
+              className={({ isActive }) =>
+                `px-3.5 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
+                  isActive
                     ? 'bg-brand-green text-white shadow-sm'
                     : 'text-apple-gray-600 dark:text-apple-gray-300 hover:text-apple-gray-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-apple-gray-700/50'
-                }`}
-              >
-                Busqueda
-                <svg className={`w-3.5 h-3.5 transition-transform ${showTalentMenu ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
+                }`
+              }
+            >
+              Inicio
+            </NavLink>
 
-              {showTalentMenu && (
+            {/* Plantel */}
+            <NavLink
+              to="/plantel"
+              className={({ isActive }) =>
+                `px-3.5 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
+                  isActive
+                    ? 'bg-brand-green text-white shadow-sm'
+                    : 'text-apple-gray-600 dark:text-apple-gray-300 hover:text-apple-gray-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-apple-gray-700/50'
+                }`
+              }
+            >
+              Plantel
+            </NavLink>
+
+            {/* Análisis Colectivo */}
+            <NavLink
+              to="/analisis"
+              className={({ isActive }) =>
+                `px-3.5 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
+                  isActive
+                    ? 'bg-brand-green text-white shadow-sm'
+                    : 'text-apple-gray-600 dark:text-apple-gray-300 hover:text-apple-gray-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-apple-gray-700/50'
+                }`
+              }
+            >
+              Análisis Colectivo
+            </NavLink>
+
+            {/* Scouting Externo dropdown */}
+            <div className="relative" ref={scoutingMenuRef}>
+              <div className={`flex items-center rounded-lg transition-all duration-200 ${
+                isScoutingRoute ? 'bg-brand-green text-white shadow-sm' : ''
+              }`}>
+                <NavLink
+                  to="/scouting"
+                  className={({ isActive }) =>
+                    `pl-3.5 pr-2 py-2 text-sm font-medium transition-all duration-200 rounded-l-lg ${
+                      isScoutingRoute
+                        ? 'text-white'
+                        : 'text-apple-gray-600 dark:text-apple-gray-300 hover:text-apple-gray-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-apple-gray-700/50'
+                    }`
+                  }
+                >
+                  Scouting Externo
+                </NavLink>
+                <button
+                  onClick={() => setShowScoutingMenu(!showScoutingMenu)}
+                  className={`pr-2 py-2 transition-all duration-200 rounded-r-lg ${
+                    isScoutingRoute
+                      ? 'text-white/80 hover:text-white'
+                      : 'text-apple-gray-400 dark:text-apple-gray-500 hover:text-apple-gray-700 dark:hover:text-apple-gray-200 hover:bg-white/50 dark:hover:bg-apple-gray-700/50'
+                  }`}
+                >
+                  <svg className={`w-3.5 h-3.5 transition-transform ${showScoutingMenu ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+              </div>
+
+              {showScoutingMenu && (
                 <div className="absolute top-full left-0 mt-2 w-48 bg-white dark:bg-apple-gray-800 rounded-xl shadow-xl border border-apple-gray-200 dark:border-apple-gray-700 py-1 animate-scale-in origin-top-left z-50">
-                  {talentSearchLinks.map(link => (
+                  {scoutingLinks.map(link => (
                     <NavLink
                       key={link.to}
                       to={link.to}
-                      onClick={() => setShowTalentMenu(false)}
+                      onClick={() => setShowScoutingMenu(false)}
                       className={({ isActive }) =>
                         `flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${
                           isActive
@@ -165,6 +207,34 @@ export default function Navbar() {
                 </div>
               )}
             </div>
+
+            {/* Seguimiento */}
+            <NavLink
+              to="/seguimiento"
+              className={({ isActive }) =>
+                `px-3.5 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
+                  isActive
+                    ? 'bg-brand-green text-white shadow-sm'
+                    : 'text-apple-gray-600 dark:text-apple-gray-300 hover:text-apple-gray-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-apple-gray-700/50'
+                }`
+              }
+            >
+              Seguimiento
+            </NavLink>
+
+            {/* Reporte */}
+            <NavLink
+              to="/evaluar"
+              className={({ isActive }) =>
+                `px-3.5 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
+                  isActive
+                    ? 'bg-brand-green text-white shadow-sm'
+                    : 'text-apple-gray-600 dark:text-apple-gray-300 hover:text-apple-gray-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-apple-gray-700/50'
+                }`
+              }
+            >
+              Reporte
+            </NavLink>
           </nav>
 
           {/* Right side */}
@@ -270,54 +340,117 @@ export default function Navbar() {
       >
         <nav className="h-full overflow-y-auto py-4 px-3">
           <div className="space-y-1">
-            {navLinks.map(link => (
-              <NavLink
-                key={link.to}
-                to={link.to}
-                end={link.exact}
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all duration-200 ${
-                    isActive
-                      ? 'bg-brand-green text-white'
-                      : 'text-apple-gray-700 dark:text-apple-gray-300 hover:bg-apple-gray-100 dark:hover:bg-apple-gray-800'
-                  }`
-                }
-              >
-                <NavIcon icon={link.icon} className="w-5 h-5" />
-                {link.label}
-              </NavLink>
-            ))}
+            <NavLink
+              to="/"
+              end
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all duration-200 ${
+                  isActive
+                    ? 'bg-brand-green text-white'
+                    : 'text-apple-gray-700 dark:text-apple-gray-300 hover:bg-apple-gray-100 dark:hover:bg-apple-gray-800'
+                }`
+              }
+            >
+              <NavIcon icon="home" className="w-5 h-5" />
+              Inicio
+            </NavLink>
+            <NavLink
+              to="/plantel"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all duration-200 ${
+                  isActive
+                    ? 'bg-brand-green text-white'
+                    : 'text-apple-gray-700 dark:text-apple-gray-300 hover:bg-apple-gray-100 dark:hover:bg-apple-gray-800'
+                }`
+              }
+            >
+              <NavIcon icon="users" className="w-5 h-5" />
+              Plantel
+            </NavLink>
+            <NavLink
+              to="/analisis"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all duration-200 ${
+                  isActive
+                    ? 'bg-brand-green text-white'
+                    : 'text-apple-gray-700 dark:text-apple-gray-300 hover:bg-apple-gray-100 dark:hover:bg-apple-gray-800'
+                }`
+              }
+            >
+              <NavIcon icon="team" className="w-5 h-5" />
+              Análisis Colectivo
+            </NavLink>
           </div>
 
-          {/* Talent Search Section */}
+          {/* Scouting Externo Section */}
           <div className="mt-4 pt-4 border-t border-apple-gray-200 dark:border-apple-gray-800">
-            <p className="px-4 mb-2 text-xs font-semibold text-apple-gray-400 uppercase tracking-wider">
-              Busqueda de Talento
-            </p>
-            <div className="space-y-1">
-              {talentSearchLinks.map(link => (
+            <NavLink
+              to="/scouting"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all duration-200 ${
+                  isActive
+                    ? 'bg-brand-green text-white'
+                    : 'text-apple-gray-700 dark:text-apple-gray-300 hover:bg-apple-gray-100 dark:hover:bg-apple-gray-800'
+                }`
+              }
+            >
+              <NavIcon icon="globe" className="w-5 h-5" />
+              Scouting Externo
+            </NavLink>
+            <div className="mt-1 ml-4 space-y-1">
+              {scoutingLinks.map(link => (
                 <NavLink
                   key={link.to}
                   to={link.to}
                   className={({ isActive }) =>
-                    `flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all duration-200 ${
+                    `flex items-center gap-3 px-4 py-2.5 rounded-xl font-medium transition-all duration-200 ${
                       isActive
-                        ? 'bg-brand-green text-gray-900'
-                        : 'text-apple-gray-700 dark:text-apple-gray-300 hover:bg-apple-gray-100 dark:hover:bg-apple-gray-800'
+                        ? 'bg-brand-green/10 text-brand-green dark:bg-brand-green/20'
+                        : 'text-apple-gray-600 dark:text-apple-gray-400 hover:bg-apple-gray-100 dark:hover:bg-apple-gray-800'
                     }`
                   }
                 >
-                  <NavIcon icon={link.icon} className="w-5 h-5" />
+                  <NavIcon icon={link.icon} className="w-4 h-4" />
                   {link.label}
                 </NavLink>
               ))}
             </div>
           </div>
 
+          {/* Seguimiento + Reporte */}
+          <div className="mt-4 pt-4 border-t border-apple-gray-200 dark:border-apple-gray-800 space-y-1">
+            <NavLink
+              to="/seguimiento"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all duration-200 ${
+                  isActive
+                    ? 'bg-brand-green text-white'
+                    : 'text-apple-gray-700 dark:text-apple-gray-300 hover:bg-apple-gray-100 dark:hover:bg-apple-gray-800'
+                }`
+              }
+            >
+              <NavIcon icon="eye" className="w-5 h-5" />
+              Seguimiento
+            </NavLink>
+            <NavLink
+              to="/evaluar"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all duration-200 ${
+                  isActive
+                    ? 'bg-brand-green text-white'
+                    : 'text-apple-gray-700 dark:text-apple-gray-300 hover:bg-apple-gray-100 dark:hover:bg-apple-gray-800'
+                }`
+              }
+            >
+              <NavIcon icon="clipboard" className="w-5 h-5" />
+              Reporte
+            </NavLink>
+          </div>
+
           {/* Footer in menu */}
           <div className="mt-8 pt-6 border-t border-apple-gray-200 dark:border-apple-gray-800 px-4">
             <p className="text-xs text-apple-gray-400 dark:text-apple-gray-500">
-              Club Atlético Lanús Platform v1.0
+              Club Atlético Lanús v1.0
             </p>
           </div>
         </nav>

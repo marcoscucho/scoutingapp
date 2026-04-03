@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import {
   RadarChart, PolarGrid, PolarAngleAxis, Radar, ResponsiveContainer,
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -6,6 +6,7 @@ import {
 } from 'recharts'
 import { useData } from '@/context/DataContext'
 import { LANUS_2026, DIVISIONS, avg, type MatchData, type Competition } from '@/data/lanus2026'
+import { fetchLanusCalendar } from '@/services/fotmobService'
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 const COMP_LABELS: Record<Competition, string> = {
@@ -29,9 +30,9 @@ function fmtPct(n: number) { return n.toFixed(0) + '%' }
 // ─── StatCard ──────────────────────────────────────────────────────────────────
 function StatCard({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: string }) {
   return (
-    <div className="bg-apple-gray-900 dark:bg-apple-gray-900 border border-apple-gray-800 rounded-xl p-4">
+    <div className="bg-white dark:bg-apple-gray-900 border border-apple-gray-100 dark:border-apple-gray-800 rounded-xl p-4">
       <p className="text-xs text-apple-gray-400 uppercase tracking-wider mb-1">{label}</p>
-      <p className={`text-2xl font-bold ${accent ?? 'text-white'}`}>{value}</p>
+      <p className={`text-2xl font-bold ${accent ?? 'text-apple-gray-900 dark:text-white'}`}>{value}</p>
       {sub && <p className="text-xs text-apple-gray-400 mt-0.5">{sub}</p>}
     </div>
   )
@@ -46,7 +47,7 @@ function FormDot({ m }: { m: MatchData }) {
         {m.result}
       </div>
       <p className="text-[10px] text-apple-gray-400 max-w-[60px] text-center truncate">{m.rival}</p>
-      <div className="absolute bottom-full mb-2 hidden group-hover:flex bg-apple-gray-800 text-white text-xs rounded px-2 py-1 whitespace-nowrap z-10 flex-col items-center gap-0.5">
+      <div className="absolute bottom-full mb-2 hidden group-hover:flex bg-apple-gray-100 dark:bg-apple-gray-800 text-apple-gray-900 dark:text-white text-xs rounded px-2 py-1 whitespace-nowrap z-10 flex-col items-center gap-0.5">
         <span className="font-semibold">{m.rival}</span>
         <span>{m.golesAFavor}:{m.golesEnContra} · {m.date}</span>
         <span className="text-apple-gray-400">{COMP_LABELS[m.competition]}</span>
@@ -108,37 +109,37 @@ function TabResumen({ matches }: { matches: MatchData[] }) {
       {/* Season banner */}
       <div className="bg-gradient-to-r from-brand-green/20 to-transparent border border-brand-green/30 rounded-xl p-4 flex flex-wrap gap-6 items-center">
         <div className="text-center">
-          <p className="text-3xl font-black text-white">{wins}</p>
-          <p className="text-xs text-emerald-400 uppercase tracking-wider">Victorias</p>
+          <p className="text-3xl font-black text-apple-gray-900 dark:text-white">{wins}</p>
+          <p className="text-xs text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Victorias</p>
         </div>
         <div className="text-center">
-          <p className="text-3xl font-black text-white">{draws}</p>
-          <p className="text-xs text-amber-400 uppercase tracking-wider">Empates</p>
+          <p className="text-3xl font-black text-apple-gray-900 dark:text-white">{draws}</p>
+          <p className="text-xs text-amber-600 dark:text-amber-400 uppercase tracking-wider">Empates</p>
         </div>
         <div className="text-center">
-          <p className="text-3xl font-black text-white">{losses}</p>
-          <p className="text-xs text-red-400 uppercase tracking-wider">Derrotas</p>
+          <p className="text-3xl font-black text-apple-gray-900 dark:text-white">{losses}</p>
+          <p className="text-xs text-red-600 dark:text-red-400 uppercase tracking-wider">Derrotas</p>
         </div>
-        <div className="w-px h-10 bg-apple-gray-700 hidden sm:block" />
+        <div className="w-px h-10 bg-apple-gray-200 dark:bg-apple-gray-700 hidden sm:block" />
         <div className="text-center">
-          <p className="text-3xl font-black text-white">{gf}</p>
-          <p className="text-xs text-apple-gray-400 uppercase tracking-wider">Goles a favor</p>
+          <p className="text-3xl font-black text-apple-gray-900 dark:text-white">{gf}</p>
+          <p className="text-xs text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider">Goles a favor</p>
         </div>
         <div className="text-center">
-          <p className="text-3xl font-black text-white">{gc}</p>
-          <p className="text-xs text-apple-gray-400 uppercase tracking-wider">En contra</p>
+          <p className="text-3xl font-black text-apple-gray-900 dark:text-white">{gc}</p>
+          <p className="text-xs text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider">En contra</p>
         </div>
-        <div className="w-px h-10 bg-apple-gray-700 hidden sm:block" />
+        <div className="w-px h-10 bg-apple-gray-200 dark:bg-apple-gray-700 hidden sm:block" />
         <div className="text-center">
           <p className="text-3xl font-black text-brand-green">{fmt1(gf / matches.length)}</p>
-          <p className="text-xs text-apple-gray-400 uppercase tracking-wider">Goles/partido</p>
+          <p className="text-xs text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider">Goles/partido</p>
         </div>
         <div className="flex-1" />
         <p className="text-apple-gray-500 text-sm">{matches.length} partidos · 2026</p>
       </div>
 
       {/* Recent form */}
-      <div className="bg-apple-gray-900 border border-apple-gray-800 rounded-xl p-4">
+      <div className="bg-white dark:bg-apple-gray-900 border border-apple-gray-100 dark:border-apple-gray-800 rounded-xl p-4">
         <p className="text-xs text-apple-gray-400 uppercase tracking-wider mb-4">Últimos 5 partidos</p>
         <div className="flex gap-4 flex-wrap">
           {last5.map(m => <FormDot key={m.id} m={m} />)}
@@ -156,7 +157,7 @@ function TabResumen({ matches }: { matches: MatchData[] }) {
       {/* Radar + Goleadores */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Team style radar */}
-        <div className="bg-apple-gray-900 border border-apple-gray-800 rounded-xl p-4">
+        <div className="bg-white dark:bg-apple-gray-900 border border-apple-gray-100 dark:border-apple-gray-800 rounded-xl p-4">
           <p className="text-xs text-apple-gray-400 uppercase tracking-wider mb-2">Identidad de juego</p>
           <ResponsiveContainer width="100%" height={280}>
             <RadarChart data={radarData}>
@@ -168,7 +169,7 @@ function TabResumen({ matches }: { matches: MatchData[] }) {
         </div>
 
         {/* Top scorers / assisters */}
-        <div className="bg-apple-gray-900 border border-apple-gray-800 rounded-xl p-4 space-y-4">
+        <div className="bg-white dark:bg-apple-gray-900 border border-apple-gray-100 dark:border-apple-gray-800 rounded-xl p-4 space-y-4">
           <div>
             <p className="text-xs text-apple-gray-400 uppercase tracking-wider mb-2">Goleadores</p>
             {topScorers.length > 0 ? (
@@ -178,10 +179,10 @@ function TabResumen({ matches }: { matches: MatchData[] }) {
                     <span className="text-xs text-apple-gray-500 w-4">{i + 1}</span>
                     <div className="flex-1">
                       <div className="flex justify-between text-sm">
-                        <span className="text-white font-medium truncate">{p.Jugador}</span>
+                        <span className="text-apple-gray-900 dark:text-white font-medium truncate">{p.Jugador}</span>
                         <span className="text-brand-green font-bold ml-2">{p.Goles}</span>
                       </div>
-                      <div className="h-1.5 bg-apple-gray-800 rounded-full mt-1">
+                      <div className="h-1.5 bg-apple-gray-200 dark:bg-apple-gray-800 rounded-full mt-1">
                         <div
                           className="h-full bg-brand-green rounded-full"
                           style={{ width: `${Math.min(100, (parseFloat(p.Goles) / parseFloat(topScorers[0]?.Goles ?? '1')) * 100)}%` }}
@@ -204,10 +205,10 @@ function TabResumen({ matches }: { matches: MatchData[] }) {
                     <span className="text-xs text-apple-gray-500 w-4">{i + 1}</span>
                     <div className="flex-1">
                       <div className="flex justify-between text-sm">
-                        <span className="text-white font-medium truncate">{p.Jugador}</span>
-                        <span className="text-blue-400 font-bold ml-2">{p.Asistencias}</span>
+                        <span className="text-apple-gray-900 dark:text-white font-medium truncate">{p.Jugador}</span>
+                        <span className="text-blue-600 dark:text-blue-400 font-bold ml-2">{p.Asistencias}</span>
                       </div>
-                      <div className="h-1.5 bg-apple-gray-800 rounded-full mt-1">
+                      <div className="h-1.5 bg-apple-gray-200 dark:bg-apple-gray-800 rounded-full mt-1">
                         <div
                           className="h-full bg-blue-500 rounded-full"
                           style={{ width: `${Math.min(100, (parseFloat(p.Asistencias) / parseFloat(topAssisters[0]?.Asistencias ?? '1')) * 100)}%` }}
@@ -246,7 +247,7 @@ function TabPartidos({ matches }: { matches: MatchData[] }) {
             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
               filter === c
                 ? 'bg-brand-green text-white'
-                : 'bg-apple-gray-800 text-apple-gray-300 hover:bg-apple-gray-700'
+                : 'bg-apple-gray-100 dark:bg-apple-gray-800 text-apple-gray-600 dark:text-apple-gray-300 hover:bg-apple-gray-200 dark:hover:bg-apple-gray-700'
             }`}
           >
             {c === 'all' ? 'Todos' : COMP_LABELS[c]}
@@ -257,18 +258,18 @@ function TabPartidos({ matches }: { matches: MatchData[] }) {
       {/* Match table */}
       <div className="space-y-2">
         {sorted.map(m => (
-          <div key={m.id} className="bg-apple-gray-900 border border-apple-gray-800 rounded-xl overflow-hidden">
+          <div key={m.id} className="bg-white dark:bg-apple-gray-900 border border-apple-gray-100 dark:border-apple-gray-800 rounded-xl overflow-hidden">
             {/* Row summary */}
             <button
               onClick={() => setExpanded(expanded === m.id ? null : m.id)}
-              className="w-full flex items-center gap-3 p-3 hover:bg-apple-gray-800/50 transition-colors text-left"
+              className="w-full flex items-center gap-3 p-3 hover:bg-apple-gray-50 dark:hover:bg-apple-gray-800/50 transition-colors text-left"
             >
               <div className={`w-7 h-7 rounded-full ${resultColor(m.result)} flex items-center justify-center text-xs font-bold text-white flex-shrink-0`}>
                 {m.result}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-white font-medium text-sm">{m.isHome ? '🏠' : '✈️'} {m.rival}</span>
+                  <span className="text-apple-gray-900 dark:text-white font-medium text-sm">{m.isHome ? '🏠' : '✈️'} {m.rival}</span>
                   <span className={`text-xs font-bold ${resultText(m.result)}`}>{m.golesAFavor}–{m.golesEnContra}</span>
                   <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: COMP_COLORS[m.competition] + '30', color: COMP_COLORS[m.competition] }}>
                     {COMP_LABELS[m.competition]}
@@ -278,10 +279,10 @@ function TabPartidos({ matches }: { matches: MatchData[] }) {
               </div>
               {/* Mini stats */}
               <div className="hidden sm:flex gap-4 text-xs text-apple-gray-400 flex-shrink-0">
-                <span title="xG"><span className="text-white font-medium">{m.xG}</span> xG</span>
-                <span title="Posesión"><span className="text-white font-medium">{fmtPct(m.posesion)}</span> pos</span>
-                <span title="Tiros"><span className="text-white font-medium">{m.tiros}</span> tiros</span>
-                <span title="PPDA"><span className="text-white font-medium">{fmt1(m.ppda)}</span> PPDA</span>
+                <span title="xG"><span className="text-apple-gray-900 dark:text-white font-medium">{m.xG}</span> xG</span>
+                <span title="Posesión"><span className="text-apple-gray-900 dark:text-white font-medium">{fmtPct(m.posesion)}</span> pos</span>
+                <span title="Tiros"><span className="text-apple-gray-900 dark:text-white font-medium">{m.tiros}</span> tiros</span>
+                <span title="PPDA"><span className="text-apple-gray-900 dark:text-white font-medium">{fmt1(m.ppda)}</span> PPDA</span>
               </div>
               <svg className={`w-4 h-4 text-apple-gray-500 flex-shrink-0 transition-transform ${expanded === m.id ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -290,7 +291,7 @@ function TabPartidos({ matches }: { matches: MatchData[] }) {
 
             {/* Expanded stats */}
             {expanded === m.id && (
-              <div className="border-t border-apple-gray-800 p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 bg-apple-gray-950/50">
+              <div className="border-t border-apple-gray-100 dark:border-apple-gray-800 p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 bg-apple-gray-50 dark:bg-apple-gray-950/50">
                 {[
                   ['xG', m.xG.toString()],
                   ['Tiros (portería)', `${m.tiros} (${m.tirosPorteria})`],
@@ -313,7 +314,7 @@ function TabPartidos({ matches }: { matches: MatchData[] }) {
                 ].map(([label, value]) => (
                   <div key={label}>
                     <p className="text-[10px] text-apple-gray-500 uppercase tracking-wide">{label}</p>
-                    <p className="text-sm text-white font-medium">{value}</p>
+                    <p className="text-sm text-apple-gray-900 dark:text-white font-medium">{value}</p>
                   </div>
                 ))}
               </div>
@@ -328,7 +329,19 @@ function TabPartidos({ matches }: { matches: MatchData[] }) {
 // ─── TabProximoPartido ─────────────────────────────────────────────────────────
 function TabProximoPartido({ matches }: { matches: MatchData[] }) {
   const [inputMode, setInputMode] = useState<'form' | 'csv' | 'texto'>('form')
-  const [rivalName, setRivalName] = useState('Argentinos Juniors')
+  const [rivalName, setRivalName] = useState('')
+  const [nextMatch, setNextMatch] = useState<{ date: Date; summary: string } | null>(null)
+
+  useEffect(() => {
+    fetchLanusCalendar().then(calendar => {
+      const now = new Date()
+      const next = calendar.find(m => m.date >= now)
+      if (next) {
+        setRivalName(next.isHome ? next.awayTeam : next.homeTeam)
+        setNextMatch({ date: next.date, summary: next.summary })
+      }
+    }).catch(() => {})
+  }, [])
   const [rivalData, setRivalData] = useState({
     position: '', lastResults: ['', '', '', '', ''], golesAFavor: '', golesEnContra: '',
     posesion: '', ppda: '', xG: '', tiros: '', pases_pct: '',
@@ -391,26 +404,30 @@ function TabProximoPartido({ matches }: { matches: MatchData[] }) {
         <div className="w-12 h-12 rounded-full bg-blue-900/50 flex items-center justify-center text-2xl flex-shrink-0">⚽</div>
         <div>
           <p className="text-xs text-blue-400 uppercase tracking-wider">Próximo partido</p>
-          <p className="text-white text-lg font-bold">Lanús vs {rivalName || '—'}</p>
-          <p className="text-apple-gray-400 text-xs">Vie 27 Mar 2026 · Liga Profesional Apertura</p>
+          <p className="text-apple-gray-900 dark:text-white text-lg font-bold">Lanús vs {rivalName || '—'}</p>
+          {nextMatch && (
+            <p className="text-apple-gray-400 text-xs">
+              {nextMatch.date.toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
+            </p>
+          )}
         </div>
         <div className="flex-1" />
         <input
           value={rivalName}
           onChange={e => setRivalName(e.target.value)}
-          className="bg-apple-gray-800 border border-apple-gray-700 rounded-lg px-3 py-1.5 text-sm text-white placeholder-apple-gray-500 focus:outline-none focus:border-brand-green"
+          className="bg-apple-gray-100 dark:bg-apple-gray-800 border border-apple-gray-200 dark:border-apple-gray-700 rounded-lg px-3 py-1.5 text-sm text-apple-gray-900 dark:text-white placeholder-apple-gray-500 focus:outline-none focus:border-brand-green"
           placeholder="Nombre del rival"
         />
       </div>
 
       {/* Input mode selector */}
-      <div className="flex gap-1 bg-apple-gray-900 border border-apple-gray-800 rounded-xl p-1 w-fit">
+      <div className="flex gap-1 bg-white dark:bg-apple-gray-900 border border-apple-gray-100 dark:border-apple-gray-800 rounded-xl p-1 w-fit">
         {(['form', 'csv', 'texto'] as const).map(mode => (
           <button
             key={mode}
             onClick={() => setInputMode(mode)}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              inputMode === mode ? 'bg-brand-green text-white' : 'text-apple-gray-400 hover:text-white'
+              inputMode === mode ? 'bg-brand-green text-white' : 'text-apple-gray-500 dark:text-apple-gray-400 hover:text-apple-gray-900 dark:hover:text-white'
             }`}
           >
             {mode === 'form' ? '📋 Formulario' : mode === 'csv' ? '📂 CSV Wyscout' : '✍️ Texto libre'}
@@ -420,58 +437,58 @@ function TabProximoPartido({ matches }: { matches: MatchData[] }) {
 
       {/* Input form */}
       {inputMode === 'form' && (
-        <div className="bg-apple-gray-900 border border-apple-gray-800 rounded-xl p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="bg-white dark:bg-apple-gray-900 border border-apple-gray-100 dark:border-apple-gray-800 rounded-xl p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="text-xs text-apple-gray-400 uppercase tracking-wider block mb-1.5">Posición en la tabla</label>
             <input value={rivalData.position} onChange={e => setRivalData(d => ({ ...d, position: e.target.value }))}
-              className="w-full bg-apple-gray-800 border border-apple-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-green"
+              className="w-full bg-apple-gray-100 dark:bg-apple-gray-800 border border-apple-gray-200 dark:border-apple-gray-700 rounded-lg px-3 py-2 text-sm text-apple-gray-900 dark:text-white focus:outline-none focus:border-brand-green"
               placeholder="Ej: 3°, 12°..." />
           </div>
           <div>
             <label className="text-xs text-apple-gray-400 uppercase tracking-wider block mb-1.5">Goleador principal</label>
             <input value={rivalData.topScorer} onChange={e => setRivalData(d => ({ ...d, topScorer: e.target.value }))}
-              className="w-full bg-apple-gray-800 border border-apple-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-green"
+              className="w-full bg-apple-gray-100 dark:bg-apple-gray-800 border border-apple-gray-200 dark:border-apple-gray-700 rounded-lg px-3 py-2 text-sm text-apple-gray-900 dark:text-white focus:outline-none focus:border-brand-green"
               placeholder="Nombre y goles" />
           </div>
           <div>
             <label className="text-xs text-apple-gray-400 uppercase tracking-wider block mb-1.5">GF / GC (temporada)</label>
             <div className="flex gap-2">
               <input value={rivalData.golesAFavor} onChange={e => setRivalData(d => ({ ...d, golesAFavor: e.target.value }))}
-                className="w-full bg-apple-gray-800 border border-apple-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-green"
+                className="w-full bg-apple-gray-100 dark:bg-apple-gray-800 border border-apple-gray-200 dark:border-apple-gray-700 rounded-lg px-3 py-2 text-sm text-apple-gray-900 dark:text-white focus:outline-none focus:border-brand-green"
                 placeholder="GF" type="number" />
               <input value={rivalData.golesEnContra} onChange={e => setRivalData(d => ({ ...d, golesEnContra: e.target.value }))}
-                className="w-full bg-apple-gray-800 border border-apple-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-green"
+                className="w-full bg-apple-gray-100 dark:bg-apple-gray-800 border border-apple-gray-200 dark:border-apple-gray-700 rounded-lg px-3 py-2 text-sm text-apple-gray-900 dark:text-white focus:outline-none focus:border-brand-green"
                 placeholder="GC" type="number" />
             </div>
           </div>
           <div>
             <label className="text-xs text-apple-gray-400 uppercase tracking-wider block mb-1.5">Asistidor principal</label>
             <input value={rivalData.topAssister} onChange={e => setRivalData(d => ({ ...d, topAssister: e.target.value }))}
-              className="w-full bg-apple-gray-800 border border-apple-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-green"
+              className="w-full bg-apple-gray-100 dark:bg-apple-gray-800 border border-apple-gray-200 dark:border-apple-gray-700 rounded-lg px-3 py-2 text-sm text-apple-gray-900 dark:text-white focus:outline-none focus:border-brand-green"
               placeholder="Nombre y asistencias" />
           </div>
           <div>
             <label className="text-xs text-apple-gray-400 uppercase tracking-wider block mb-1.5">Posesión media (%)</label>
             <input value={rivalData.posesion} onChange={e => setRivalData(d => ({ ...d, posesion: e.target.value }))}
-              className="w-full bg-apple-gray-800 border border-apple-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-green"
+              className="w-full bg-apple-gray-100 dark:bg-apple-gray-800 border border-apple-gray-200 dark:border-apple-gray-700 rounded-lg px-3 py-2 text-sm text-apple-gray-900 dark:text-white focus:outline-none focus:border-brand-green"
               placeholder="Ej: 54.2" type="number" />
           </div>
           <div>
             <label className="text-xs text-apple-gray-400 uppercase tracking-wider block mb-1.5">PPDA (presión)</label>
             <input value={rivalData.ppda} onChange={e => setRivalData(d => ({ ...d, ppda: e.target.value }))}
-              className="w-full bg-apple-gray-800 border border-apple-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-green"
+              className="w-full bg-apple-gray-100 dark:bg-apple-gray-800 border border-apple-gray-200 dark:border-apple-gray-700 rounded-lg px-3 py-2 text-sm text-apple-gray-900 dark:text-white focus:outline-none focus:border-brand-green"
               placeholder="Ej: 10.5" type="number" />
           </div>
           <div>
             <label className="text-xs text-apple-gray-400 uppercase tracking-wider block mb-1.5">xG por partido</label>
             <input value={rivalData.xG} onChange={e => setRivalData(d => ({ ...d, xG: e.target.value }))}
-              className="w-full bg-apple-gray-800 border border-apple-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-green"
+              className="w-full bg-apple-gray-100 dark:bg-apple-gray-800 border border-apple-gray-200 dark:border-apple-gray-700 rounded-lg px-3 py-2 text-sm text-apple-gray-900 dark:text-white focus:outline-none focus:border-brand-green"
               placeholder="Ej: 1.4" type="number" />
           </div>
           <div>
             <label className="text-xs text-apple-gray-400 uppercase tracking-wider block mb-1.5">Precisión de pase (%)</label>
             <input value={rivalData.pases_pct} onChange={e => setRivalData(d => ({ ...d, pases_pct: e.target.value }))}
-              className="w-full bg-apple-gray-800 border border-apple-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-green"
+              className="w-full bg-apple-gray-100 dark:bg-apple-gray-800 border border-apple-gray-200 dark:border-apple-gray-700 rounded-lg px-3 py-2 text-sm text-apple-gray-900 dark:text-white focus:outline-none focus:border-brand-green"
               placeholder="Ej: 82" type="number" />
           </div>
           <div className="sm:col-span-2">
@@ -479,7 +496,7 @@ function TabProximoPartido({ matches }: { matches: MatchData[] }) {
             <div className="flex gap-2">
               {rivalData.lastResults.map((r, i) => (
                 <select key={i} value={r} onChange={e => setRivalData(d => { const lr = [...d.lastResults]; lr[i] = e.target.value; return { ...d, lastResults: lr } })}
-                  className="flex-1 bg-apple-gray-800 border border-apple-gray-700 rounded-lg px-2 py-2 text-sm text-white focus:outline-none focus:border-brand-green appearance-none text-center">
+                  className="flex-1 bg-apple-gray-800 border border-apple-gray-200 dark:border-apple-gray-700 rounded-lg px-2 py-2 text-sm text-white focus:outline-none focus:border-brand-green appearance-none text-center">
                   <option value="">—</option>
                   <option value="W">G</option>
                   <option value="D">E</option>
@@ -492,18 +509,18 @@ function TabProximoPartido({ matches }: { matches: MatchData[] }) {
             <label className="text-xs text-apple-gray-400 uppercase tracking-wider block mb-1.5">Notas de scout / contexto</label>
             <textarea value={rivalData.notes} onChange={e => setRivalData(d => ({ ...d, notes: e.target.value }))}
               rows={3}
-              className="w-full bg-apple-gray-800 border border-apple-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-apple-gray-500 focus:outline-none focus:border-brand-green resize-none"
+              className="w-full bg-apple-gray-800 border border-apple-gray-200 dark:border-apple-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-apple-gray-500 focus:outline-none focus:border-brand-green resize-none"
               placeholder="Estilo de juego, jugadores clave, esquema habitual, estado de forma, lesionados..." />
           </div>
         </div>
       )}
 
       {inputMode === 'csv' && (
-        <div className="bg-apple-gray-900 border border-apple-gray-800 rounded-xl p-5 space-y-4">
+        <div className="bg-white dark:bg-apple-gray-900 border border-apple-gray-100 dark:border-apple-gray-800 rounded-xl p-5 space-y-4">
           <p className="text-sm text-apple-gray-400">Subí el archivo Excel/CSV exportado de Wyscout del rival (mismo formato que Team Stats Lanús.xlsx).</p>
           <div
             onClick={() => fileRef.current?.click()}
-            className="border-2 border-dashed border-apple-gray-700 hover:border-brand-green rounded-xl p-8 text-center cursor-pointer transition-colors group"
+            className="border-2 border-dashed border-apple-gray-200 dark:border-apple-gray-700 hover:border-brand-green rounded-xl p-8 text-center cursor-pointer transition-colors group"
           >
             <div className="text-4xl mb-2">📂</div>
             <p className="text-apple-gray-300 group-hover:text-white text-sm font-medium">Click para subir CSV / Excel</p>
@@ -511,7 +528,7 @@ function TabProximoPartido({ matches }: { matches: MatchData[] }) {
             <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleCSVFile} />
           </div>
           {csvText && (
-            <div className="bg-apple-gray-800 rounded-lg p-3">
+            <div className="bg-apple-gray-100 dark:bg-apple-gray-800 rounded-lg p-3">
               <p className="text-xs text-brand-green mb-1">✓ Archivo cargado ({csvText.length} caracteres)</p>
               <p className="text-xs text-apple-gray-500">Procesamiento automático de métricas en desarrollo. Por ahora, copiá los datos clave al formulario.</p>
             </div>
@@ -520,13 +537,13 @@ function TabProximoPartido({ matches }: { matches: MatchData[] }) {
       )}
 
       {inputMode === 'texto' && (
-        <div className="bg-apple-gray-900 border border-apple-gray-800 rounded-xl p-5 space-y-3">
+        <div className="bg-white dark:bg-apple-gray-900 border border-apple-gray-100 dark:border-apple-gray-800 rounded-xl p-5 space-y-3">
           <p className="text-sm text-apple-gray-400">Escribí o pegá cualquier análisis, estadísticas, notas de scouting o contexto del rival. El sistema extrae insights automáticamente.</p>
           <textarea
             value={freeText}
             onChange={e => setFreeText(e.target.value)}
             rows={8}
-            className="w-full bg-apple-gray-800 border border-apple-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-apple-gray-500 focus:outline-none focus:border-brand-green resize-none"
+            className="w-full bg-apple-gray-800 border border-apple-gray-200 dark:border-apple-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-apple-gray-500 focus:outline-none focus:border-brand-green resize-none"
             placeholder={`Ej: Argentinos Juniors viene de ganar 3 partidos consecutivos. Juegan en 4-3-3 con pressing alto. Su goleador es Rodríguez con 8 goles. Tienen la posesión media más alta de la liga con 61%. PPDA de 7.2, muy agresivos...`}
           />
           <p className="text-xs text-apple-gray-500">{freeText.length} caracteres · Los insights se generan abajo en tiempo real</p>
@@ -535,7 +552,7 @@ function TabProximoPartido({ matches }: { matches: MatchData[] }) {
 
       {/* Comparison table */}
       {(rivalData.posesion || rivalData.xG || rivalData.ppda || rivalData.pases_pct) && (
-        <div className="bg-apple-gray-900 border border-apple-gray-800 rounded-xl p-5">
+        <div className="bg-white dark:bg-apple-gray-900 border border-apple-gray-100 dark:border-apple-gray-800 rounded-xl p-5">
           <p className="text-xs text-apple-gray-400 uppercase tracking-wider mb-4">Comparación vs rival</p>
           <div className="space-y-3">
             {[
@@ -574,7 +591,7 @@ function TabProximoPartido({ matches }: { matches: MatchData[] }) {
 
       {/* Rival last 5 */}
       {rivalData.lastResults.some(r => r) && (
-        <div className="bg-apple-gray-900 border border-apple-gray-800 rounded-xl p-5">
+        <div className="bg-white dark:bg-apple-gray-900 border border-apple-gray-100 dark:border-apple-gray-800 rounded-xl p-5">
           <p className="text-xs text-apple-gray-400 uppercase tracking-wider mb-3">Últimos 5 resultados del rival</p>
           <div className="flex gap-3">
             {rivalData.lastResults.map((r, i) => (
@@ -588,7 +605,7 @@ function TabProximoPartido({ matches }: { matches: MatchData[] }) {
 
       {/* Key players */}
       {(rivalData.topScorer || rivalData.topAssister) && (
-        <div className="bg-apple-gray-900 border border-apple-gray-800 rounded-xl p-5 grid grid-cols-2 gap-4">
+        <div className="bg-white dark:bg-apple-gray-900 border border-apple-gray-100 dark:border-apple-gray-800 rounded-xl p-5 grid grid-cols-2 gap-4">
           {rivalData.topScorer && (
             <div>
               <p className="text-xs text-apple-gray-400 uppercase tracking-wider mb-1">⚽ Goleador</p>
@@ -612,7 +629,7 @@ function TabProximoPartido({ matches }: { matches: MatchData[] }) {
 
       {/* Notes */}
       {rivalData.notes && (
-        <div className="bg-apple-gray-900 border border-apple-gray-800 rounded-xl p-5">
+        <div className="bg-white dark:bg-apple-gray-900 border border-apple-gray-100 dark:border-apple-gray-800 rounded-xl p-5">
           <p className="text-xs text-apple-gray-400 uppercase tracking-wider mb-2">📝 Notas del scout</p>
           <p className="text-apple-gray-200 text-sm leading-relaxed whitespace-pre-wrap">{rivalData.notes}</p>
         </div>
@@ -674,7 +691,7 @@ function TabAnalisis({ matches }: { matches: MatchData[] }) {
   return (
     <div className="space-y-6">
       {/* xG vs Goles */}
-      <div className="bg-apple-gray-900 border border-apple-gray-800 rounded-xl p-5">
+      <div className="bg-white dark:bg-apple-gray-900 border border-apple-gray-100 dark:border-apple-gray-800 rounded-xl p-5">
         <p className="text-xs text-apple-gray-400 uppercase tracking-wider mb-1">xG vs Goles reales por partido</p>
         <p className="text-xs text-apple-gray-500 mb-4">Cuánto generamos vs cuánto concretamos</p>
         <ResponsiveContainer width="100%" height={220}>
@@ -692,7 +709,7 @@ function TabAnalisis({ matches }: { matches: MatchData[] }) {
       </div>
 
       {/* Attack patterns */}
-      <div className="bg-apple-gray-900 border border-apple-gray-800 rounded-xl p-5">
+      <div className="bg-white dark:bg-apple-gray-900 border border-apple-gray-100 dark:border-apple-gray-800 rounded-xl p-5">
         <p className="text-xs text-apple-gray-400 uppercase tracking-wider mb-1">Patrones de ataque</p>
         <p className="text-xs text-apple-gray-500 mb-4">Ataques posicionales / Contraataques / Balón parado por partido</p>
         <ResponsiveContainer width="100%" height={220}>
@@ -710,7 +727,7 @@ function TabAnalisis({ matches }: { matches: MatchData[] }) {
       </div>
 
       {/* Possession + passing */}
-      <div className="bg-apple-gray-900 border border-apple-gray-800 rounded-xl p-5">
+      <div className="bg-white dark:bg-apple-gray-900 border border-apple-gray-100 dark:border-apple-gray-800 rounded-xl p-5">
         <p className="text-xs text-apple-gray-400 uppercase tracking-wider mb-1">Posesión y precisión de pase</p>
         <ResponsiveContainer width="100%" height={220}>
           <AreaChart data={possessionData} margin={chartMargin}>
@@ -727,7 +744,7 @@ function TabAnalisis({ matches }: { matches: MatchData[] }) {
       </div>
 
       {/* PPDA / Pressing */}
-      <div className="bg-apple-gray-900 border border-apple-gray-800 rounded-xl p-5">
+      <div className="bg-white dark:bg-apple-gray-900 border border-apple-gray-100 dark:border-apple-gray-800 rounded-xl p-5">
         <p className="text-xs text-apple-gray-400 uppercase tracking-wider mb-1">Índice de pressing (PPDA)</p>
         <p className="text-xs text-apple-gray-500 mb-4">Cuanto más bajo, más intenso el pressing. &lt;9 = alto · 9–14 = moderado · &gt;14 = bloque bajo</p>
         <ResponsiveContainer width="100%" height={180}>
@@ -744,11 +761,11 @@ function TabAnalisis({ matches }: { matches: MatchData[] }) {
       </div>
 
       {/* Summary table */}
-      <div className="bg-apple-gray-900 border border-apple-gray-800 rounded-xl p-5 overflow-x-auto">
+      <div className="bg-white dark:bg-apple-gray-900 border border-apple-gray-100 dark:border-apple-gray-800 rounded-xl p-5 overflow-x-auto">
         <p className="text-xs text-apple-gray-400 uppercase tracking-wider mb-3">Promedios generales · Temporada 2026</p>
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-apple-gray-800">
+            <tr className="border-b border-apple-gray-100 dark:border-apple-gray-800">
               {['Métrica', 'Promedio', 'Máx', 'Mín'].map(h => (
                 <th key={h} className="text-left text-xs text-apple-gray-500 font-medium pb-2 pr-4">{h}</th>
               ))}
@@ -855,14 +872,14 @@ function TabVideo({ matches }: { matches: MatchData[] }) {
   return (
     <div className="space-y-6">
       {/* New note form */}
-      <div className="bg-apple-gray-900 border border-apple-gray-800 rounded-xl p-5 space-y-4">
+      <div className="bg-white dark:bg-apple-gray-900 border border-apple-gray-100 dark:border-apple-gray-800 rounded-xl p-5 space-y-4">
         <p className="text-sm font-semibold text-white">Nueva nota de análisis</p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="text-xs text-apple-gray-400 uppercase tracking-wider block mb-1.5">Partido / contexto</label>
             <select value={form.match} onChange={e => setForm(f => ({ ...f, match: e.target.value }))}
-              className="w-full bg-apple-gray-800 border border-apple-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-green">
+              className="w-full bg-apple-gray-100 dark:bg-apple-gray-800 border border-apple-gray-200 dark:border-apple-gray-700 rounded-lg px-3 py-2 text-sm text-apple-gray-900 dark:text-white focus:outline-none focus:border-brand-green">
               <option value="">— Seleccionar partido —</option>
               {[...matches].sort((a, b) => b.date.localeCompare(a.date)).map(m => (
                 <option key={m.id} value={`${m.date} · ${m.rival} ${m.golesAFavor}-${m.golesEnContra}`}>
@@ -875,7 +892,7 @@ function TabVideo({ matches }: { matches: MatchData[] }) {
           <div>
             <label className="text-xs text-apple-gray-400 uppercase tracking-wider block mb-1.5">Categoría</label>
             <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
-              className="w-full bg-apple-gray-800 border border-apple-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-green">
+              className="w-full bg-apple-gray-100 dark:bg-apple-gray-800 border border-apple-gray-200 dark:border-apple-gray-700 rounded-lg px-3 py-2 text-sm text-apple-gray-900 dark:text-white focus:outline-none focus:border-brand-green">
               {NOTE_CATEGORIES.map(c => <option key={c}>{c}</option>)}
             </select>
           </div>
@@ -901,7 +918,7 @@ function TabVideo({ matches }: { matches: MatchData[] }) {
           <label className="text-xs text-apple-gray-400 uppercase tracking-wider block mb-1.5">Análisis / Observaciones</label>
           <textarea value={form.content} onChange={e => setForm(f => ({ ...f, content: e.target.value }))}
             rows={5}
-            className="w-full bg-apple-gray-800 border border-apple-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-apple-gray-500 focus:outline-none focus:border-brand-green resize-none"
+            className="w-full bg-apple-gray-800 border border-apple-gray-200 dark:border-apple-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-apple-gray-500 focus:outline-none focus:border-brand-green resize-none"
             placeholder="Escribí tus conclusiones técnicas, patrones observados, puntos a corregir, fortalezas del equipo, situaciones de juego, referencias de video (ej: min 23 – transición rápida por la banda derecha)..." />
         </div>
 
@@ -918,12 +935,12 @@ function TabVideo({ matches }: { matches: MatchData[] }) {
             <p className="text-xs text-apple-gray-400 uppercase tracking-wider">{notes.length} notas guardadas</p>
             <div className="flex-1" />
             <input value={filter} onChange={e => setFilter(e.target.value)}
-              className="bg-apple-gray-800 border border-apple-gray-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder-apple-gray-500 focus:outline-none focus:border-brand-green w-48"
+              className="bg-apple-gray-100 dark:bg-apple-gray-800 border border-apple-gray-200 dark:border-apple-gray-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder-apple-gray-500 focus:outline-none focus:border-brand-green w-48"
               placeholder="Buscar notas..." />
           </div>
 
           {filtered.map(note => (
-            <div key={note.id} className="bg-apple-gray-900 border border-apple-gray-800 rounded-xl p-4 space-y-2">
+            <div key={note.id} className="bg-white dark:bg-apple-gray-900 border border-apple-gray-100 dark:border-apple-gray-800 rounded-xl p-4 space-y-2">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${categoryColors[note.category] ?? 'text-apple-gray-400 bg-apple-gray-700'}`}>
@@ -977,17 +994,15 @@ export default function EquipoPage() {
   const selectedDivision = DIVISIONS.find(d => d.id === division)
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-apple-gray-50 dark:bg-[#0a0a0a] text-apple-gray-900 dark:text-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
 
         {/* Page header */}
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-brand-green/20 border border-brand-green/40 flex items-center justify-center text-2xl">
-            🏟️
-          </div>
+          <img src="/lanus-escudo.png" alt="Club Atlético Lanús" className="w-12 h-12 object-contain flex-shrink-0" />
           <div>
-            <h1 className="text-2xl font-black text-white">Club Atlético Lanús</h1>
-            <p className="text-apple-gray-400 text-sm">Análisis colectivo del equipo · Temporada 2026</p>
+            <h1 className="text-2xl font-black text-apple-gray-900 dark:text-white">Club Atlético Lanús</h1>
+            <p className="text-apple-gray-500 dark:text-apple-gray-400 text-sm">Análisis colectivo del equipo · Temporada 2026</p>
           </div>
         </div>
 
@@ -1013,7 +1028,7 @@ export default function EquipoPage() {
 
         {/* No data state */}
         {!selectedDivision?.hasData ? (
-          <div className="text-center py-20 bg-apple-gray-900 border border-apple-gray-800 rounded-2xl">
+          <div className="text-center py-20 bg-white dark:bg-apple-gray-900 border border-apple-gray-100 dark:border-apple-gray-800 rounded-2xl">
             <div className="text-5xl mb-4">📊</div>
             <h2 className="text-xl font-bold text-white mb-2">{selectedDivision?.label} — Sin datos cargados</h2>
             <p className="text-apple-gray-400 text-sm max-w-md mx-auto">
@@ -1023,7 +1038,7 @@ export default function EquipoPage() {
         ) : (
           <>
             {/* Tab navigation */}
-            <div className="flex gap-1 border-b border-apple-gray-800 overflow-x-auto scrollbar-hide">
+            <div className="flex gap-1 border-b border-apple-gray-100 dark:border-apple-gray-800 overflow-x-auto scrollbar-hide">
               {TABS.map(t => (
                 <button
                   key={t}

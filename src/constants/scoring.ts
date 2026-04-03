@@ -18,6 +18,7 @@ const CLUB_SHEET_BASE = '/spreadsheets/d/e/2PACX-1vTcd6UXpIKwzscpkPXkst_8oYu4t0F
 export const SHEET_URLS = {
   externo: buildSheetUrl(`${CLUB_SHEET_BASE}?gid=0&single=true&output=csv`),
   interno: buildSheetUrl(`${CLUB_SHEET_BASE}?gid=1004139572&single=true&output=csv`),
+  rivalData: buildSheetUrl(`${CLUB_SHEET_BASE}?gid=11363191&single=true&output=csv`),
   seguimiento: buildSheetUrl(`${CLUB_SHEET_BASE}?gid=887155501&single=true&output=csv`),
   transfermarkt: buildSheetUrl(`${CLUB_SHEET_BASE}?gid=1547930353&single=true&output=csv`),
   // Legacy URLs - may need updating
@@ -33,6 +34,8 @@ export const SHEET_URLS = {
 // Local CSV files (served from /public/data/, no proxy needed)
 export const LOCAL_URLS = {
   plantelPrimera: '/data/plantel-primera.csv',
+  plantelInterno: '/data/plantel-interno.csv',
+  arquerosPlantel: '/data/arqueros-plantel.csv',
 } as const
 
 // ─── COLUMN ALIASES ───────────────────────────────────────────────────────────
@@ -51,6 +54,11 @@ export const COLUMN_ALIASES: Record<string, string> = {
 // Maps raw CSV Posición string → scoring position key (for scoring purposes - grouped)
 
 export const POSITION_MAP: Record<string, string> = {
+  // Arquero
+  'Arquero': 'Arquero',
+  'Portero': 'Arquero',
+  'GK': 'Arquero',
+  'Goalkeeper': 'Arquero',
   // Spanish names
   'Defensor central': 'Defensor Central',
   'Defensor Central': 'Defensor Central',
@@ -105,6 +113,10 @@ export const POSITION_MAP: Record<string, string> = {
 // Maps raw CSV Posición string → filter-friendly position (keeps left/right separate)
 
 export const FILTER_POSITION_MAP: Record<string, string> = {
+  'Arquero': 'Arquero',
+  'Portero': 'Arquero',
+  'GK': 'Arquero',
+  'Goalkeeper': 'Arquero',
   'Defensor central': 'Defensor Central',
   'Defensor Central': 'Defensor Central',
   'Lateral derecho': 'Lateral Derecho',
@@ -132,6 +144,11 @@ export const FILTER_POSITION_MAP: Record<string, string> = {
 // Used for displaying in player profiles
 
 export const DISPLAY_POSITION_MAP: Record<string, string> = {
+  // Arquero
+  'Arquero': 'Arquero',
+  'Portero': 'Arquero',
+  'GK': 'Arquero',
+  'Goalkeeper': 'Arquero',
   // Spanish names
   'Defensor central': 'Defensor central',
   'Defensor Central': 'Defensor central',
@@ -191,6 +208,14 @@ export interface MetricWeight {
 }
 
 export const SCORING_CONFIG: Record<string, MetricWeight[]> = {
+  'Arquero': [
+    { column: 'Goles evitados/90',              weight: 38 }, // Métrica estrella — rendimiento real vs xG
+    { column: 'Paradas, %',                      weight: 20 }, // % de remates detenidos
+    { column: 'Porterías imbatidas en los 90',   weight: 16 }, // Clean sheets prorated
+    { column: 'Salidas/90',                       weight: 10 }, // Actividad fuera del área
+    { column: 'Duelos aéreos en los 90',          weight: 9  }, // Dominio aéreo
+    { column: 'Altura',                           weight: 7  }, // Factor físico
+  ],
   'Defensor Central': [
     { column: 'Duelos ganados, %',                    weight: 14 },
     { column: 'Duelos defensivos ganados, %',         weight: 15 },
@@ -293,6 +318,15 @@ export const SCORING_CONFIG: Record<string, MetricWeight[]> = {
 // 8 representative metrics per position for radar visualization
 
 export const RADAR_METRICS: Record<string, string[]> = {
+  'Arquero': [
+    'Goles evitados/90',
+    'Paradas, %',
+    'Porterías imbatidas en los 90',
+    'Salidas/90',
+    'Duelos aéreos en los 90',
+    'xG en contra/90',
+    'Goles recibidos/90',
+  ],
   'Defensor Central': [
     'Duelos ganados, %',
     'Duelos defensivos ganados, %',
@@ -394,6 +428,12 @@ export const METRIC_ABBREVIATIONS: Record<string, string> = {
 // ─── KEY DISPLAY METRICS BY POSITION (General Tab) ───────────────────────────
 
 export const DISPLAY_METRICS: Record<string, string[]> = {
+  'Arquero': [
+    'Partidos jugados', 'Minutos jugados',
+    'Goles evitados/90', 'Paradas, %',
+    'Porterías imbatidas en los 90', 'Goles recibidos/90',
+    'xG en contra/90', 'Salidas/90', 'Duelos aéreos en los 90', 'Altura',
+  ],
   'Defensor Central': [
     'Partidos jugados', 'Minutos jugados',
     'Duelos ganados, %', 'Duelos defensivos ganados, %', 'Duelos aéreos ganados, %',

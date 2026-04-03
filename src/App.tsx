@@ -13,6 +13,8 @@ import ScoutEvaluationPage from '@/pages/ScoutEvaluationPage'
 import EvaluationsAdminPage from '@/pages/EvaluationsAdminPage'
 import RadarAnalysisPage from '@/pages/RadarAnalysisPage'
 import EquipoPage from '@/pages/EquipoPage'
+import DashboardPage from '@/pages/DashboardPage'
+import CalendarPage from '@/pages/CalendarPage'
 import { PDFBuilderProvider } from '@/context/PDFBuilderContext'
 import PDFBuilderModal from '@/components/pdf/PDFBuilderModal'
 import { PDFAddedToast } from '@/components/pdf/AddToReportButton'
@@ -23,7 +25,8 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route element={<Layout />}>
-            <Route path="/" element={<ExternalScoutingPage />} />
+            <Route path="/" element={<DashboardPage />} />
+            <Route path="/scouting" element={<ExternalScoutingPage />} />
             <Route path="/plantel" element={<InternalScoutingPage />} />
             <Route path="/seguimiento" element={<MonitoringPage />} />
             <Route path="/oportunidades" element={<OpportunitiesPage />} />
@@ -35,7 +38,8 @@ export default function App() {
             <Route path="/evaluar" element={<ScoutEvaluationPage />} />
             <Route path="/evaluaciones" element={<EvaluationsAdminPage />} />
             <Route path="/radar" element={<RadarAnalysisPage />} />
-            <Route path="/equipo" element={<EquipoPage />} />
+            <Route path="/analisis" element={<EquipoPage />} />
+            <Route path="/calendario" element={<CalendarPage />} />
           </Route>
         </Routes>
         <PDFBuilderModal />

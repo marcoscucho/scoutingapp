@@ -164,6 +164,31 @@ const TM_DATA: Record<string, TMPlayerData> = {
     valor_mercado_fmt: '€300K',
     fin_contrato: '31/12/2028',
   },
+  // ─── ARQUEROS ─────────────────────────────────────────────────────────────────
+  'N. Losada': {
+    nombre_completo: 'Nahuel Ezequiel Losada',
+    imagen: 'https://img.a.transfermarkt.technology/portrait/big/323918-1721936091.png',
+    representante: null,
+    valor_mercado: 3_500_000,
+    valor_mercado_fmt: '€3,50M',
+    fin_contrato: '31/12/2028',
+  },
+  'F. Petroli': {
+    nombre_completo: 'Franco Petroli',
+    imagen: 'https://img.a.transfermarkt.technology/portrait/big/401587-1721936143.png',
+    representante: 'ROOF Football',
+    valor_mercado: 3_000_000,
+    valor_mercado_fmt: '€3,00M',
+    fin_contrato: '31/12/2029',
+  },
+  'L. Acosta': {
+    nombre_completo: 'Lucas Mauricio Acosta',
+    imagen: 'https://img.a.transfermarkt.technology/portrait/big/296799-1721936052.png',
+    representante: 'Oller Group',
+    valor_mercado: 1_200_000,
+    valor_mercado_fmt: '€1,20M',
+    fin_contrato: '31/12/2026',
+  },
 }
 
 export default TM_DATA

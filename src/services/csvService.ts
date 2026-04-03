@@ -108,9 +108,10 @@ export interface AllRawData {
 }
 
 export async function loadAllData(): Promise<AllRawData> {
-  const [extRaw, intRaw, plantelPrimeraRaw, monRaw, segMetRaw, normRaw, evoRaw, metRaw, tmRaw, masDatosRaw, mvHistRaw, gpsRaw] = await Promise.all([
+  const [extRaw, intRaw, arqueroRaw, plantelPrimeraRaw, monRaw, segMetRaw, normRaw, evoRaw, metRaw, tmRaw, masDatosRaw, mvHistRaw, gpsRaw] = await Promise.all([
     fetchCSV(SHEET_URLS.externo),
-    fetchCSV(SHEET_URLS.interno),
+    fetchCSV(LOCAL_URLS.plantelInterno),
+    fetchCSV(LOCAL_URLS.arquerosPlantel),
     fetchCSV(LOCAL_URLS.plantelPrimera),
     fetchCSV(SHEET_URLS.seguimiento),
     fetchCSV(SHEET_URLS.seguimientoMetricas),
@@ -124,7 +125,15 @@ export async function loadAllData(): Promise<AllRawData> {
   ])
 
   const external = resolveAliases(extRaw).filter(r => r['Jugador']?.trim()) as RawExternalPlayer[]
-  const internal = resolveAliases(intRaw).filter(r => r['Jugador']?.trim()) as RawInternalPlayer[]
+  // Arqueros: normalize Posición field (CSV uses "Posición específica" = "Arquero")
+  const arqueros = resolveAliases(arqueroRaw)
+    .filter(r => r['Jugador']?.trim())
+    .map(r => ({
+      ...r,
+      'Posición': r['Posición específica'] || 'Arquero',
+      Liga: r['Liga'] || 'Liga Argentina',
+    })) as RawInternalPlayer[]
+  const internal = [...resolveAliases(intRaw).filter(r => r['Jugador']?.trim()), ...arqueros] as RawInternalPlayer[]
   // Plantel Primera: inject Liga field for scoring pipeline compatibility
   const plantelPrimera = resolveAliases(plantelPrimeraRaw)
     .filter(r => r['Jugador']?.trim())
