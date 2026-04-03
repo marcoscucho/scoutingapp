@@ -7,6 +7,7 @@ import {
 import { useData } from '@/context/DataContext'
 import { LANUS_2026, DIVISIONS, avg, type MatchData, type Competition } from '@/data/lanus2026'
 import { fetchLanusCalendar } from '@/services/fotmobService'
+import { ShieldImg, CompBadge } from '@/components/ui/ShieldImg'
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 const COMP_LABELS: Record<Competition, string> = {
@@ -46,11 +47,18 @@ function FormDot({ m }: { m: MatchData }) {
       <div className={`w-8 h-8 rounded-full ${bg} flex items-center justify-center text-xs font-bold text-white shadow`}>
         {m.result}
       </div>
-      <p className="text-[10px] text-apple-gray-400 max-w-[60px] text-center truncate">{m.rival}</p>
-      <div className="absolute bottom-full mb-2 hidden group-hover:flex bg-apple-gray-100 dark:bg-apple-gray-800 text-apple-gray-900 dark:text-white text-xs rounded px-2 py-1 whitespace-nowrap z-10 flex-col items-center gap-0.5">
+      <div className="flex flex-col items-center gap-0.5">
+        <ShieldImg team={m.rival} size={16} fallbackInitials={false} />
+        <p className="text-[9px] text-apple-gray-400 max-w-[48px] text-center truncate leading-none">{m.rival.split(' ')[0]}</p>
+      </div>
+      <div className="absolute bottom-full mb-2 hidden group-hover:flex bg-apple-gray-900 dark:bg-black text-white text-xs rounded-xl px-3 py-2 whitespace-nowrap z-10 flex-col items-center gap-1 shadow-xl">
+        <ShieldImg team={m.rival} size={28} />
         <span className="font-semibold">{m.rival}</span>
-        <span>{m.golesAFavor}:{m.golesEnContra} · {m.date}</span>
-        <span className="text-apple-gray-400">{COMP_LABELS[m.competition]}</span>
+        <span>{m.golesAFavor}–{m.golesEnContra} · {m.date}</span>
+        <div className="flex items-center gap-1 opacity-70">
+          <CompBadge competition={m.competition} size={14} />
+          <span>{COMP_LABELS[m.competition]}</span>
+        </div>
       </div>
     </div>
   )
@@ -267,13 +275,17 @@ function TabPartidos({ matches }: { matches: MatchData[] }) {
               <div className={`w-7 h-7 rounded-full ${resultColor(m.result)} flex items-center justify-center text-xs font-bold text-white flex-shrink-0`}>
                 {m.result}
               </div>
+              <ShieldImg team={m.rival} size={26} className="flex-shrink-0" />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-apple-gray-900 dark:text-white font-medium text-sm">{m.isHome ? '🏠' : '✈️'} {m.rival}</span>
+                  <span className="text-apple-gray-900 dark:text-white font-medium text-sm">{m.isHome ? 'vs' : 'en'} {m.rival}</span>
                   <span className={`text-xs font-bold ${resultText(m.result)}`}>{m.golesAFavor}–{m.golesEnContra}</span>
-                  <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: COMP_COLORS[m.competition] + '30', color: COMP_COLORS[m.competition] }}>
-                    {COMP_LABELS[m.competition]}
-                  </span>
+                  <div className="flex items-center gap-1">
+                    <CompBadge competition={m.competition} size={13} />
+                    <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: COMP_COLORS[m.competition] + '30', color: COMP_COLORS[m.competition] }}>
+                      {COMP_LABELS[m.competition]}
+                    </span>
+                  </div>
                 </div>
                 <p className="text-xs text-apple-gray-500">{m.date} · {m.formation} · {m.duration}'</p>
               </div>
@@ -401,7 +413,13 @@ function TabProximoPartido({ matches }: { matches: MatchData[] }) {
     <div className="space-y-6">
       {/* Next match header */}
       <div className="bg-gradient-to-r from-blue-900/30 to-transparent border border-blue-500/30 rounded-xl p-4 flex items-center gap-4">
-        <div className="w-12 h-12 rounded-full bg-blue-900/50 flex items-center justify-center text-2xl flex-shrink-0">⚽</div>
+        <div className="flex items-center gap-3 flex-shrink-0">
+          <img src="/lanus-escudo.png" alt="Lanús" className="w-10 h-10 object-contain" />
+          <span className="text-apple-gray-400 dark:text-apple-gray-500 font-bold text-lg">vs</span>
+          <div className="w-10 h-10 flex items-center justify-center">
+            <ShieldImg team={rivalName} size={40} fallbackInitials={false} />
+          </div>
+        </div>
         <div>
           <p className="text-xs text-blue-400 uppercase tracking-wider">Próximo partido</p>
           <p className="text-apple-gray-900 dark:text-white text-lg font-bold">Lanús vs {rivalName || '—'}</p>

@@ -8,6 +8,7 @@ import { computeStreak } from '@/services/formGuideService'
 import { fetchRivalDataFromCSV, fetchRivalLineup, RivalData } from '@/services/rivalService'
 import { getSeguimientoList } from '@/lib/supabase'
 import { LANUS_2026 } from '@/data/lanus2026'
+import { ShieldImg, CompBadge } from '@/components/ui/ShieldImg'
 import type { EnrichedPlayer } from '@/types'
 
 // Derive last-5 form directly from LANUS_2026 — single source of truth, no Supabase needed
@@ -60,107 +61,6 @@ function opponent(match: FotmobMatch): string {
   return match.isHome ? match.awayTeam : match.homeTeam
 }
 
-// ─── Club logo mapping (FotMob CDN) ──────────────────────────────────────────
-const FOTMOB_TEAM_IDS: Record<string, number> = {
-  // Liga Profesional Argentina
-  'Lanús': 10082,
-  'Lanus': 10082,
-  'Boca Juniors': 9568,
-  'River Plate': 9563,
-  'Racing Club': 9576,
-  'Racing': 9576,
-  'Independiente': 9577,
-  'San Lorenzo': 9569,
-  'Vélez Sarsfield': 9596,
-  'Velez Sarsfield': 9596,
-  'Vélez': 9596,
-  'Velez': 9596,
-  'Estudiantes': 9580,
-  'Estudiantes de La Plata': 9580,
-  'Talleres': 10101,
-  'Talleres Córdoba': 10101,
-  "Newell's Old Boys": 9574,
-  'Newells Old Boys': 9574,
-  'Rosario Central': 9573,
-  'Belgrano': 9598,
-  'Argentinos Juniors': 9566,
-  'Defensa y Justicia': 11474,
-  'Banfield': 9597,
-  'Huracán': 9575,
-  'Huracan': 9575,
-  'Godoy Cruz': 10029,
-  'Platense': 10070,
-  'Tigre': 9591,
-  'Atlético Tucumán': 10065,
-  'Atletico Tucuman': 10065,
-  'Colón': 9600,
-  'Colon': 9600,
-  'Unión': 9607,
-  'Union': 9607,
-  'Central Córdoba': 11484,
-  'Central Cordoba': 11484,
-  'Arsenal': 9601,
-  'Arsenal Sarandí': 9601,
-  'Gimnasia La Plata': 9578,
-  'Gimnasia y Esgrima La Plata': 9578,
-  'San Martín Tucumán': 10197,
-  'Instituto': 11481,
-  'Sarmiento': 11476,
-  'Barracas Central': 14839,
-  'Riestra': 14838,
-  'Deportivo Riestra': 14838,
-  // Full names from FotMob ICS
-  'Club Atletico Lanus': 10082,
-  'Club Atlético Lanús': 10082,
-  'Club Atletico Platense': 10070,
-  'Club Atlético Platense': 10070,
-  'Club Atletico Independiente': 9577,
-  'Club Atletico Boca Juniors': 9568,
-  'Club Atletico River Plate': 9563,
-  'Club Atletico San Lorenzo': 9569,
-  'Club Atletico Huracan': 9575,
-  'Club Atletico Tucuman': 10065,
-  'Racing Club de Avellaneda': 9576,
-  'Club Atletico Banfield': 9597,
-  'Gimnasia y Esgrima': 9578,
-  'Club Atletico Talleres': 10101,
-  'CA Tigre': 9591,
-  // Copa Sudamericana Brazilian opponents
-  'Mirassol': 256770,
-  'Mirassol FC': 256770,
-  'Botafogo': 9606,
-  'Botafogo FR': 9606,
-  'Santos FC': 9607,
-  'Santos': 9607,
-  'Palmeiras': 9612,
-  'SE Palmeiras': 9612,
-  'Flamengo': 9609,
-  'CR Flamengo': 9609,
-  'São Paulo FC': 9608,
-  'Sao Paulo': 9608,
-  'Cruzeiro': 9611,
-  'Vasco da Gama': 9613,
-  'CR Vasco da Gama': 9613,
-  'Athletico Paranaense': 9617,
-  'Athletico-PR': 9617,
-  'Atlético Mineiro': 9615,
-  'Atletico Mineiro': 9615,
-  'Fortaleza': 9620,
-  'Fortaleza EC': 9620,
-  'Internacional': 9614,
-  'Sport Club Internacional': 9614,
-  'Grêmio': 9610,
-  'Gremio': 9610,
-  'Red Bull Bragantino': 10208,
-  'RB Bragantino': 10208,
-}
-
-function getTeamLogoUrl(teamName: string): string | null {
-  if (teamName === 'Lanús' || teamName === 'Lanus') return '/lanus-escudo.png'
-  const id = FOTMOB_TEAM_IDS[teamName]
-  if (!id) return null
-  return `/fotmob-images/image_resources/logo/teamlogo/${id}_small.png`
-}
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
@@ -205,14 +105,9 @@ function MatchCard({
       <div className="flex items-center gap-3 mt-1">
         {(() => {
           const opp = opponent(match)
-          const logo = getTeamLogoUrl(opp)
-          return logo ? (
-            <div className="w-10 h-10 rounded-full bg-white/90 flex items-center justify-center flex-shrink-0 p-0.5">
-              <img src={logo} alt={opp} className="w-8 h-8 object-contain" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).parentElement!.innerHTML = `<span class="text-sm font-bold text-apple-gray-700">${initials(opp)}</span>` }} />
-            </div>
-          ) : (
-            <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-sm font-bold flex-shrink-0">
-              {initials(opp)}
+          return (
+            <div className="w-10 h-10 rounded-full bg-white/90 flex items-center justify-center flex-shrink-0 p-1">
+              <ShieldImg team={opp} size={32} />
             </div>
           )
         })()}
@@ -270,7 +165,6 @@ function ContractRow({ player, urgency }: { player: EnrichedPlayer; urgency: 'cr
 function UpcomingMatchRow({ match, index }: { match: FotmobMatch; index: number }) {
   const isAway = !match.isHome
   const opp = match.isHome ? match.awayTeam : match.homeTeam
-  const logo = getTeamLogoUrl(opp)
   return (
     <div className={`flex items-center gap-3 py-3 border-b border-apple-gray-100 dark:border-apple-gray-800 last:border-0 ${index === 0 ? 'opacity-100' : 'opacity-90'}`}>
       <div className="text-center w-12 flex-shrink-0">
@@ -283,15 +177,9 @@ function UpcomingMatchRow({ match, index }: { match: FotmobMatch; index: number 
         <p className="text-xs text-apple-gray-400">{fmtTime(match.date)}</p>
       </div>
 
-      {logo ? (
-        <div className="w-8 h-8 rounded-full bg-apple-gray-100 dark:bg-apple-gray-800 flex items-center justify-center flex-shrink-0 p-0.5">
-          <img src={logo} alt={opp} className="w-6 h-6 object-contain" />
-        </div>
-      ) : (
-        <div className="w-8 h-8 rounded-full bg-apple-gray-100 dark:bg-apple-gray-800 flex items-center justify-center text-xs font-semibold text-apple-gray-600 dark:text-apple-gray-300 flex-shrink-0">
-          {initials(opp)}
-        </div>
-      )}
+      <div className="w-8 h-8 flex items-center justify-center flex-shrink-0">
+        <ShieldImg team={opp} size={28} />
+      </div>
 
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-apple-gray-800 dark:text-white truncate">
@@ -497,7 +385,6 @@ function RivalSection({
   nextMatch: FotmobMatch
 }) {
   const oppName = nextMatch.isHome ? nextMatch.awayTeam : nextMatch.homeTeam
-  const logo = getTeamLogoUrl(oppName)
 
   if (loading) {
     return (
@@ -514,13 +401,7 @@ function RivalSection({
     <div className="bg-white dark:bg-apple-gray-900 rounded-2xl border border-apple-gray-100 dark:border-apple-gray-800 overflow-hidden">
       {/* Header */}
       <div className="px-5 py-4 border-b border-apple-gray-100 dark:border-apple-gray-800 flex items-center gap-3">
-        {logo ? (
-          <img src={logo} alt={oppName} className="w-8 h-8 object-contain flex-shrink-0" onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
-        ) : (
-          <div className="w-8 h-8 rounded-full bg-apple-gray-200 dark:bg-apple-gray-700 flex items-center justify-center text-xs font-bold text-apple-gray-600 dark:text-apple-gray-300 flex-shrink-0">
-            {initials(oppName)}
-          </div>
-        )}
+        <ShieldImg team={oppName} size={32} className="flex-shrink-0" />
         <div>
           <h2 className="font-semibold text-apple-gray-800 dark:text-white">{oppName}</h2>
           <p className="text-xs text-apple-gray-500 mt-0.5">
@@ -756,25 +637,7 @@ export default function DashboardPage() {
     setLoadingRival(true)
     fetchRivalDataFromCSV(oppName).then(async csvData => {
       if (!csvData) { setLoadingRival(false); return }
-      // Try to enrich with FotMob lineup (best-effort, don't block)
-      const teamId = FOTMOB_TEAM_IDS[oppName]
-      if (teamId) {
-        fetchRivalLineup(teamId).then(lineupData => {
-          if (lineupData && lineupData.lineup.length > 0) {
-            setRivalData({
-              ...csvData,
-              lastLineup: lineupData.lineup,
-              lastFormation: lineupData.formation,
-              lastOpponent: lineupData.opponent,
-              lastResult: lineupData.result,
-            })
-          } else {
-            setRivalData(csvData)
-          }
-        })
-      } else {
-        setRivalData(csvData)
-      }
+      setRivalData(csvData)
       setLoadingRival(false)
     })
   }, [matches, loadingMatches])
@@ -908,8 +771,9 @@ export default function DashboardPage() {
                           </div>
                           {/* Tooltip */}
                           <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 hidden group-hover:block z-10 pointer-events-none">
-                            <div className="bg-apple-gray-900 dark:bg-black text-white text-[10px] rounded-lg px-2.5 py-1.5 whitespace-nowrap text-center shadow-xl">
-                              <p className="font-semibold">{m.was_home ? `Lanús ${m.goals_for}-${m.goals_against}` : `${m.goals_for}-${m.goals_against} Lanús`}</p>
+                            <div className="bg-apple-gray-900 dark:bg-black text-white text-[10px] rounded-xl px-3 py-2 whitespace-nowrap text-center shadow-xl flex flex-col items-center gap-1">
+                              <ShieldImg team={m.opponent} size={24} />
+                              <p className="font-semibold text-[11px]">{m.was_home ? `Lanús ${m.goals_for}-${m.goals_against}` : `${m.goals_for}-${m.goals_against} Lanús`}</p>
                               <p className="opacity-70">{m.was_home ? 'vs' : 'en'} {m.opponent}</p>
                             </div>
                           </div>

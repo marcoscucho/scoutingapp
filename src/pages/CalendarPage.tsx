@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { fetchLanusCalendar, FotmobMatch } from '@/services/fotmobService'
+import { ShieldImg } from '@/components/ui/ShieldImg'
 
 const MONTH_NAMES = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -44,13 +45,13 @@ function sameDay(a: Date, b: Date): boolean {
 function MatchPill({ match, past }: { match: FotmobMatch; past: boolean }) {
   const isHome = match.isHome
   const opp = opponent(match)
-  const shortOpp = opp.split(' ').slice(-1)[0] // last word of opponent name
+  const shortOpp = opp.replace(/^(Club\s+)?(Atlético|Atletico|Deportivo|Deportes)\s+/i, '').split(' ')[0]
 
   return (
     <div
       title={`${isHome ? 'Lanús vs' : 'vs Lanús'} ${opp} — ${fmtTime(match.date)}`}
       className={`
-        w-full text-left px-1.5 py-0.5 rounded-md text-[10px] font-semibold truncate leading-tight
+        w-full text-left px-1 py-0.5 rounded-md text-[10px] font-semibold leading-tight flex items-center gap-1 overflow-hidden
         ${past
           ? 'bg-apple-gray-100 dark:bg-apple-gray-800 text-apple-gray-500 dark:text-apple-gray-400'
           : isHome
@@ -59,8 +60,9 @@ function MatchPill({ match, past }: { match: FotmobMatch; past: boolean }) {
         }
       `}
     >
-      <span className="opacity-60 mr-0.5">{isHome ? 'L' : 'V'}</span>
-      {shortOpp}
+      <ShieldImg team={opp} size={14} fallbackInitials={false} className="flex-shrink-0 opacity-90" />
+      <span className="opacity-60 flex-shrink-0">{isHome ? 'L' : 'V'}</span>
+      <span className="truncate">{shortOpp}</span>
     </div>
   )
 }
@@ -282,6 +284,11 @@ export default function CalendarPage() {
                       <p className="text-lg font-bold text-apple-gray-800 dark:text-white leading-none">
                         {match.date.getDate()}
                       </p>
+                    </div>
+
+                    {/* Shield */}
+                    <div className="flex-shrink-0 w-9 h-9 flex items-center justify-center">
+                      <ShieldImg team={opp} size={34} />
                     </div>
 
                     {/* Match info */}
