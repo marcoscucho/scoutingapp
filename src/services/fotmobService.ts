@@ -6,6 +6,7 @@ export interface FotmobMatch {
   awayTeam: string
   location: string
   isHome: boolean // true = Lanús es local
+  competition: 'liga' | 'copa' | 'libertadores' | 'sudamericana' | 'other'
 }
 
 function parseICSDate(line: string): Date {
@@ -52,6 +53,22 @@ function isLanus(name: string): boolean {
     .includes('lanus')
 }
 
+function detectCompetition(text: string): FotmobMatch['competition'] {
+  const t = text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  if (t.includes('libertadores')) return 'libertadores'
+  if (t.includes('copa argentina') || t.includes('copa arg')) return 'copa'
+  if (t.includes('sudamericana') || t.includes('copa sudamericana')) return 'sudamericana'
+  if (
+    t.includes('liga profesional') ||
+    t.includes('primera division') ||
+    t.includes('torneo') ||
+    t.includes('apertura') ||
+    t.includes('clausura') ||
+    t.includes('binance')
+  ) return 'liga'
+  return 'liga' // default for Lanús — most matches are liga
+}
+
 function parseICS(text: string): FotmobMatch[] {
   const matches: FotmobMatch[] = []
   const blocks = text.split('BEGIN:VEVENT')
@@ -63,6 +80,8 @@ function parseICS(text: string): FotmobMatch[] {
     const summary = block.match(/SUMMARY:([^\r\n]+)/)?.[1]?.trim() ?? ''
     const location = block.match(/LOCATION:([^\r\n]+)/)?.[1]?.trim() ?? ''
     const uid = block.match(/UID:([^\r\n]+)/)?.[1]?.trim() ?? String(i)
+    const description = block.match(/DESCRIPTION:([^\r\n]+)/)?.[1]?.trim() ?? ''
+    const categories = block.match(/CATEGORIES:([^\r\n]+)/)?.[1]?.trim() ?? ''
 
     if (!summary) continue
     const date = parseICSDate(dtLine)
@@ -70,8 +89,9 @@ function parseICS(text: string): FotmobMatch[] {
 
     const { homeTeam, awayTeam } = parseTeams(summary)
     const isHome = isLanus(homeTeam)
+    const competition = detectCompetition(`${categories} ${description} ${summary}`)
 
-    matches.push({ id: uid, date, summary, homeTeam, awayTeam, location, isHome })
+    matches.push({ id: uid, date, summary, homeTeam, awayTeam, location, isHome, competition })
   }
 
   return matches.sort((a, b) => a.date.getTime() - b.date.getTime())

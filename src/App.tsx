@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import Layout from '@/components/layout/Layout'
 import ExternalScoutingPage from '@/pages/ExternalScoutingPage'
 import InternalScoutingPage from '@/pages/InternalScoutingPage'
+import ArmadoEquiposPage from '@/pages/ArmadoEquiposPage'
 import MonitoringPage from '@/pages/MonitoringPage'
 import PlayerDetailPage from '@/pages/PlayerDetailPage'
 import ComparisonPage from '@/pages/ComparisonPage'
@@ -40,6 +41,7 @@ export default function App() {
             <Route path="/radar" element={<RadarAnalysisPage />} />
             <Route path="/analisis" element={<EquipoPage />} />
             <Route path="/calendario" element={<CalendarPage />} />
+            <Route path="/inferiores/equipos" element={<ArmadoEquiposPage />} />
           </Route>
         </Routes>
         <PDFBuilderModal />

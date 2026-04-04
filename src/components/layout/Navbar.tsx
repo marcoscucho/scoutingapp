@@ -14,6 +14,10 @@ const navLinks = [
   { to: '/evaluar', label: 'Reporte', icon: 'clipboard' },
 ]
 
+const inferiorLinks = [
+  { to: '/inferiores/equipos', label: 'Armado de Equipos', icon: 'layout' },
+]
+
 const scoutingLinks = [
   { to: '/oportunidades', label: 'Oportunidades', icon: 'star' },
   { to: '/similares', label: 'Similares', icon: 'search' },
@@ -54,11 +58,14 @@ export default function Navbar() {
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [showScoutingMenu, setShowScoutingMenu] = useState(false)
+  const [showInfMenu, setShowInfMenu] = useState(false)
   const userMenuRef = useRef<HTMLDivElement>(null)
   const scoutingMenuRef = useRef<HTMLDivElement>(null)
+  const infMenuRef = useRef<HTMLDivElement>(null)
 
   // Check if current route is a scouting route
   const isScoutingRoute = location.pathname === '/scouting' || scoutingLinks.some(l => location.pathname === l.to)
+  const isInfRoute = inferiorLinks.some(l => location.pathname === l.to)
 
   // Close menu on route change
   useEffect(() => {
@@ -73,6 +80,9 @@ export default function Navbar() {
       }
       if (scoutingMenuRef.current && !scoutingMenuRef.current.contains(event.target as Node)) {
         setShowScoutingMenu(false)
+      }
+      if (infMenuRef.current && !infMenuRef.current.contains(event.target as Node)) {
+        setShowInfMenu(false)
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
@@ -153,6 +163,45 @@ export default function Navbar() {
             >
               Análisis Colectivo
             </NavLink>
+
+            {/* Scouting Interno / Inferiores dropdown */}
+            <div className="relative" ref={infMenuRef}>
+              <button
+                onClick={() => { setShowInfMenu(v => !v); setShowScoutingMenu(false) }}
+                className={`flex items-center gap-1 px-3.5 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
+                  isInfRoute
+                    ? 'bg-brand-green text-white shadow-sm'
+                    : 'text-apple-gray-600 dark:text-apple-gray-300 hover:text-apple-gray-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-apple-gray-700/50'
+                }`}
+              >
+                Scouting Interno
+                <svg className={`w-3.5 h-3.5 transition-transform ${showInfMenu ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {showInfMenu && (
+                <div className="absolute top-full left-0 mt-1.5 w-52 bg-white dark:bg-apple-gray-900 rounded-2xl shadow-xl border border-apple-gray-100 dark:border-apple-gray-800 py-1.5 z-50">
+                  {inferiorLinks.map(link => (
+                    <NavLink
+                      key={link.to}
+                      to={link.to}
+                      onClick={() => setShowInfMenu(false)}
+                      className={({ isActive }) =>
+                        `flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors ${
+                          isActive
+                            ? 'text-brand-green font-semibold bg-brand-green/5'
+                            : 'text-apple-gray-700 dark:text-apple-gray-300 hover:bg-apple-gray-50 dark:hover:bg-apple-gray-800'
+                        }`
+                      }
+                    >
+                      <NavIcon icon={link.icon} className="w-4 h-4 flex-shrink-0 opacity-60" />
+                      {link.label}
+                    </NavLink>
+                  ))}
+                </div>
+              )}
+            </div>
 
             {/* Scouting Externo dropdown */}
             <div className="relative" ref={scoutingMenuRef}>

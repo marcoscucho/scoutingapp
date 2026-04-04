@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useData } from '@/context/DataContext'
 import { useAuth } from '@/context/AuthContext'
@@ -10,6 +10,16 @@ import { getSeguimientoList } from '@/lib/supabase'
 import { LANUS_2026 } from '@/data/lanus2026'
 import { ShieldImg, CompBadge } from '@/components/ui/ShieldImg'
 import type { EnrichedPlayer } from '@/types'
+import Papa from 'papaparse'
+import {
+  fetchLigaProStandings,
+  fetchLibertadoresStandings,
+  fetchLanusTopStats,
+  findGroup,
+  type StandingsGroup,
+  type StandingsEntry,
+  type LanusTopStat,
+} from '@/services/standingsService'
 
 // Derive last-5 form directly from LANUS_2026 — single source of truth, no Supabase needed
 const COMP_LABEL: Record<string, string> = { liga: 'Liga Profesional', copa: 'Copa Argentina', internacional: 'Internacional' }
@@ -106,8 +116,8 @@ function MatchCard({
         {(() => {
           const opp = opponent(match)
           return (
-            <div className="w-10 h-10 rounded-full bg-white/90 flex items-center justify-center flex-shrink-0 p-1">
-              <ShieldImg team={opp} size={32} />
+            <div className="flex items-center justify-center flex-shrink-0">
+              <ShieldImg team={opp} size={42} />
             </div>
           )
         })()}
@@ -177,8 +187,8 @@ function UpcomingMatchRow({ match, index }: { match: FotmobMatch; index: number 
         <p className="text-xs text-apple-gray-400">{fmtTime(match.date)}</p>
       </div>
 
-      <div className="w-8 h-8 flex items-center justify-center flex-shrink-0">
-        <ShieldImg team={opp} size={28} />
+      <div className="w-10 h-10 flex items-center justify-center flex-shrink-0">
+        <ShieldImg team={opp} size={36} />
       </div>
 
       <div className="flex-1 min-w-0">
@@ -566,6 +576,393 @@ function RivalPitchVisualization({ players, formation }: { players: { number: nu
   )
 }
 
+// ─── Wyscout Drop Zone ────────────────────────────────────────────────────────
+
+interface WyscoutPlayer {
+  name: string
+  position: string
+  goals: number
+  assists: number
+  xG: number
+  xA: number
+  mins: number
+  shots: number
+  keyPasses: number
+}
+
+interface WyscoutSummary {
+  teamName: string
+  fileName: string
+  totalPlayers: number
+  topScorers: WyscoutPlayer[]
+  totalGoals: number
+  totalAssists: number
+  totalXG: number
+  avgMins: number
+  formations?: string[]
+}
+
+type AnyRow = Record<string, string>
+
+function num(row: AnyRow, col: string | undefined): number {
+  if (!col) return 0
+  return parseFloat(row[col]?.replace(',', '.') ?? '0') || 0
+}
+
+function findCol(cols: string[], ...patterns: RegExp[]): string | undefined {
+  for (const pat of patterns) {
+    const found = cols.find(c => pat.test(c))
+    if (found) return found
+  }
+}
+
+function parseWyscoutCSV(rows: AnyRow[], fileName: string): WyscoutSummary | null {
+  if (!rows.length) return null
+  const cols = Object.keys(rows[0])
+
+  const nameCol    = findCol(cols, /^(player|jugador|nombre|name)$/i, /player/i, /jugador/i)
+  const teamCol    = findCol(cols, /^(team|equipo|club)$/i, /team/i, /equipo/i)
+  const posCol     = findCol(cols, /^(pos(ition)?|posici[oó]n)$/i, /posici/i, /position/i)
+  const goalsCol   = findCol(cols, /^(goals?|goles?)$/i)
+  const assistsCol = findCol(cols, /^(assists?|asistencias?)$/i)
+  const xGCol      = findCol(cols, /^xg$/i, /expected.*goals/i)
+  const xACol      = findCol(cols, /^xa$/i, /expected.*assist/i)
+  const minsCol    = findCol(cols, /^(min(utes?|s)?)$/i, /minutos/i)
+  const shotsCol   = findCol(cols, /^shots?$/i, /disparos/i, /tiros/i)
+  const kpCol      = findCol(cols, /key.?pass/i, /pases.?clave/i)
+
+  const teamName = teamCol
+    ? (rows.find(r => r[teamCol]))?.[teamCol] ?? 'Rival'
+    : fileName.replace(/\.[^.]+$/, '').slice(0, 30)
+
+  const players: WyscoutPlayer[] = rows.map(row => ({
+    name:      nameCol ? (row[nameCol] ?? '—') : '—',
+    position:  posCol  ? (row[posCol] ?? '—') : '—',
+    goals:     num(row, goalsCol),
+    assists:   num(row, assistsCol),
+    xG:        num(row, xGCol),
+    xA:        num(row, xACol),
+    mins:      num(row, minsCol),
+    shots:     num(row, shotsCol),
+    keyPasses: num(row, kpCol),
+  })).filter(p => p.name !== '—' && p.name !== '')
+
+  const topScorers = [...players]
+    .sort((a, b) => (b.goals + b.xG * 0.5) - (a.goals + a.xG * 0.5))
+    .slice(0, 8)
+
+  return {
+    teamName,
+    fileName,
+    totalPlayers: players.length,
+    topScorers,
+    totalGoals: players.reduce((s, p) => s + p.goals, 0),
+    totalAssists: players.reduce((s, p) => s + p.assists, 0),
+    totalXG: parseFloat(players.reduce((s, p) => s + p.xG, 0).toFixed(2)),
+    avgMins: players.length
+      ? Math.round(players.reduce((s, p) => s + p.mins, 0) / players.length)
+      : 0,
+  }
+}
+
+function WyscoutDropZone() {
+  const [dragging, setDragging] = useState(false)
+  const [summary, setSummary] = useState<WyscoutSummary | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  function processFile(file: File) {
+    setError(null)
+    setSummary(null)
+
+    if (file.name.endsWith('.json')) {
+      file.text().then(text => {
+        try {
+          const json = JSON.parse(text)
+          // Basic Wyscout JSON: look for players array
+          const players = json.players ?? json.data?.players ?? json.squad ?? []
+          if (!Array.isArray(players) || !players.length) {
+            setError('No se encontraron jugadores en el JSON.')
+            return
+          }
+          // Convert to AnyRow
+          const rows: AnyRow[] = players.map((p: Record<string, unknown>) => {
+            const flat: AnyRow = {}
+            for (const [k, v] of Object.entries(p)) {
+              flat[k] = String(v ?? '')
+            }
+            return flat
+          })
+          const result = parseWyscoutCSV(rows, file.name)
+          if (result) setSummary(result)
+          else setError('Formato no reconocido.')
+        } catch {
+          setError('Error al leer el JSON.')
+        }
+      })
+      return
+    }
+
+    Papa.parse<AnyRow>(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: ({ data }) => {
+        const result = parseWyscoutCSV(data as AnyRow[], file.name)
+        if (result) setSummary(result)
+        else setError('No se reconoció el formato Wyscout.')
+      },
+      error: () => setError('Error al leer el CSV.'),
+    })
+  }
+
+  function onDrop(e: React.DragEvent) {
+    e.preventDefault()
+    setDragging(false)
+    const file = e.dataTransfer.files[0]
+    if (file) processFile(file)
+  }
+
+  return (
+    <section>
+      <h2 className="text-xs font-semibold text-apple-gray-400 uppercase tracking-widest mb-3">
+        Análisis Wyscout
+      </h2>
+
+      {!summary ? (
+        <div
+          onDragOver={e => { e.preventDefault(); setDragging(true) }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={onDrop}
+          onClick={() => inputRef.current?.click()}
+          className={`
+            relative cursor-pointer rounded-2xl border-2 border-dashed transition-all duration-200 px-6 py-10 flex flex-col items-center gap-3
+            ${dragging
+              ? 'border-brand-green bg-brand-green/5 scale-[1.01]'
+              : 'border-apple-gray-200 dark:border-apple-gray-700 hover:border-brand-green/50 hover:bg-apple-gray-50 dark:hover:bg-apple-gray-900/50 bg-white dark:bg-apple-gray-900'
+            }
+          `}
+        >
+          <input
+            ref={inputRef}
+            type="file"
+            accept=".csv,.json,.xlsx"
+            className="hidden"
+            onChange={e => { const f = e.target.files?.[0]; if (f) processFile(f) }}
+          />
+          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors ${dragging ? 'bg-brand-green/15' : 'bg-apple-gray-100 dark:bg-apple-gray-800'}`}>
+            <svg className={`w-6 h-6 ${dragging ? 'text-brand-green' : 'text-apple-gray-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+            </svg>
+          </div>
+          <div className="text-center">
+            <p className="text-sm font-semibold text-apple-gray-700 dark:text-apple-gray-200">
+              {dragging ? 'Soltar para analizar' : 'Arrastrá un export de Wyscout'}
+            </p>
+            <p className="text-xs text-apple-gray-400 mt-1">CSV o JSON · stats de jugadores del rival</p>
+          </div>
+          {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+        </div>
+      ) : (
+        <div className="bg-white dark:bg-apple-gray-900 rounded-2xl border border-apple-gray-100 dark:border-apple-gray-800 overflow-hidden">
+          {/* Header */}
+          <div className="px-5 py-4 border-b border-apple-gray-100 dark:border-apple-gray-800 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <ShieldImg team={summary.teamName} size={34} />
+              <div>
+                <h3 className="font-semibold text-apple-gray-800 dark:text-white">{summary.teamName}</h3>
+                <p className="text-xs text-apple-gray-400">{summary.totalPlayers} jugadores · {summary.fileName}</p>
+              </div>
+            </div>
+            <button
+              onClick={() => { setSummary(null); setError(null) }}
+              className="text-xs text-apple-gray-400 hover:text-apple-gray-700 dark:hover:text-white transition-colors px-2 py-1 rounded-lg hover:bg-apple-gray-100 dark:hover:bg-apple-gray-800"
+            >
+              ✕ Nuevo archivo
+            </button>
+          </div>
+
+          {/* Stats strip */}
+          <div className="grid grid-cols-4 divide-x divide-apple-gray-100 dark:divide-apple-gray-800 border-b border-apple-gray-100 dark:border-apple-gray-800">
+            {[
+              { label: 'Goles', value: summary.totalGoals },
+              { label: 'Asist.', value: summary.totalAssists },
+              { label: 'xG total', value: summary.totalXG.toFixed(1) },
+              { label: 'Min. prom.', value: summary.avgMins },
+            ].map(({ label, value }) => (
+              <div key={label} className="py-3 text-center">
+                <p className="text-lg font-bold text-apple-gray-800 dark:text-white">{value}</p>
+                <p className="text-[10px] text-apple-gray-400 uppercase tracking-wide">{label}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Top players table */}
+          <div className="px-5 py-4">
+            <p className="text-xs font-semibold text-apple-gray-400 uppercase tracking-widest mb-3">Jugadores clave</p>
+            <div className="space-y-1.5">
+              {summary.topScorers.map((p, i) => (
+                <div key={i} className="flex items-center gap-3 py-1.5 border-b border-apple-gray-50 dark:border-apple-gray-800/60 last:border-0">
+                  <span className="w-5 text-xs text-apple-gray-400 text-right flex-shrink-0">{i + 1}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-apple-gray-800 dark:text-white truncate">{p.name}</p>
+                    <p className="text-xs text-apple-gray-400">{p.position}{p.mins ? ` · ${p.mins}'` : ''}</p>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs flex-shrink-0">
+                    {p.goals > 0 && (
+                      <span className="font-semibold text-emerald-600 dark:text-emerald-400">{p.goals}G</span>
+                    )}
+                    {p.assists > 0 && (
+                      <span className="font-semibold text-blue-600 dark:text-blue-400">{p.assists}A</span>
+                    )}
+                    {p.xG > 0 && (
+                      <span className="text-apple-gray-400">xG {p.xG.toFixed(1)}</span>
+                    )}
+                    {p.shots > 0 && (
+                      <span className="text-apple-gray-400">{p.shots} disp.</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </section>
+  )
+}
+
+// ─── Standings Widget ─────────────────────────────────────────────────────────
+
+function StandingsWidget({
+  title,
+  subtitle,
+  entries,
+  loading,
+  compSlug,
+}: {
+  title: string
+  subtitle?: string
+  entries: StandingsEntry[]
+  loading: boolean
+  compSlug?: string
+}) {
+  return (
+    <div className="bg-white dark:bg-apple-gray-900 rounded-2xl border border-apple-gray-100 dark:border-apple-gray-800 overflow-hidden">
+      {/* Header */}
+      <div className="px-4 py-3 border-b border-apple-gray-100 dark:border-apple-gray-800 flex items-center gap-2">
+        {compSlug && <CompBadge competition={compSlug} size={26} />}
+        <div>
+          <h3 className="text-sm font-semibold text-apple-gray-800 dark:text-white leading-none">{title}</h3>
+          {subtitle && <p className="text-[11px] text-apple-gray-400 mt-0.5">{subtitle}</p>}
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="py-8 flex justify-center">
+          <div className="w-5 h-5 border-2 border-brand-green border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : entries.length === 0 ? (
+        <div className="py-6 text-center text-xs text-apple-gray-400">Sin datos disponibles</div>
+      ) : (
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="border-b border-apple-gray-50 dark:border-apple-gray-800 text-[10px] text-apple-gray-400 uppercase tracking-wider">
+              <th className="px-3 py-2 text-left w-6">#</th>
+              <th className="px-2 py-2 text-left">Equipo</th>
+              <th className="px-2 py-2 text-center w-7">PJ</th>
+              <th className="px-2 py-2 text-center w-7">G</th>
+              <th className="px-2 py-2 text-center w-7">E</th>
+              <th className="px-2 py-2 text-center w-7">P</th>
+              <th className="px-2 py-2 text-center w-12">GD</th>
+              <th className="px-3 py-2 text-center w-8 font-bold">Pts</th>
+            </tr>
+          </thead>
+          <tbody>
+            {entries.map((e, i) => (
+              <tr
+                key={e.id || i}
+                className={`
+                  border-b border-apple-gray-50 dark:border-apple-gray-800/50 last:border-0 transition-colors
+                  ${e.isLanus
+                    ? 'bg-brand-green/8 dark:bg-brand-green/15'
+                    : 'hover:bg-apple-gray-50/50 dark:hover:bg-apple-gray-800/30'
+                  }
+                `}
+              >
+                <td className="px-3 py-2 text-apple-gray-400 font-medium">{e.pos}</td>
+                <td className="px-2 py-2">
+                  <div className="flex items-center gap-1.5">
+                    <ShieldImg team={e.name} size={16} fallbackInitials={false} />
+                    <span className={`truncate max-w-[100px] ${e.isLanus ? 'font-bold text-brand-green' : 'text-apple-gray-700 dark:text-apple-gray-200'}`}>
+                      {e.name}
+                    </span>
+                  </div>
+                </td>
+                <td className="px-2 py-2 text-center text-apple-gray-500">{e.played}</td>
+                <td className="px-2 py-2 text-center text-emerald-600 dark:text-emerald-400">{e.wins}</td>
+                <td className="px-2 py-2 text-center text-amber-600 dark:text-amber-400">{e.draws}</td>
+                <td className="px-2 py-2 text-center text-red-500">{e.losses}</td>
+                <td className="px-2 py-2 text-center text-apple-gray-500">
+                  {(() => { const d = e.goalsFor - e.goalsAgainst; return d > 0 ? `+${d}` : String(d) })()}
+                </td>
+                <td className={`px-3 py-2 text-center font-bold ${e.isLanus ? 'text-brand-green' : 'text-apple-gray-800 dark:text-white'}`}>
+                  {e.pts}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  )
+}
+
+// ─── Top Stats Widget ─────────────────────────────────────────────────────────
+
+function TopStatsList({
+  title,
+  items,
+  loading,
+}: {
+  title: string
+  items: LanusTopStat[]
+  loading: boolean
+}) {
+  return (
+    <div>
+      <p className="text-[10px] font-semibold text-apple-gray-400 uppercase tracking-widest mb-2">{title}</p>
+      {loading ? (
+        <div className="flex gap-3">
+          {[0,1,2].map(i => <div key={i} className="w-14 h-14 rounded-xl bg-apple-gray-100 dark:bg-apple-gray-800 animate-pulse" />)}
+        </div>
+      ) : items.length === 0 ? (
+        <p className="text-xs text-apple-gray-400 py-2">Sin datos</p>
+      ) : (
+        <div className="flex flex-wrap gap-3">
+          {items.map((p, i) => (
+            <div key={p.id || i} className="flex flex-col items-center gap-1 w-[52px]">
+              <div className="relative w-10 h-10 rounded-full overflow-hidden bg-apple-gray-100 dark:bg-apple-gray-800 flex-shrink-0">
+                {p.imageUrl && (
+                  <img
+                    src={p.imageUrl}
+                    alt={p.name}
+                    className="w-full h-full object-cover"
+                    onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
+                  />
+                )}
+                <span className="absolute inset-0 flex items-center justify-center text-[11px] font-bold text-brand-green bg-brand-green/10 rounded-full">
+                  {p.value}
+                </span>
+              </div>
+              <p className="text-[9px] text-apple-gray-500 text-center leading-tight truncate w-full">{p.name.split(' ').slice(-1)[0]}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Stat Card ───────────────────────────────────────────────────────────────
 
 function StatCard({ label, value, sub, to, color = 'default' }: {
@@ -608,6 +1005,15 @@ export default function DashboardPage() {
   const [rivalData, setRivalData] = useState<RivalData | null>(null)
   const [loadingRival, setLoadingRival] = useState(false)
 
+  // Standings state
+  const [ligaZonaA, setLigaZonaA] = useState<StandingsEntry[]>([])
+  const [libertadoresG, setLibertadoresG] = useState<StandingsEntry[]>([])
+  const [allLigaGroups, setAllLigaGroups] = useState<StandingsGroup[]>([])
+  const [loadingStandings, setLoadingStandings] = useState(true)
+  const [topScorers, setTopScorers] = useState<LanusTopStat[]>([])
+  const [topAssisters, setTopAssisters] = useState<LanusTopStat[]>([])
+  const [loadingTopStats, setLoadingTopStats] = useState(true)
+
   useEffect(() => {
     fetchLanusCalendar().then(m => {
       setMatches(m)
@@ -625,6 +1031,48 @@ export default function DashboardPage() {
   useEffect(() => { loadLineup() }, [loadLineup])
   useEffect(() => {
     getSeguimientoList().then(list => setSeguimientoCount(list.length))
+  }, [])
+
+  // Fetch all standings in parallel
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      setLoadingStandings(true)
+      const [ligaGroups, libGroups] = await Promise.allSettled([
+        fetchLigaProStandings(),
+        fetchLibertadoresStandings(),
+      ])
+
+      if (cancelled) return
+
+      if (ligaGroups.status === 'fulfilled') {
+        setAllLigaGroups(ligaGroups.value)
+        const zonaA = findGroup(ligaGroups.value, 'a') ?? ligaGroups.value[0]
+        setLigaZonaA(zonaA?.entries ?? [])
+      }
+      if (libGroups.status === 'fulfilled') {
+        // Find the group that actually contains Lanús (don't guess the letter)
+        const lanusGroup = libGroups.value.find(g => g.entries.some(e => e.isLanus)) ?? null
+        setLibertadoresG(lanusGroup?.entries ?? [])
+      }
+
+      setLoadingStandings(false)
+    }
+    load()
+
+    // Refresh every 5 minutes
+    const interval = setInterval(load, 5 * 60 * 1000)
+    return () => { cancelled = true; clearInterval(interval) }
+  }, [])
+
+  // Fetch Lanús top scorers/assisters
+  useEffect(() => {
+    setLoadingTopStats(true)
+    fetchLanusTopStats().then(({ scorers, assisters }) => {
+      setTopScorers(scorers)
+      setTopAssisters(assisters)
+      setLoadingTopStats(false)
+    })
   }, [])
 
   // Fetch rival data when next match is known — CSV is primary, FotMob lineup is bonus
@@ -667,6 +1115,7 @@ export default function DashboardPage() {
 
   const futureMatches = useMemo(() => matches.filter(m => m.date >= now), [matches])
   const nextMatch = futureMatches[0]
+  const nextNextMatch = futureMatches[1]
   const nextAway = futureMatches.find(m => !m.isHome)
 
   const contractAlerts = useMemo(() => {
@@ -713,15 +1162,16 @@ export default function DashboardPage() {
         <section>
           <h2 className="text-xs font-semibold text-apple-gray-400 uppercase tracking-widest mb-3">Partidos</h2>
           {loadingMatches ? (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {[0,1,2].map(i => (
+            <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+              {[0,1,2,3].map(i => (
                 <div key={i} className="rounded-2xl bg-apple-gray-200 dark:bg-apple-gray-800 h-40 animate-pulse" />
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
               <MatchCard match={lastMatch} label="Último partido" accent="neutral" />
               <MatchCard match={nextMatch} label="Próximo partido" accent="brand" />
+              <MatchCard match={nextNextMatch} label="A continuación" accent="brand" />
               <MatchCard match={nextAway} label="Próximo viaje" accent="blue" isTravel />
             </div>
           )}
@@ -809,6 +1259,9 @@ export default function DashboardPage() {
             <RivalSection rivalData={rivalData} loading={loadingRival} nextMatch={nextMatch} />
           </section>
         )}
+
+        {/* ── Wyscout ── */}
+        <WyscoutDropZone />
 
         {/* ── Main grid ── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -1007,6 +1460,49 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+
+        {/* ── Posiciones ── */}
+        <section>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-xs font-semibold text-apple-gray-400 uppercase tracking-widest">Posiciones</h2>
+            {!loadingStandings && allLigaGroups.length > 1 && (
+              <p className="text-[10px] text-apple-gray-400">
+                {allLigaGroups.map(g => g.title).join(' · ')}
+              </p>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <StandingsWidget
+              title="Liga Profesional"
+              subtitle="Zona A"
+              entries={ligaZonaA}
+              loading={loadingStandings}
+              compSlug="liga"
+            />
+            <StandingsWidget
+              title="Copa Libertadores"
+              subtitle="Grupo Lanús"
+              entries={libertadoresG}
+              loading={loadingStandings}
+              compSlug="libertadores"
+            />
+          </div>
+        </section>
+
+        {/* ── Goleadores · Asistidores ── */}
+        {(loadingTopStats || topScorers.length > 0 || topAssisters.length > 0) && (
+          <section className="bg-white dark:bg-apple-gray-900 rounded-2xl border border-apple-gray-100 dark:border-apple-gray-800 px-5 py-4">
+            <div className="flex items-center gap-2 mb-4">
+              <img src="/lanus-escudo.png" alt="Lanús" className="w-5 h-5 object-contain" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.2))' }} />
+              <h2 className="text-xs font-semibold text-apple-gray-400 uppercase tracking-widest">Lanús · Temporada 2026</h2>
+            </div>
+            <div className="grid grid-cols-2 gap-6">
+              <TopStatsList title="Goleadores" items={topScorers} loading={loadingTopStats} />
+              <TopStatsList title="Asistidores" items={topAssisters} loading={loadingTopStats} />
+            </div>
+          </section>
+        )}
 
         {/* ── Quick Stats ── */}
         <section>

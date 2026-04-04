@@ -20,14 +20,19 @@ function initials(name: string): string {
 export function ShieldImg({ team, size = 32, className = '', fallbackInitials = true }: ShieldImgProps) {
   const src = getTeamShield(team)
 
-  const style = { width: size, height: size, minWidth: size }
+  const style = {
+    width: size,
+    height: size,
+    minWidth: size,
+    filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.22))',
+  }
 
   if (!src) {
     if (!fallbackInitials) return null
     return (
       <span
         className={`inline-flex items-center justify-center rounded-full bg-apple-gray-700 text-apple-gray-200 font-bold select-none ${className}`}
-        style={{ ...style, fontSize: Math.max(9, Math.floor(size * 0.35)) }}
+        style={{ width: size, height: size, minWidth: size, fontSize: Math.max(9, Math.floor(size * 0.35)) }}
         title={team}
       >
         {initials(team)}
@@ -67,11 +72,15 @@ interface CompBadgeProps {
 const COMP_LABELS: Record<string, string> = {
   liga: 'Liga Profesional',
   copa: 'Copa Argentina',
-  internacional: 'Sudamericana',
+  libertadores: 'Copa Libertadores',
+  sudamericana: 'Copa Sudamericana',
+  internacional: 'Internacional',
 }
 const COMP_SHIELDS: Record<string, string> = {
   liga: '/escudos/competiciones/liga-argentina.png',
   copa: '/escudos/competiciones/copa-argentina.png',
+  libertadores: '/escudos/competiciones/conmebol.png',
+  sudamericana: '/escudos/competiciones/conmebol.png',
   internacional: '/escudos/competiciones/conmebol.png',
 }
 

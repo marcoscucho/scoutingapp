@@ -275,7 +275,7 @@ function TabPartidos({ matches }: { matches: MatchData[] }) {
               <div className={`w-7 h-7 rounded-full ${resultColor(m.result)} flex items-center justify-center text-xs font-bold text-white flex-shrink-0`}>
                 {m.result}
               </div>
-              <ShieldImg team={m.rival} size={26} className="flex-shrink-0" />
+              <ShieldImg team={m.rival} size={36} className="flex-shrink-0" />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-apple-gray-900 dark:text-white font-medium text-sm">{m.isHome ? 'vs' : 'en'} {m.rival}</span>
@@ -303,7 +303,7 @@ function TabPartidos({ matches }: { matches: MatchData[] }) {
 
             {/* Expanded stats */}
             {expanded === m.id && (
-              <div className="border-t border-apple-gray-100 dark:border-apple-gray-800 p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 bg-apple-gray-50 dark:bg-apple-gray-950/50">
+              <div className="border-t border-apple-gray-100 dark:border-apple-gray-800 p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 bg-apple-gray-50 dark:bg-apple-gray-800/60">
                 {[
                   ['xG', m.xG.toString()],
                   ['Tiros (portería)', `${m.tiros} (${m.tirosPorteria})`],
@@ -325,7 +325,7 @@ function TabPartidos({ matches }: { matches: MatchData[] }) {
                   ['Corners', m.corners.toString()],
                 ].map(([label, value]) => (
                   <div key={label}>
-                    <p className="text-[10px] text-apple-gray-500 uppercase tracking-wide">{label}</p>
+                    <p className="text-[10px] text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wide">{label}</p>
                     <p className="text-sm text-apple-gray-900 dark:text-white font-medium">{value}</p>
                   </div>
                 ))}
@@ -1014,15 +1014,6 @@ export default function EquipoPage() {
   return (
     <div className="min-h-screen bg-apple-gray-50 dark:bg-[#0a0a0a] text-apple-gray-900 dark:text-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
-
-        {/* Page header */}
-        <div className="flex items-center gap-4">
-          <img src="/lanus-escudo.png" alt="Club Atlético Lanús" className="w-12 h-12 object-contain flex-shrink-0" />
-          <div>
-            <h1 className="text-2xl font-black text-apple-gray-900 dark:text-white">Club Atlético Lanús</h1>
-            <p className="text-apple-gray-500 dark:text-apple-gray-400 text-sm">Análisis colectivo del equipo · Temporada 2026</p>
-          </div>
-        </div>
 
         {/* Division selector */}
         <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">

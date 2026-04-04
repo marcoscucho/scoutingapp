@@ -183,7 +183,7 @@ const TM_DATA: Record<string, TMPlayerData> = {
   },
   'L. Acosta': {
     nombre_completo: 'Lucas Mauricio Acosta',
-    imagen: 'https://img.a.transfermarkt.technology/portrait/big/296799-1721936052.png',
+    imagen: 'https://encrypted-tbn1.gstatic.com/images?q=tbn:ANd9GcQPyW8yinFIEMKcBRIpKmVGpKBNdcDlpAd5FFah_cOo8vrleA',
     representante: 'Oller Group',
     valor_mercado: 1_200_000,
     valor_mercado_fmt: '€1,20M',

@@ -1,3 +1,6 @@
+/* Leaflet draw toolbar — must come before @tailwind */
+@import 'leaflet-draw/dist/leaflet.draw.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

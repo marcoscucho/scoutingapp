@@ -27,6 +27,22 @@
   force = true
   headers = {User-Agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", Referer = "https://www.fotmob.com"}
 
+# ESPN public API proxy (Liga Argentina + Copa Libertadores standings)
+[[redirects]]
+  from = "/espn-proxy/*"
+  to = "https://site.api.espn.com/:splat"
+  status = 200
+  force = true
+  headers = {User-Agent = "Mozilla/5.0", Accept = "application/json"}
+
+# Promiedos proxy (annual standings)
+[[redirects]]
+  from = "/promiedos-proxy/*"
+  to = "https://www.promiedos.com.ar/:splat"
+  status = 200
+  force = true
+  headers = {User-Agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", Accept = "text/html,*/*"}
+
 # API redirects
 [[redirects]]
   from = "/api/*"
@@ -48,7 +64,7 @@
     X-XSS-Protection = "1; mode=block"
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "camera=(), microphone=(), geolocation=()"
-    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://*.supabase.co https://docs.google.com wss://*.supabase.co; frame-ancestors 'none';"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://*.supabase.co https://docs.google.com https://site.api.espn.com wss://*.supabase.co; frame-ancestors 'none';"
 
 # Cache static assets
 [[headers]]
