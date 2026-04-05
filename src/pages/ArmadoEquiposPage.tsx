@@ -3,15 +3,23 @@ import { useState, useCallback, useRef } from 'react'
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type Category = 'primera' | 'clave' | 'desarrollar' | 'talento'
-type TeamCategory = 'reserva' | '4ta' | '5ta' | '6ta' | '7ma' | '8va' | '9na' | 'pre9na'
+type TeamCategory = 'primera_div' | 'reserva' | '4ta' | '5ta' | '6ta' | '7ma' | '8va' | '9na' | 'pre9na'
+
+// Contract status — only for primera_div players
+type ContractStatus = 'baja' | 'prestamo' | 'renovacion' | 'continua' | 'refuerzo' | 'venta' | 'promesa'
+// Double classification: primer_contrato applies to primera_div + inferiores; renovacion_contrato only to primera_div
+type ContractType = 'primer_contrato' | 'renovacion_contrato' | null
 
 interface InfPlayer {
   id: string
   name: string
   category: Category
-  birthDate?: string    // ISO date e.g. "2007-03-15"
-  categoryYear?: string // e.g. "2007", "2008"
+  birthDate?: string
+  categoryYear?: string
   notes?: string
+  // Extended fields for primera_div
+  contractStatus?: ContractStatus
+  contractType?: ContractType
 }
 
 type FormationKey = '4-3-3' | '4-4-2' | '4-2-3-1' | '3-5-2' | '5-3-2'
@@ -29,22 +37,34 @@ type AllTeamStates = Record<TeamCategory, TeamState>
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const TEAM_CATEGORIES: { key: TeamCategory; label: string }[] = [
-  { key: 'reserva', label: 'Reserva' },
-  { key: '4ta',    label: '4ta'     },
-  { key: '5ta',    label: '5ta'     },
-  { key: '6ta',    label: '6ta'     },
-  { key: '7ma',    label: '7ma'     },
-  { key: '8va',    label: '8va'     },
-  { key: '9na',    label: '9na'     },
-  { key: 'pre9na', label: 'Pre 9na' },
+const TEAM_CATEGORIES: { key: TeamCategory; label: string; isPrimera?: boolean; hasContractType?: boolean }[] = [
+  { key: 'primera_div', label: 'Primera',  isPrimera: true, hasContractType: true },
+  { key: 'reserva',     label: 'Reserva',  hasContractType: true },
+  { key: '4ta',         label: '4ta',      hasContractType: true },
+  { key: '5ta',         label: '5ta',      hasContractType: true },
+  { key: '6ta',         label: '6ta',      hasContractType: true },
+  { key: '7ma',         label: '7ma',      hasContractType: true },
+  { key: '8va',         label: '8va'       },
+  { key: '9na',         label: '9na'       },
+  { key: 'pre9na',      label: 'Pre 9na'   },
 ]
 
 const CATEGORY_CONFIG: Record<Category, { label: string; color: string; bg: string; dot: string }> = {
-  primera:    { label: 'Primera opción',       color: 'text-blue-700 dark:text-blue-300',    bg: 'bg-blue-100 dark:bg-blue-900/40',    dot: 'bg-blue-500'   },
-  clave:      { label: 'Clave',                color: 'text-orange-700 dark:text-orange-300', bg: 'bg-orange-100 dark:bg-orange-900/40', dot: 'bg-orange-500' },
+  primera:    { label: 'Primera opción',        color: 'text-blue-700 dark:text-blue-300',    bg: 'bg-blue-100 dark:bg-blue-900/40',    dot: 'bg-blue-500'   },
+  clave:      { label: 'Clave',                 color: 'text-orange-700 dark:text-orange-300', bg: 'bg-orange-100 dark:bg-orange-900/40', dot: 'bg-orange-500' },
   desarrollar:{ label: 'Jugador a desarrollar', color: 'text-yellow-700 dark:text-yellow-300', bg: 'bg-yellow-100 dark:bg-yellow-900/40',  dot: 'bg-yellow-400' },
-  talento:    { label: 'Joven talento',        color: 'text-purple-700 dark:text-purple-300', bg: 'bg-purple-100 dark:bg-purple-900/40', dot: 'bg-purple-500' },
+  talento:    { label: 'Joven talento',         color: 'text-purple-700 dark:text-purple-300', bg: 'bg-purple-100 dark:bg-purple-900/40', dot: 'bg-purple-500' },
+}
+
+// Contract status config — used only for primera_div players
+const CONTRACT_STATUS_CONFIG: Record<ContractStatus, { label: string; dot: string; textColor: string }> = {
+  baja:       { label: 'Baja',             dot: '#ef4444', textColor: 'text-red-500'    },
+  prestamo:   { label: 'Sale a préstamo',  dot: '#eab308', textColor: 'text-yellow-500' },
+  renovacion: { label: 'Renovación',       dot: '#6f1929', textColor: 'text-rose-800 dark:text-rose-300' },
+  continua:   { label: 'Continúa',         dot: '#3b82f6', textColor: 'text-blue-500'   },
+  refuerzo:   { label: 'Posible refuerzo', dot: '#06b6d4', textColor: 'text-cyan-500'   },
+  venta:      { label: 'Posible venta',    dot: '#e5e7eb', textColor: 'text-gray-400'   },
+  promesa:    { label: 'Promesa',          dot: '#ec4899', textColor: 'text-pink-500'   },
 }
 
 const FORMATIONS: Record<FormationKey, { label: string; positions: { key: string; label: string; x: number; y: number }[] }> = {
@@ -167,16 +187,30 @@ function saveToDisk(formations: SavedFormation[]) {
 function PlayerChip({ player, onRemove }: { player: InfPlayer; onRemove: () => void }) {
   const cfg = CATEGORY_CONFIG[player.category]
   const displayYear = player.categoryYear ?? (player.birthDate ? player.birthDate.slice(0, 4) : null)
+  const statusCfg = player.contractStatus ? CONTRACT_STATUS_CONFIG[player.contractStatus] : null
+
   return (
-    <div className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs ${cfg.bg} ${cfg.color} group`}>
-      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${cfg.dot}`} />
-      <span className="font-medium truncate max-w-[80px]">{player.name}</span>
-      {displayYear && <span className="opacity-60 text-[10px]">{displayYear}</span>}
-      <button
-        onClick={onRemove}
-        className="ml-0.5 opacity-0 group-hover:opacity-70 hover:opacity-100 text-current leading-none"
-        title="Quitar"
-      >×</button>
+    <div className={`flex flex-col gap-0.5 px-2 py-1 rounded-lg text-xs ${cfg.bg} ${cfg.color} group`}>
+      <div className="flex items-center gap-1.5">
+        {statusCfg ? (
+          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: statusCfg.dot }} />
+        ) : (
+          <span className={`w-2 h-2 rounded-full flex-shrink-0 ${cfg.dot}`} />
+        )}
+        <span className="font-medium truncate max-w-[80px]">{player.name}</span>
+        {displayYear && <span className="opacity-60 text-[10px]">{displayYear}</span>}
+        <button
+          onClick={onRemove}
+          className="ml-0.5 opacity-0 group-hover:opacity-70 hover:opacity-100 text-current leading-none"
+          title="Quitar"
+        >×</button>
+      </div>
+      {/* Contract type badge (subtle) */}
+      {player.contractType && (
+        <span className="text-[9px] font-semibold opacity-70 pl-3.5 leading-none">
+          {player.contractType === 'primer_contrato' ? '● Primer contrato' : '● Renovación ctto.'}
+        </span>
+      )}
     </div>
   )
 }
@@ -184,16 +218,22 @@ function PlayerChip({ player, onRemove }: { player: InfPlayer; onRemove: () => v
 interface AddPlayerModalProps {
   positionKey: string
   positionLabel: string
+  teamCategory: TeamCategory
   onAdd: (player: Omit<InfPlayer, 'id'>) => void
   onClose: () => void
 }
 
-function AddPlayerModal({ positionKey, positionLabel, onAdd, onClose }: AddPlayerModalProps) {
+function AddPlayerModal({ positionKey, positionLabel, teamCategory, onAdd, onClose }: AddPlayerModalProps) {
   const [name, setName] = useState('')
   const [category, setCategory] = useState<Category>('primera')
   const [birthDate, setBirthDate] = useState('')
   const [categoryYear, setCategoryYear] = useState('')
   const [notes, setNotes] = useState('')
+  const [contractStatus, setContractStatus] = useState<ContractStatus | undefined>(undefined)
+  const [contractType, setContractType] = useState<ContractType>(null)
+
+  const isPrimera = teamCategory === 'primera_div'
+  const hasContractType = TEAM_CATEGORIES.find(t => t.key === teamCategory)?.hasContractType ?? false
 
   function handleAdd() {
     if (!name.trim()) return
@@ -203,13 +243,17 @@ function AddPlayerModal({ positionKey, positionLabel, onAdd, onClose }: AddPlaye
       birthDate: birthDate || undefined,
       categoryYear: categoryYear.trim() || undefined,
       notes: notes.trim() || undefined,
+      contractStatus: isPrimera ? contractStatus : undefined,
+      contractType: hasContractType ? contractType : null,
     })
     onClose()
   }
 
+  const inputCls = "w-full px-3 py-2 text-sm rounded-xl border border-apple-gray-200 dark:border-apple-gray-700 bg-apple-gray-50 dark:bg-apple-gray-800 text-apple-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-white dark:bg-apple-gray-900 rounded-2xl p-6 w-full max-w-sm shadow-2xl mx-4" onClick={e => e.stopPropagation()}>
+      <div className="bg-white dark:bg-apple-gray-900 rounded-2xl p-6 w-full max-w-sm shadow-2xl mx-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <h3 className="text-base font-bold text-apple-gray-900 dark:text-white mb-1">Agregar jugador</h3>
         <p className="text-xs text-apple-gray-400 mb-4">Posición: <span className="font-semibold">{positionLabel} ({positionKey})</span></p>
 
@@ -223,7 +267,7 @@ function AddPlayerModal({ positionKey, positionLabel, onAdd, onClose }: AddPlaye
               onChange={e => setName(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') handleAdd() }}
               placeholder="Apellido, Nombre"
-              className="w-full px-3 py-2 text-sm rounded-xl border border-apple-gray-200 dark:border-apple-gray-700 bg-apple-gray-50 dark:bg-apple-gray-800 text-apple-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className={inputCls}
             />
           </div>
 
@@ -246,6 +290,62 @@ function AddPlayerModal({ positionKey, positionLabel, onAdd, onClose }: AddPlaye
             </div>
           </div>
 
+          {/* Estado contractual — solo Primera División */}
+          {isPrimera && (
+            <div>
+              <label className="text-xs font-medium text-apple-gray-500 mb-2 block">Estado</label>
+              <div className="grid grid-cols-2 gap-1.5">
+                {(Object.entries(CONTRACT_STATUS_CONFIG) as [ContractStatus, typeof CONTRACT_STATUS_CONFIG[ContractStatus]][]).map(([key, cfg]) => (
+                  <button
+                    key={key}
+                    onClick={() => setContractStatus(contractStatus === key ? undefined : key)}
+                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                      contractStatus === key
+                        ? 'border-white/20 bg-apple-gray-100 dark:bg-apple-gray-700 ' + cfg.textColor
+                        : 'border-apple-gray-200 dark:border-apple-gray-700 text-apple-gray-500 dark:text-apple-gray-400'
+                    }`}
+                  >
+                    <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: cfg.dot }} />
+                    {cfg.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Clasificación de contrato — Primera (ambas) + Inferiores (solo primer contrato) */}
+          {hasContractType && (
+            <div>
+              <label className="text-xs font-medium text-apple-gray-500 mb-2 block">
+                Clasificación de contrato
+              </label>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setContractType(contractType === 'primer_contrato' ? null : 'primer_contrato')}
+                  className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                    contractType === 'primer_contrato'
+                      ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                      : 'border-apple-gray-200 dark:border-apple-gray-700 text-apple-gray-500 dark:text-apple-gray-400'
+                  }`}
+                >
+                  Primer contrato
+                </button>
+                {isPrimera && (
+                  <button
+                    onClick={() => setContractType(contractType === 'renovacion_contrato' ? null : 'renovacion_contrato')}
+                    className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                      contractType === 'renovacion_contrato'
+                        ? 'border-blue-500/50 bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                        : 'border-apple-gray-200 dark:border-apple-gray-700 text-apple-gray-500 dark:text-apple-gray-400'
+                    }`}
+                  >
+                    Renovación ctto.
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Fecha nacimiento + Categoría año */}
           <div className="grid grid-cols-2 gap-2">
             <div>
@@ -255,10 +355,9 @@ function AddPlayerModal({ positionKey, positionLabel, onAdd, onClose }: AddPlaye
                 value={birthDate}
                 onChange={e => {
                   setBirthDate(e.target.value)
-                  // Auto-fill category year from birth year
                   if (e.target.value) setCategoryYear(e.target.value.slice(0, 4))
                 }}
-                className="w-full px-3 py-2 text-sm rounded-xl border border-apple-gray-200 dark:border-apple-gray-700 bg-apple-gray-50 dark:bg-apple-gray-800 text-apple-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={inputCls}
               />
             </div>
             <div>
@@ -268,7 +367,7 @@ function AddPlayerModal({ positionKey, positionLabel, onAdd, onClose }: AddPlaye
                 onChange={e => setCategoryYear(e.target.value)}
                 placeholder="ej. 2007"
                 maxLength={4}
-                className="w-full px-3 py-2 text-sm rounded-xl border border-apple-gray-200 dark:border-apple-gray-700 bg-apple-gray-50 dark:bg-apple-gray-800 text-apple-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={inputCls}
               />
             </div>
           </div>
@@ -280,7 +379,7 @@ function AddPlayerModal({ positionKey, positionLabel, onAdd, onClose }: AddPlaye
               value={notes}
               onChange={e => setNotes(e.target.value)}
               placeholder="Opcional"
-              className="w-full px-3 py-2 text-sm rounded-xl border border-apple-gray-200 dark:border-apple-gray-700 bg-apple-gray-50 dark:bg-apple-gray-800 text-apple-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className={inputCls}
             />
           </div>
         </div>
@@ -420,7 +519,9 @@ export default function ArmadoEquiposPage() {
         <div className="flex items-start justify-between mb-5">
           <div>
             <h1 className="text-xl font-bold text-apple-gray-900 dark:text-white">Armado de Equipos</h1>
-            <p className="text-sm text-apple-gray-500 mt-0.5">Inferiores · Planificación por posición</p>
+            <p className="text-sm text-apple-gray-500 mt-0.5">
+              {activeTeam === 'primera_div' ? 'Primera División · Planificación y estado contractual' : 'Inferiores · Planificación por posición'}
+            </p>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -628,15 +729,31 @@ export default function ArmadoEquiposPage() {
 
                 {/* Legend */}
                 <div className="bg-white dark:bg-apple-gray-900 rounded-2xl border border-apple-gray-100 dark:border-apple-gray-800 p-4">
-                  <p className="text-xs font-semibold text-apple-gray-400 uppercase tracking-widest mb-3">Categorías</p>
-                  <div className="space-y-2">
+                  <p className="text-xs font-semibold text-apple-gray-400 uppercase tracking-widest mb-3">Categorías de rol</p>
+                  <div className="space-y-1.5">
                     {(Object.entries(CATEGORY_CONFIG) as [Category, typeof CATEGORY_CONFIG[Category]][]).map(([cat, cfg]) => (
                       <div key={cat} className="flex items-center gap-2">
-                        <span className={`w-3 h-3 rounded-full flex-shrink-0 ${cfg.dot}`} />
+                        <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${cfg.dot}`} />
                         <span className="text-xs text-apple-gray-700 dark:text-apple-gray-300">{cfg.label}</span>
                       </div>
                     ))}
                   </div>
+
+                  {/* Contract status legend — only for primera_div */}
+                  {activeTeam === 'primera_div' && (
+                    <>
+                      <p className="text-xs font-semibold text-apple-gray-400 uppercase tracking-widest mt-4 mb-2">Estado</p>
+                      <div className="space-y-1.5">
+                        {(Object.entries(CONTRACT_STATUS_CONFIG) as [ContractStatus, typeof CONTRACT_STATUS_CONFIG[ContractStatus]][]).map(([key, cfg]) => (
+                          <div key={key} className="flex items-center gap-2">
+                            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: cfg.dot }} />
+                            <span className={`text-xs ${cfg.textColor}`}>{cfg.label}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+
                   <p className="text-[10px] text-apple-gray-400 mt-3 border-t border-apple-gray-100 dark:border-apple-gray-800 pt-2">
                     Máx. {MAX_PER_POSITION} por posición · Click en el círculo para agregar
                   </p>
@@ -698,6 +815,7 @@ export default function ArmadoEquiposPage() {
         <AddPlayerModal
           positionKey={modal.key}
           positionLabel={modal.label}
+          teamCategory={activeTeam}
           onAdd={p => addPlayer(modal.key, p)}
           onClose={() => setModal(null)}
         />

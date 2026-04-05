@@ -45,7 +45,7 @@ function FormDot({ m }: { m: MatchData }) {
   return (
     <div className="group relative flex flex-col items-center gap-1">
       <div className={`w-8 h-8 rounded-full ${bg} flex items-center justify-center text-xs font-bold text-white shadow`}>
-        {m.result}
+        {m.result === 'W' ? 'G' : m.result === 'D' ? 'E' : 'P'}
       </div>
       <div className="flex flex-col items-center gap-0.5">
         <ShieldImg team={m.rival} size={16} fallbackInitials={false} />
@@ -273,7 +273,7 @@ function TabPartidos({ matches }: { matches: MatchData[] }) {
               className="w-full flex items-center gap-3 p-3 hover:bg-apple-gray-50 dark:hover:bg-apple-gray-800/50 transition-colors text-left"
             >
               <div className={`w-7 h-7 rounded-full ${resultColor(m.result)} flex items-center justify-center text-xs font-bold text-white flex-shrink-0`}>
-                {m.result}
+                {m.result === 'W' ? 'G' : m.result === 'D' ? 'E' : 'P'}
               </div>
               <ShieldImg team={m.rival} size={36} className="flex-shrink-0" />
               <div className="flex-1 min-w-0">
@@ -995,8 +995,217 @@ function TabVideo({ matches }: { matches: MatchData[] }) {
   )
 }
 
+// ─── TabInforme (Wyscout-style) ────────────────────────────────────────────────
+function TabInforme({ matches }: { matches: MatchData[] }) {
+  const sorted = [...matches].sort((a, b) => a.date.localeCompare(b.date))
+  const n = matches.length || 1
+
+  // ── Totales acumulados ──
+  const totGoles   = matches.reduce((s, m) => s + m.golesAFavor, 0)
+  const totGC      = matches.reduce((s, m) => s + m.golesRecibidos, 0)
+  const totAtaqPos = matches.reduce((s, m) => s + m.ataquesPositionales, 0)
+  const totContra  = matches.reduce((s, m) => s + m.contraataques, 0)
+  const totBalonP  = matches.reduce((s, m) => s + m.balonParado, 0)
+  const totCentros = matches.reduce((s, m) => s + m.centros, 0)
+  const totCenPrc  = matches.reduce((s, m) => s + m.centrosPrecisos, 0)
+  const totPasePrg = matches.reduce((s, m) => s + m.pasesProgresivos, 0)
+  const totPaseUT  = matches.reduce((s, m) => s + m.pasesUltimoTercio, 0)
+  const totInterc  = matches.reduce((s, m) => s + m.interceptaciones, 0)
+  const totDesp    = matches.reduce((s, m) => s + m.despejes, 0)
+  const totTiros   = matches.reduce((s, m) => s + m.tiros, 0)
+  const totTirosP  = matches.reduce((s, m) => s + m.tirosPorteria, 0)
+  const totCorners = matches.reduce((s, m) => s + m.corners, 0)
+
+  // ── Series temporales ──
+  const series = sorted.map((m, i) => ({
+    f: `F${i + 1}`,
+    llegadas: m.ataquesPositionales + m.contraataques + m.balonParado,
+    posicional: m.ataquesPositionales,
+    contra: m.contraataques,
+    balonP: m.balonParado,
+    centros: m.centros,
+    cenPrx: m.centrosPrecisos,
+    progresivos: m.pasesProgresivos,
+    ultimoTercio: m.pasesUltimoTercio,
+    interceptaciones: m.interceptaciones,
+    despejes: m.despejes,
+    tiros: m.tiros,
+    tirosPorteria: m.tirosPorteria,
+    goles: m.golesAFavor,
+    golesContra: m.golesRecibidos,
+  }))
+
+  const dark = { backgroundColor: '#111827', border: '1px solid #1f2937', borderRadius: 8, color: '#f9fafb', fontSize: 11 }
+  const mg   = { top: 5, right: 8, left: -18, bottom: 0 }
+  const tick = { fill: '#6b7280', fontSize: 9 }
+
+  function SectionHeader({ title }: { title: string }) {
+    return (
+      <div className="flex items-center gap-3 mb-3">
+        <div className="w-1 h-5 bg-brand-green rounded-full" />
+        <h3 className="text-xs font-bold tracking-widest uppercase text-apple-gray-300">{title}</h3>
+      </div>
+    )
+  }
+
+  function KpiBox({ label, value, sub, accent }: { label: string; value: string | number; sub?: string; accent?: string }) {
+    return (
+      <div className="bg-apple-gray-900 border border-apple-gray-800 rounded-xl p-3 text-center">
+        <p className={`text-2xl font-black tabular-nums ${accent ?? 'text-white'}`}>{value}</p>
+        <p className="text-[10px] text-apple-gray-400 uppercase tracking-wider leading-tight mt-0.5">{label}</p>
+        {sub && <p className="text-[10px] text-apple-gray-500 mt-0.5">{sub}</p>}
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6 text-white">
+
+      {/* ── GOLES ── */}
+      <div className="bg-apple-gray-900 border border-apple-gray-800 rounded-2xl p-5">
+        <SectionHeader title="Goles · Total torneo" />
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+          <KpiBox label="Goles a favor"    value={totGoles}              accent="text-brand-green" />
+          <KpiBox label="Goles en contra"  value={totGC}                 accent="text-red-400" />
+          <KpiBox label="Promedio a favor"  value={fmt1(totGoles / n)}    sub={`${n} partidos`} accent="text-brand-green" />
+          <KpiBox label="Promedio en contra" value={fmt1(totGC / n)}      accent="text-red-400" />
+        </div>
+        <p className="text-[10px] text-apple-gray-500 mb-2 uppercase tracking-wider">Goles por partido</p>
+        <ResponsiveContainer width="100%" height={160}>
+          <BarChart data={series} margin={mg}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+            <XAxis dataKey="f" tick={tick} />
+            <YAxis tick={tick} />
+            <Tooltip contentStyle={dark} />
+            <Legend wrapperStyle={{ fontSize: 10 }} />
+            <Bar dataKey="goles"       fill="#16a34a" name="A favor"    radius={[3,3,0,0]} />
+            <Bar dataKey="golesContra" fill="#ef4444" name="En contra"  radius={[3,3,0,0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* ── LLEGADAS ── */}
+      <div className="bg-apple-gray-900 border border-apple-gray-800 rounded-2xl p-5">
+        <SectionHeader title="Llegadas" />
+        <div className="grid grid-cols-3 gap-3 mb-4">
+          <KpiBox label="Ataques posicionales" value={totAtaqPos} sub={`${fmt1(totAtaqPos/n)}/pdo`} />
+          <KpiBox label="Contraataques"         value={totContra}  sub={`${fmt1(totContra/n)}/pdo`} />
+          <KpiBox label="Balón parado"           value={totBalonP}  sub={`${fmt1(totBalonP/n)}/pdo`} />
+        </div>
+        <p className="text-[10px] text-apple-gray-500 mb-2 uppercase tracking-wider">Total llegadas por partido</p>
+        <ResponsiveContainer width="100%" height={180}>
+          <AreaChart data={series} margin={mg}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+            <XAxis dataKey="f" tick={tick} />
+            <YAxis tick={tick} />
+            <Tooltip contentStyle={dark} />
+            <Legend wrapperStyle={{ fontSize: 10 }} />
+            <Area type="monotone" dataKey="posicional" stackId="1" stroke="#16a34a" fill="#16a34a" fillOpacity={0.4} name="Posicional" strokeWidth={1.5} />
+            <Area type="monotone" dataKey="contra"     stackId="1" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.4} name="Contraataque" strokeWidth={1.5} />
+            <Area type="monotone" dataKey="balonP"     stackId="1" stroke="#9333ea" fill="#9333ea" fillOpacity={0.4} name="Balón parado" strokeWidth={1.5} />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* ── APROXIMACIONES ── */}
+      <div className="bg-apple-gray-900 border border-apple-gray-800 rounded-2xl p-5">
+        <SectionHeader title="Aproximaciones y centros" />
+        <div className="grid grid-cols-3 gap-3 mb-4">
+          <KpiBox label="Centros totales"  value={totCentros} sub={`${fmt1(totCentros/n)}/pdo`} />
+          <KpiBox label="Centros precisos" value={totCenPrc}  accent="text-brand-green" sub={`${fmtPct(totCenPrc/Math.max(totCentros,1)*100)} precisión`} />
+          <KpiBox label="Corners"           value={totCorners} sub={`${fmt1(totCorners/n)}/pdo`} />
+        </div>
+        <ResponsiveContainer width="100%" height={160}>
+          <LineChart data={series} margin={mg}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+            <XAxis dataKey="f" tick={tick} />
+            <YAxis tick={tick} />
+            <Tooltip contentStyle={dark} />
+            <Legend wrapperStyle={{ fontSize: 10 }} />
+            <Line type="monotone" dataKey="centros" stroke="#f59e0b" strokeWidth={2} dot={{ r: 2 }} name="Centros" />
+            <Line type="monotone" dataKey="cenPrx"  stroke="#16a34a" strokeWidth={2} dot={{ r: 2 }} name="Precisos" />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* ── CIRCULACIONES ── */}
+      <div className="bg-apple-gray-900 border border-apple-gray-800 rounded-2xl p-5">
+        <SectionHeader title="Circulaciones (pases progresivos)" />
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+          <KpiBox label="Pases progresivos" value={totPasePrg} sub={`${fmt1(totPasePrg/n)}/pdo`} />
+          <KpiBox label="Último tercio"      value={totPaseUT}  sub={`${fmt1(totPaseUT/n)}/pdo`} />
+          <KpiBox label="Prog. / partido (máx)" value={Math.max(...matches.map(m=>m.pasesProgresivos))} accent="text-brand-green" />
+          <KpiBox label="Prog. / partido (mín)" value={Math.min(...matches.map(m=>m.pasesProgresivos))} accent="text-amber-400" />
+        </div>
+        <ResponsiveContainer width="100%" height={180}>
+          <AreaChart data={series} margin={mg}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+            <XAxis dataKey="f" tick={tick} />
+            <YAxis tick={tick} />
+            <Tooltip contentStyle={dark} />
+            <Legend wrapperStyle={{ fontSize: 10 }} />
+            <Area type="monotone" dataKey="progresivos"  stroke="#06b6d4" fill="#06b6d4" fillOpacity={0.2} strokeWidth={2} name="Pases prog." />
+            <Area type="monotone" dataKey="ultimoTercio" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.15} strokeWidth={2} name="Último tercio" />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* ── SALIDAS + RECUPERADAS ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+        {/* Salidas (tiros en contra / portería rival) */}
+        <div className="bg-apple-gray-900 border border-apple-gray-800 rounded-2xl p-5">
+          <SectionHeader title="Salidas (tiros propios)" />
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            <KpiBox label="Tiros totales"     value={totTiros}  sub={`${fmt1(totTiros/n)}/pdo`} />
+            <KpiBox label="A portería"         value={totTirosP} accent="text-brand-green" sub={`${fmtPct(totTirosP/Math.max(totTiros,1)*100)} precisión`} />
+          </div>
+          <ResponsiveContainer width="100%" height={140}>
+            <BarChart data={series} margin={mg}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+              <XAxis dataKey="f" tick={tick} />
+              <YAxis tick={tick} />
+              <Tooltip contentStyle={dark} />
+              <Bar dataKey="tiros"        fill="#6b7280" name="Tiros"     radius={[2,2,0,0]} />
+              <Bar dataKey="tirosPorteria" fill="#16a34a" name="A portería" radius={[2,2,0,0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Recuperadas */}
+        <div className="bg-apple-gray-900 border border-apple-gray-800 rounded-2xl p-5">
+          <SectionHeader title="Recuperadas e interceptaciones" />
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            <KpiBox label="Interceptaciones" value={totInterc} sub={`${fmt1(totInterc/n)}/pdo`} accent="text-brand-green" />
+            <KpiBox label="Despejes"          value={totDesp}  sub={`${fmt1(totDesp/n)}/pdo`} />
+          </div>
+          <ResponsiveContainer width="100%" height={140}>
+            <LineChart data={series} margin={mg}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+              <XAxis dataKey="f" tick={tick} />
+              <YAxis tick={tick} />
+              <Tooltip contentStyle={dark} />
+              <Legend wrapperStyle={{ fontSize: 10 }} />
+              <Line type="monotone" dataKey="interceptaciones" stroke="#16a34a" strokeWidth={2} dot={{ r: 2 }} name="Intercepciones" />
+              <Line type="monotone" dataKey="despejes"         stroke="#6b7280" strokeWidth={2} dot={{ r: 2 }} name="Despejes" />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* ── Nota sobre datos de zona ── */}
+      <div className="flex items-start gap-3 p-4 bg-blue-900/20 border border-blue-500/20 rounded-xl text-xs text-blue-300">
+        <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <span>El desglose por banda (Izquierda / Central / Derecha) requiere exportar el CSV de Wyscout desde la sección <strong>Próximo Partido</strong>.</span>
+      </div>
+    </div>
+  )
+}
+
 // ─── Main Page ─────────────────────────────────────────────────────────────────
-const TABS = ['Resumen', 'Partidos', 'Próximo Partido', 'Análisis', 'Video & Notas'] as const
+const TABS = ['Resumen', 'Partidos', 'Próximo Partido', 'Análisis', 'Informe', 'Video & Notas'] as const
 type Tab = typeof TABS[number]
 
 export default function EquipoPage() {
@@ -1069,6 +1278,7 @@ export default function EquipoPage() {
               {tab === 'Partidos' && <TabPartidos matches={LANUS_2026} />}
               {tab === 'Próximo Partido' && <TabProximoPartido matches={LANUS_2026} />}
               {tab === 'Análisis' && <TabAnalisis matches={matches.length ? matches : LANUS_2026} />}
+              {tab === 'Informe' && <TabInforme matches={matches.length ? matches : LANUS_2026} />}
               {tab === 'Video & Notas' && <TabVideo matches={LANUS_2026} />}
             </div>
           </>

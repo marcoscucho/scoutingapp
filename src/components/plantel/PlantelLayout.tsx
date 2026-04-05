@@ -113,7 +113,7 @@ const SECTIONS = [
   { id: 'metricas',     label: 'Métricas',     icon: icons.metricas },
   { id: 'fisico',       label: 'Físico',       icon: icons.fisico },
   { id: 'nutricion',    label: 'Nutrición',    icon: icons.nutricion },
-  { id: 'salud',        label: 'Salud',        icon: icons.salud },
+  { id: 'salud',        label: 'Medicina',     icon: icons.salud },
   { id: 'psicologia',   label: 'Psicología',   icon: icons.psicologia },
   { id: 'neurociencia', label: 'Neurociencia', icon: icons.neurociencia },
   { id: 'coach',        label: 'Coach',        icon: icons.coach },
@@ -186,7 +186,104 @@ function PlaceholderSection({ title, description, fields }: {
   )
 }
 
-// ─── SALUD SECTION ────────────────────────────────────────────────────────────
+// ─── INJURY ZONE → BODY COORDINATES ──────────────────────────────────────────
+
+const FRONT_ZONE_COORDS: Record<string, [number, number]> = {
+  'Cabeza':           [50, 14],
+  'Cuello':           [50, 30],
+  'Hombro Izq.':      [19, 48],
+  'Hombro Der.':      [81, 48],
+  'Pecho':            [50, 64],
+  'Abdomen':          [50, 85],
+  'Cadera Izq.':      [36, 110],
+  'Cadera Der.':      [64, 110],
+  'Ingle Izq.':       [36, 126],
+  'Ingle Der.':       [64, 126],
+  'Muslo Izq.':       [34, 153],
+  'Muslo Der.':       [66, 153],
+  'Rodilla Izq.':     [34, 179],
+  'Rodilla Der.':     [66, 179],
+  'Gemelo Izq.':      [33, 205],
+  'Gemelo Der.':      [67, 205],
+  'Tobillo Izq.':     [33, 228],
+  'Tobillo Der.':     [67, 228],
+  'Pie Izq.':         [36, 244],
+  'Pie Der.':         [64, 244],
+}
+
+const BACK_ZONE_COORDS: Record<string, [number, number]> = {
+  'Espalda Alta':         [50, 64],
+  'Espalda Baja':         [50, 88],
+  'Glúteo Izq.':          [36, 110],
+  'Glúteo Der.':          [64, 110],
+  'Isquiotibial Izq.':    [34, 162],
+  'Isquiotibial Der.':    [66, 162],
+}
+
+function BodySVG({ view, activeZones, onZoneClick }: {
+  view: 'front' | 'back'
+  activeZones: string[]
+  onZoneClick?: (zone: string) => void
+}) {
+  const active = new Set(activeZones)
+  const zoneCoords = view === 'front' ? FRONT_ZONE_COORDS : BACK_ZONE_COORDS
+  const strokeClr = 'rgba(156,163,175,0.4)'
+  const fillClr   = 'rgba(156,163,175,0.07)'
+
+  return (
+    <svg viewBox="0 0 100 260" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+      {/* ── Body silhouette ── */}
+      <g fill={fillClr} stroke={strokeClr} strokeWidth="1" strokeLinejoin="round">
+        {/* Head */}
+        <ellipse cx="50" cy="14" rx="13" ry="13.5" />
+        {/* Neck */}
+        <path d="M44 27 L44 35 Q50 37 56 35 L56 27" strokeLinecap="round" />
+        {/* Torso + hips */}
+        <path d="M22 40 C16 44 14 56 14 68 L14 92 C14 100 18 104 22 105
+                 L22 116 C22 126 26 130 30 131 L30 131
+                 Q34 143 36 148 L36 148 Q50 152 64 148
+                 Q66 143 70 131 L70 131
+                 C74 130 78 126 78 116 L78 105
+                 C82 104 86 100 86 92 L86 68
+                 C86 56 84 44 78 40
+                 C68 34 32 34 22 40 Z" />
+        {/* Left arm */}
+        <path d="M14 68 C10 74 8 86 9 98 Q10 106 14 108 L16 112
+                 Q14 118 14 124 Q14 130 18 132 L20 134"
+              fill="none" strokeWidth="9" strokeLinecap="round" />
+        {/* Right arm */}
+        <path d="M86 68 C90 74 92 86 91 98 Q90 106 86 108 L84 112
+                 Q86 118 86 124 Q86 130 82 132 L80 134"
+              fill="none" strokeWidth="9" strokeLinecap="round" />
+        {/* Left leg */}
+        <path d="M36 148 L34 185 Q33 198 33 212 L33 232 Q33 242 36 246 L38 258 Q42 260 46 258"
+              fill="none" strokeWidth="12" strokeLinecap="round" />
+        {/* Right leg */}
+        <path d="M64 148 L66 185 Q67 198 67 212 L67 232 Q67 242 64 246 L62 258 Q58 260 54 258"
+              fill="none" strokeWidth="12" strokeLinecap="round" />
+        {/* Feet */}
+        <ellipse cx="37" cy="253" rx="9" ry="4" />
+        <ellipse cx="63" cy="253" rx="9" ry="4" />
+      </g>
+
+      {/* ── Injury dots ── */}
+      {Object.entries(zoneCoords).map(([zone, [cx, cy]]) => {
+        const isActive = active.has(zone)
+        if (!isActive) return null
+        return (
+          <g key={zone} style={{ cursor: onZoneClick ? 'pointer' : 'default' }}
+             onClick={() => onZoneClick?.(zone)}>
+            <circle cx={cx} cy={cy} r="6.5" fill="#ef4444" opacity="0.2" />
+            <circle cx={cx} cy={cy} r="4"   fill="#ef4444" />
+            <circle cx={cx} cy={cy} r="1.8" fill="white"   opacity="0.9" />
+          </g>
+        )
+      })}
+    </svg>
+  )
+}
+
+// ─── MEDICINA SECTION ─────────────────────────────────────────────────────────
 
 function SaludSection() {
   const [injuries, setInjuries] = useState<Injury[]>([])
@@ -207,139 +304,218 @@ function SaludSection() {
     setShowAddForm(false)
   }
 
+  const handleRemoveInjury = (id: string) => {
+    setInjuries(prev => prev.filter(i => i.id !== id))
+    if (selectedInjury === id) setSelectedInjury(null)
+  }
+
+  const frontZones = injuries.map(i => i.zone).filter(z => z in FRONT_ZONE_COORDS)
+  const backZones  = injuries.map(i => i.zone).filter(z => z in BACK_ZONE_COORDS)
+
+  const totalLesiones    = injuries.length
+  const enTratamiento    = injuries.filter(i => i.status === 'en_tratamiento').length
+  const recuperadas      = injuries.filter(i => i.status === 'recuperado').length
+  const bajas            = injuries.filter(i => i.status === 'baja').length
+
   return (
-    <div className="animate-fade-in space-y-5">
+    <div className="animate-fade-in space-y-6">
+      {/* Header */}
       <div className="flex items-center gap-3 pb-4 border-b border-apple-gray-100 dark:border-apple-gray-700/50">
         <div className="w-2 h-6 bg-brand-green rounded-full" />
         <div>
-          <h2 className="text-base font-bold text-apple-gray-800 dark:text-white">Salud</h2>
-          <p className="text-xs text-apple-gray-400 mt-0.5">Historial de lesiones y estado físico</p>
+          <h2 className="text-base font-bold text-apple-gray-800 dark:text-white">Medicina</h2>
+          <p className="text-xs text-apple-gray-400 mt-0.5">Historial de lesiones y estado físico del jugador</p>
         </div>
         <button
           onClick={() => setShowAddForm(v => !v)}
-          className="ml-auto text-xs font-medium px-3 py-1.5 bg-brand-green/10 hover:bg-brand-green/20 text-brand-green rounded-lg transition-colors"
+          className="ml-auto flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl shadow-sm transition-colors"
         >
-          + Registrar lesión
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          Registrar lesión
         </button>
       </div>
 
-      <div className="space-y-3">
-          {showAddForm && (
-            <div className="p-4 bg-apple-gray-50 dark:bg-apple-gray-800/60 rounded-xl border border-apple-gray-200 dark:border-apple-gray-700 space-y-3">
-              <p className="text-xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider">Nueva Lesión</p>
+      {/* Stats summary */}
+      <div className="grid grid-cols-4 gap-3">
+        {[
+          { label: 'Lesiones totales', value: totalLesiones,   color: 'text-apple-gray-800 dark:text-white' },
+          { label: 'En tratamiento',   value: enTratamiento,   color: 'text-amber-500' },
+          { label: 'Recuperadas',      value: recuperadas,     color: 'text-emerald-500' },
+          { label: 'Bajas',            value: bajas,           color: 'text-red-500' },
+        ].map(s => (
+          <div key={s.label} className="bg-apple-gray-50 dark:bg-apple-gray-800/60 rounded-xl p-3 border border-apple-gray-100 dark:border-apple-gray-700/50 text-center">
+            <p className={`text-2xl font-bold tabular-nums ${s.color}`}>{s.value}</p>
+            <p className="text-[10px] text-apple-gray-400 uppercase tracking-wider mt-0.5 leading-tight">{s.label}</p>
+          </div>
+        ))}
+      </div>
 
-              <div>
-                <label className="block text-2xs text-apple-gray-400 mb-1">Zona</label>
-                <select
-                  value={newInjury.zone}
-                  onChange={e => setNewInjury(p => ({ ...p, zone: e.target.value }))}
-                  className="input-apple w-full text-sm"
-                >
-                  {ALL_INJURY_ZONES.map(z => <option key={z} value={z}>{z}</option>)}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-2xs text-apple-gray-400 mb-1">Tipo</label>
-                  <input
-                    type="text"
-                    placeholder="Muscular, ligamentaria..."
-                    value={newInjury.type}
-                    onChange={e => setNewInjury(p => ({ ...p, type: e.target.value }))}
-                    className="input-apple w-full text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-2xs text-apple-gray-400 mb-1">Fecha</label>
-                  <input
-                    type="date"
-                    value={newInjury.date}
-                    onChange={e => setNewInjury(p => ({ ...p, date: e.target.value }))}
-                    className="input-apple w-full text-sm"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-2xs text-apple-gray-400 mb-1">Estado</label>
-                <div className="flex gap-2">
-                  {(['recuperado', 'en_tratamiento', 'baja'] as const).map(s => (
-                    <button
-                      key={s}
-                      onClick={() => setNewInjury(p => ({ ...p, status: s }))}
-                      className={`flex-1 text-xs py-1.5 rounded-lg border transition-all ${newInjury.status === s
-                        ? INJURY_STATUS_CONFIG[s].bg + ' font-semibold'
-                        : 'border-apple-gray-200 dark:border-apple-gray-700 text-apple-gray-400'
-                      }`}
-                    >
-                      {INJURY_STATUS_CONFIG[s].label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-2xs text-apple-gray-400 mb-1">Descripción</label>
-                <input
-                  type="text"
-                  placeholder="Descripción breve..."
-                  value={newInjury.description}
-                  onChange={e => setNewInjury(p => ({ ...p, description: e.target.value }))}
-                  className="input-apple w-full text-sm"
-                />
-              </div>
-
-              <div className="flex gap-2">
-                <button onClick={() => setShowAddForm(false)} className="btn-apple-secondary flex-1 text-sm py-2">Cancelar</button>
-                <button onClick={handleAddInjury} disabled={!newInjury.type.trim()} className="btn-apple-primary flex-1 text-sm py-2 disabled:opacity-50">Guardar</button>
-              </div>
+      {/* Body figure */}
+      <div className="bg-apple-gray-50 dark:bg-apple-gray-900/50 rounded-2xl border border-apple-gray-100 dark:border-apple-gray-700/50 p-5">
+        <p className="text-xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider mb-4 text-center">
+          Mapa de lesiones
+        </p>
+        <div className="flex gap-6 justify-center items-start">
+          <div className="flex flex-col items-center gap-2">
+            <span className="text-[10px] text-apple-gray-400 uppercase tracking-wider">Frente</span>
+            <div className="w-28 sm:w-36" style={{ aspectRatio: '100/260' }}>
+              <BodySVG view="front" activeZones={frontZones} />
             </div>
-          )}
-
-          {injuries.length === 0 && !showAddForm ? (
-            <div className="text-center py-10 text-apple-gray-400">
-              <svg className="w-10 h-10 mx-auto mb-2 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-              </svg>
-              <p className="text-sm">Sin lesiones registradas</p>
+          </div>
+          <div className="flex flex-col items-center gap-2">
+            <span className="text-[10px] text-apple-gray-400 uppercase tracking-wider">Espalda</span>
+            <div className="w-28 sm:w-36" style={{ aspectRatio: '100/260' }}>
+              <BodySVG view="back" activeZones={backZones} />
             </div>
-          ) : (
-            <div className="space-y-2">
-              {injuries.map(inj => {
+          </div>
+          {injuries.length > 0 && (
+            <div className="flex-1 space-y-2 self-center min-w-0 hidden sm:block">
+              <p className="text-[10px] text-apple-gray-400 uppercase tracking-wider mb-3">Lesiones activas</p>
+              {injuries.filter(i => i.status !== 'recuperado').map(inj => {
                 const cfg = INJURY_STATUS_CONFIG[inj.status]
-                const isSelected = selectedInjury === inj.id
                 return (
-                  <button
-                    key={inj.id}
-                    onClick={() => setSelectedInjury(isSelected ? null : inj.id)}
-                    className={`w-full text-left p-3 rounded-xl border transition-all ${cfg.bg} ${isSelected ? 'ring-2 ring-brand-green/50' : ''}`}
-                  >
-                    <div className="flex items-center justify-between gap-2 mb-1">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                          style={{ background: cfg.dot, boxShadow: isSelected ? `0 0 6px ${cfg.dot}` : 'none' }}
-                        />
-                        <span className="text-sm font-semibold text-apple-gray-800 dark:text-white">{inj.zone}</span>
-                        <span className="text-xs text-apple-gray-500 dark:text-apple-gray-400">{inj.type}</span>
-                      </div>
-                      <span className={`text-2xs font-medium px-2 py-0.5 rounded-full ${cfg.bg} ${cfg.color}`}>
-                        {cfg.label}
-                      </span>
+                  <div key={inj.id} className={`flex items-start gap-2 p-2.5 rounded-xl border ${cfg.bg} text-left`}>
+                    <span className="w-2 h-2 rounded-full flex-shrink-0 mt-1" style={{ background: cfg.dot }} />
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-apple-gray-800 dark:text-white truncate">{inj.zone}</p>
+                      <p className="text-[10px] text-apple-gray-500 dark:text-apple-gray-400">{inj.type}</p>
                     </div>
-                    {inj.description && (
-                      <p className="text-xs text-apple-gray-500 dark:text-apple-gray-400 ml-4.5 pl-0.5">{inj.description}</p>
-                    )}
-                    <p className="text-2xs text-apple-gray-400 mt-1 ml-4.5">
-                      {new Date(inj.date).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' })}
-                    </p>
-                  </button>
+                  </div>
                 )
               })}
             </div>
           )}
         </div>
+        {injuries.length === 0 && (
+          <p className="text-center text-xs text-apple-gray-400 mt-3">Sin lesiones registradas — el cuerpo aparecerá limpio</p>
+        )}
+      </div>
+
+      {/* Add form */}
+      {showAddForm && (
+        <div className="p-4 bg-apple-gray-50 dark:bg-apple-gray-800/60 rounded-xl border border-apple-gray-200 dark:border-apple-gray-700 space-y-3">
+          <p className="text-xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider">Nueva Lesión</p>
+
+          <div>
+            <label className="block text-2xs text-apple-gray-400 mb-1">Zona del cuerpo</label>
+            <select
+              value={newInjury.zone}
+              onChange={e => setNewInjury(p => ({ ...p, zone: e.target.value }))}
+              className="input-apple w-full text-sm"
+            >
+              {ALL_INJURY_ZONES.map(z => <option key={z} value={z}>{z}</option>)}
+            </select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-2xs text-apple-gray-400 mb-1">Tipo de lesión</label>
+              <input
+                type="text"
+                placeholder="Muscular, ligamentaria..."
+                value={newInjury.type}
+                onChange={e => setNewInjury(p => ({ ...p, type: e.target.value }))}
+                className="input-apple w-full text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-2xs text-apple-gray-400 mb-1">Fecha</label>
+              <input
+                type="date"
+                value={newInjury.date}
+                onChange={e => setNewInjury(p => ({ ...p, date: e.target.value }))}
+                className="input-apple w-full text-sm"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-2xs text-apple-gray-400 mb-1">Estado</label>
+            <div className="flex gap-2">
+              {(['recuperado', 'en_tratamiento', 'baja'] as const).map(s => (
+                <button
+                  key={s}
+                  onClick={() => setNewInjury(p => ({ ...p, status: s }))}
+                  className={`flex-1 text-xs py-1.5 rounded-lg border transition-all ${newInjury.status === s
+                    ? INJURY_STATUS_CONFIG[s].bg + ' font-semibold'
+                    : 'border-apple-gray-200 dark:border-apple-gray-700 text-apple-gray-400'
+                  }`}
+                >
+                  {INJURY_STATUS_CONFIG[s].label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-2xs text-apple-gray-400 mb-1">Descripción</label>
+            <input
+              type="text"
+              placeholder="Descripción breve..."
+              value={newInjury.description}
+              onChange={e => setNewInjury(p => ({ ...p, description: e.target.value }))}
+              className="input-apple w-full text-sm"
+            />
+          </div>
+
+          <div className="flex gap-2">
+            <button onClick={() => setShowAddForm(false)} className="btn-apple-secondary flex-1 text-sm py-2">Cancelar</button>
+            <button onClick={handleAddInjury} disabled={!newInjury.type.trim()} className="btn-apple-primary flex-1 text-sm py-2 disabled:opacity-50">Guardar</button>
+          </div>
+        </div>
+      )}
+
+      {/* Full injury list */}
+      {injuries.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider">Historial completo</p>
+          {injuries.map(inj => {
+            const cfg = INJURY_STATUS_CONFIG[inj.status]
+            const isSelected = selectedInjury === inj.id
+            return (
+              <button
+                key={inj.id}
+                onClick={() => setSelectedInjury(isSelected ? null : inj.id)}
+                className={`w-full text-left p-3 rounded-xl border transition-all ${cfg.bg} ${isSelected ? 'ring-2 ring-brand-green/50' : ''}`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: cfg.dot }} />
+                    <span className="text-sm font-semibold text-apple-gray-800 dark:text-white">{inj.zone}</span>
+                    <span className="text-xs text-apple-gray-500 dark:text-apple-gray-400">{inj.type}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-2xs font-medium px-2 py-0.5 rounded-full ${cfg.bg} ${cfg.color}`}>{cfg.label}</span>
+                    <button
+                      onClick={e => { e.stopPropagation(); handleRemoveInjury(inj.id) }}
+                      className="text-apple-gray-400 hover:text-red-500 transition-colors text-sm leading-none"
+                      title="Eliminar"
+                    >×</button>
+                  </div>
+                </div>
+                {inj.description && (
+                  <p className="text-xs text-apple-gray-500 dark:text-apple-gray-400 mt-1 pl-4.5">{inj.description}</p>
+                )}
+                <p className="text-2xs text-apple-gray-400 mt-1 pl-4.5">
+                  {new Date(inj.date).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </p>
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      {injuries.length === 0 && !showAddForm && (
+        <div className="text-center py-8 text-apple-gray-400">
+          <svg className="w-10 h-10 mx-auto mb-2 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+          </svg>
+          <p className="text-sm">Sin lesiones registradas</p>
+          <p className="text-xs mt-1 opacity-60">Usá el botón "Registrar lesión" para agregar una</p>
+        </div>
+      )}
     </div>
   )
 }

@@ -488,7 +488,7 @@ function RivalSection({
                   return (
                     <div key={i} className="relative group">
                       <div className={`w-8 h-8 rounded-full ${dot} flex items-center justify-center text-xs font-bold shadow-sm`}>
-                        {m.result}
+                        {m.result === 'W' ? 'G' : m.result === 'D' ? 'E' : 'P'}
                       </div>
                       <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 hidden group-hover:block z-10 pointer-events-none">
                         <div className="bg-apple-gray-900 dark:bg-black text-white text-[10px] rounded-lg px-2.5 py-1.5 whitespace-nowrap text-center shadow-xl">
