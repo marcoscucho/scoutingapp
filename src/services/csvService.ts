@@ -132,20 +132,20 @@ export async function loadAllData(): Promise<AllRawData> {
       ...r,
       'Posición': 'Arquero',
       'Posición específica': r['Posición específica'] || 'Arquero',
-    })) as RawExternalPlayer[]
+    })) as unknown as RawExternalPlayer[]
 
-  const externalRaw = [
-    ...resolveAliases(extRaw).filter(r => r['Jugador']?.trim()),
+  const externalRaw: RawExternalPlayer[] = [
+    ...resolveAliases(extRaw).filter(r => r['Jugador']?.trim()) as unknown as RawExternalPlayer[],
     ...extArqueros,
   ]
   // Deduplicate by Jugador + Equipo — keeps first occurrence
   const seenExternal = new Set<string>()
-  const external = externalRaw.filter(r => {
+  const external: RawExternalPlayer[] = externalRaw.filter(r => {
     const key = `${r['Jugador']?.trim().toLowerCase()}|${r['Equipo']?.trim().toLowerCase()}`
     if (seenExternal.has(key)) return false
     seenExternal.add(key)
     return true
-  }) as RawExternalPlayer[]
+  })
   // Arqueros: normalize Posición field (CSV uses "Posición específica" = "Arquero")
   const arqueros = resolveAliases(arqueroRaw)
     .filter(r => r['Jugador']?.trim())
