@@ -167,7 +167,7 @@ const TM_DATA: Record<string, TMPlayerData> = {
   // ─── ARQUEROS ─────────────────────────────────────────────────────────────────
   'N. Losada': {
     nombre_completo: 'Nahuel Ezequiel Losada',
-    imagen: 'https://img.a.transfermarkt.technology/portrait/big/323918-1721936091.png',
+    imagen: 'https://encrypted-tbn3.gstatic.com/images?q=tbn:ANd9GcTxUQzxGMZTKC3AvTM8inFbyw-NRYfdgqOdi6LfCnWawNdilA',
     representante: null,
     valor_mercado: 3_500_000,
     valor_mercado_fmt: '€3,50M',

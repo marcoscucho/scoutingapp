@@ -20,6 +20,32 @@ export interface LineupData {
   result: string
 }
 
+// ─── Último 11 hardcodeado (vs Platense, J15 · 2026-04-05) ────────────────────
+// Actualizar partido a partido. Formación: 4-4-2
+const HARDCODED_LINEUP: LineupData = {
+  formation: '4-4-2',
+  matchDate: '2026-04-05',
+  opponent:  'Platense',
+  result:    '0-0',
+  players: [
+    // GK
+    { number: 26, name: 'Losada',     position: 'GK', x: 50,  y: 126, formation: '4-4-2', match_date: '2026-04-05', opponent: 'Platense', result: '0-0' },
+    // DEF (L→R: Marcich LB, DeJesús CB, Izquierdoz CB, Guidara RB)
+    { number:  6, name: 'Marcich',    position: 'LB', x: 18,  y: 107, formation: '4-4-2', match_date: '2026-04-05', opponent: 'Platense', result: '0-0' },
+    { number: 35, name: 'DeJesús',    position: 'CB', x: 37,  y: 107, formation: '4-4-2', match_date: '2026-04-05', opponent: 'Platense', result: '0-0' },
+    { number: 24, name: 'Izquierdoz', position: 'CB', x: 63,  y: 107, formation: '4-4-2', match_date: '2026-04-05', opponent: 'Platense', result: '0-0' },
+    { number: 33, name: 'Guidara',    position: 'RB', x: 82,  y: 107, formation: '4-4-2', match_date: '2026-04-05', opponent: 'Platense', result: '0-0' },
+    // MID (L→R: Watson, Sepúlveda, Cardozo, Sánchez)
+    { number:  8, name: 'Watson',     position: 'LM', x: 18,  y: 75,  formation: '4-4-2', match_date: '2026-04-05', opponent: 'Platense', result: '0-0' },
+    { number: 16, name: 'Sepúlveda',  position: 'CM', x: 39,  y: 75,  formation: '4-4-2', match_date: '2026-04-05', opponent: 'Platense', result: '0-0' },
+    { number: 30, name: 'Cardozo',    position: 'CM', x: 61,  y: 75,  formation: '4-4-2', match_date: '2026-04-05', opponent: 'Platense', result: '0-0' },
+    { number: 27, name: 'Sánchez',    position: 'RM', x: 82,  y: 75,  formation: '4-4-2', match_date: '2026-04-05', opponent: 'Platense', result: '0-0' },
+    // FWD
+    { number: 19, name: 'Valois',     position: 'ST', x: 33,  y: 35,  formation: '4-4-2', match_date: '2026-04-05', opponent: 'Platense', result: '0-0' },
+    { number: 11, name: 'Salvio',     position: 'ST', x: 67,  y: 35,  formation: '4-4-2', match_date: '2026-04-05', opponent: 'Platense', result: '0-0' },
+  ],
+}
+
 export async function fetchUltimoOnce(): Promise<LineupData | null> {
   const { data, error } = await supabase
     .from('ultimo_once')
@@ -27,8 +53,8 @@ export async function fetchUltimoOnce(): Promise<LineupData | null> {
     .order('id', { ascending: true })
 
   if (error || !data || data.length === 0) {
-    console.warn('ultimo_once fetch failed:', error?.message)
-    return null
+    console.warn('ultimo_once fetch failed, using hardcoded lineup:', error?.message)
+    return HARDCODED_LINEUP
   }
 
   return {

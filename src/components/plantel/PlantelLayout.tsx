@@ -186,103 +186,6 @@ function PlaceholderSection({ title, description, fields }: {
   )
 }
 
-// ─── INJURY ZONE → BODY COORDINATES ──────────────────────────────────────────
-
-const FRONT_ZONE_COORDS: Record<string, [number, number]> = {
-  'Cabeza':           [50, 14],
-  'Cuello':           [50, 30],
-  'Hombro Izq.':      [19, 48],
-  'Hombro Der.':      [81, 48],
-  'Pecho':            [50, 64],
-  'Abdomen':          [50, 85],
-  'Cadera Izq.':      [36, 110],
-  'Cadera Der.':      [64, 110],
-  'Ingle Izq.':       [36, 126],
-  'Ingle Der.':       [64, 126],
-  'Muslo Izq.':       [34, 153],
-  'Muslo Der.':       [66, 153],
-  'Rodilla Izq.':     [34, 179],
-  'Rodilla Der.':     [66, 179],
-  'Gemelo Izq.':      [33, 205],
-  'Gemelo Der.':      [67, 205],
-  'Tobillo Izq.':     [33, 228],
-  'Tobillo Der.':     [67, 228],
-  'Pie Izq.':         [36, 244],
-  'Pie Der.':         [64, 244],
-}
-
-const BACK_ZONE_COORDS: Record<string, [number, number]> = {
-  'Espalda Alta':         [50, 64],
-  'Espalda Baja':         [50, 88],
-  'Glúteo Izq.':          [36, 110],
-  'Glúteo Der.':          [64, 110],
-  'Isquiotibial Izq.':    [34, 162],
-  'Isquiotibial Der.':    [66, 162],
-}
-
-function BodySVG({ view, activeZones, onZoneClick }: {
-  view: 'front' | 'back'
-  activeZones: string[]
-  onZoneClick?: (zone: string) => void
-}) {
-  const active = new Set(activeZones)
-  const zoneCoords = view === 'front' ? FRONT_ZONE_COORDS : BACK_ZONE_COORDS
-  const strokeClr = 'rgba(156,163,175,0.4)'
-  const fillClr   = 'rgba(156,163,175,0.07)'
-
-  return (
-    <svg viewBox="0 0 100 260" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-      {/* ── Body silhouette ── */}
-      <g fill={fillClr} stroke={strokeClr} strokeWidth="1" strokeLinejoin="round">
-        {/* Head */}
-        <ellipse cx="50" cy="14" rx="13" ry="13.5" />
-        {/* Neck */}
-        <path d="M44 27 L44 35 Q50 37 56 35 L56 27" strokeLinecap="round" />
-        {/* Torso + hips */}
-        <path d="M22 40 C16 44 14 56 14 68 L14 92 C14 100 18 104 22 105
-                 L22 116 C22 126 26 130 30 131 L30 131
-                 Q34 143 36 148 L36 148 Q50 152 64 148
-                 Q66 143 70 131 L70 131
-                 C74 130 78 126 78 116 L78 105
-                 C82 104 86 100 86 92 L86 68
-                 C86 56 84 44 78 40
-                 C68 34 32 34 22 40 Z" />
-        {/* Left arm */}
-        <path d="M14 68 C10 74 8 86 9 98 Q10 106 14 108 L16 112
-                 Q14 118 14 124 Q14 130 18 132 L20 134"
-              fill="none" strokeWidth="9" strokeLinecap="round" />
-        {/* Right arm */}
-        <path d="M86 68 C90 74 92 86 91 98 Q90 106 86 108 L84 112
-                 Q86 118 86 124 Q86 130 82 132 L80 134"
-              fill="none" strokeWidth="9" strokeLinecap="round" />
-        {/* Left leg */}
-        <path d="M36 148 L34 185 Q33 198 33 212 L33 232 Q33 242 36 246 L38 258 Q42 260 46 258"
-              fill="none" strokeWidth="12" strokeLinecap="round" />
-        {/* Right leg */}
-        <path d="M64 148 L66 185 Q67 198 67 212 L67 232 Q67 242 64 246 L62 258 Q58 260 54 258"
-              fill="none" strokeWidth="12" strokeLinecap="round" />
-        {/* Feet */}
-        <ellipse cx="37" cy="253" rx="9" ry="4" />
-        <ellipse cx="63" cy="253" rx="9" ry="4" />
-      </g>
-
-      {/* ── Injury dots ── */}
-      {Object.entries(zoneCoords).map(([zone, [cx, cy]]) => {
-        const isActive = active.has(zone)
-        if (!isActive) return null
-        return (
-          <g key={zone} style={{ cursor: onZoneClick ? 'pointer' : 'default' }}
-             onClick={() => onZoneClick?.(zone)}>
-            <circle cx={cx} cy={cy} r="6.5" fill="#ef4444" opacity="0.2" />
-            <circle cx={cx} cy={cy} r="4"   fill="#ef4444" />
-            <circle cx={cx} cy={cy} r="1.8" fill="white"   opacity="0.9" />
-          </g>
-        )
-      })}
-    </svg>
-  )
-}
-
 // ─── MEDICINA SECTION ─────────────────────────────────────────────────────────
 
 function SaludSection() {
@@ -309,13 +212,10 @@ function SaludSection() {
     if (selectedInjury === id) setSelectedInjury(null)
   }
 
-  const frontZones = injuries.map(i => i.zone).filter(z => z in FRONT_ZONE_COORDS)
-  const backZones  = injuries.map(i => i.zone).filter(z => z in BACK_ZONE_COORDS)
-
-  const totalLesiones    = injuries.length
-  const enTratamiento    = injuries.filter(i => i.status === 'en_tratamiento').length
-  const recuperadas      = injuries.filter(i => i.status === 'recuperado').length
-  const bajas            = injuries.filter(i => i.status === 'baja').length
+  const totalLesiones = injuries.length
+  const enTratamiento = injuries.filter(i => i.status === 'en_tratamiento').length
+  const recuperadas   = injuries.filter(i => i.status === 'recuperado').length
+  const bajas         = injuries.filter(i => i.status === 'baja').length
 
   return (
     <div className="animate-fade-in space-y-6">
@@ -340,57 +240,16 @@ function SaludSection() {
       {/* Stats summary */}
       <div className="grid grid-cols-4 gap-3">
         {[
-          { label: 'Lesiones totales', value: totalLesiones,   color: 'text-apple-gray-800 dark:text-white' },
-          { label: 'En tratamiento',   value: enTratamiento,   color: 'text-amber-500' },
-          { label: 'Recuperadas',      value: recuperadas,     color: 'text-emerald-500' },
-          { label: 'Bajas',            value: bajas,           color: 'text-red-500' },
+          { label: 'Lesiones totales', value: totalLesiones, color: 'text-apple-gray-800 dark:text-white' },
+          { label: 'En tratamiento',   value: enTratamiento, color: 'text-amber-500' },
+          { label: 'Recuperadas',      value: recuperadas,   color: 'text-emerald-500' },
+          { label: 'Bajas',            value: bajas,         color: 'text-red-500' },
         ].map(s => (
           <div key={s.label} className="bg-apple-gray-50 dark:bg-apple-gray-800/60 rounded-xl p-3 border border-apple-gray-100 dark:border-apple-gray-700/50 text-center">
             <p className={`text-2xl font-bold tabular-nums ${s.color}`}>{s.value}</p>
             <p className="text-[10px] text-apple-gray-400 uppercase tracking-wider mt-0.5 leading-tight">{s.label}</p>
           </div>
         ))}
-      </div>
-
-      {/* Body figure */}
-      <div className="bg-apple-gray-50 dark:bg-apple-gray-900/50 rounded-2xl border border-apple-gray-100 dark:border-apple-gray-700/50 p-5">
-        <p className="text-xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider mb-4 text-center">
-          Mapa de lesiones
-        </p>
-        <div className="flex gap-6 justify-center items-start">
-          <div className="flex flex-col items-center gap-2">
-            <span className="text-[10px] text-apple-gray-400 uppercase tracking-wider">Frente</span>
-            <div className="w-28 sm:w-36" style={{ aspectRatio: '100/260' }}>
-              <BodySVG view="front" activeZones={frontZones} />
-            </div>
-          </div>
-          <div className="flex flex-col items-center gap-2">
-            <span className="text-[10px] text-apple-gray-400 uppercase tracking-wider">Espalda</span>
-            <div className="w-28 sm:w-36" style={{ aspectRatio: '100/260' }}>
-              <BodySVG view="back" activeZones={backZones} />
-            </div>
-          </div>
-          {injuries.length > 0 && (
-            <div className="flex-1 space-y-2 self-center min-w-0 hidden sm:block">
-              <p className="text-[10px] text-apple-gray-400 uppercase tracking-wider mb-3">Lesiones activas</p>
-              {injuries.filter(i => i.status !== 'recuperado').map(inj => {
-                const cfg = INJURY_STATUS_CONFIG[inj.status]
-                return (
-                  <div key={inj.id} className={`flex items-start gap-2 p-2.5 rounded-xl border ${cfg.bg} text-left`}>
-                    <span className="w-2 h-2 rounded-full flex-shrink-0 mt-1" style={{ background: cfg.dot }} />
-                    <div className="min-w-0">
-                      <p className="text-xs font-semibold text-apple-gray-800 dark:text-white truncate">{inj.zone}</p>
-                      <p className="text-[10px] text-apple-gray-500 dark:text-apple-gray-400">{inj.type}</p>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
-        {injuries.length === 0 && (
-          <p className="text-center text-xs text-apple-gray-400 mt-3">Sin lesiones registradas — el cuerpo aparecerá limpio</p>
-        )}
       </div>
 
       {/* Add form */}
@@ -541,7 +400,7 @@ function MetricRowWithPercentile({ label, value, percentile }: {
   const q = getQ(percentile)
 
   return (
-    <div className="py-2.5 border-b border-apple-gray-100 dark:border-apple-gray-800/50 last:border-0">
+    <div className="py-2.5 border-b border-apple-gray-200 dark:border-apple-gray-800/50 last:border-0">
       <div className="flex items-center justify-between mb-1">
         <span className="text-sm text-apple-gray-500 dark:text-apple-gray-400">{label}</span>
         <div className="flex items-center gap-2">
@@ -622,8 +481,10 @@ function CoachSection({ playerKey, evaluations }: { playerKey: string; evaluatio
 
   const getScoreColor = (s?: number | null) => {
     if (!s) return 'text-apple-gray-400'
-    if (s >= 8) return 'text-emerald-500'; if (s >= 6) return 'text-yellow-500'
-    if (s >= 4) return 'text-amber-500'; return 'text-red-500'
+    if (s >= 8) return 'text-[#8C1430] dark:text-[#D45A72]'
+    if (s >= 6) return 'text-yellow-500'
+    if (s >= 4) return 'text-amber-500'
+    return 'text-red-500'
   }
 
   return (
@@ -903,13 +764,26 @@ export default function PlantelLayout({
                 {/* Stats overview */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <MiniStat label="Partidos" value={player['Partidos jugados']} />
-                  <MiniStat label="Minutos" value={player.minutesPlayed?.toLocaleString()} />
-                  <MiniStat label="Goles" value={player.Goles} />
-                  <MiniStat label="Asistencias" value={player.Asistencias} />
-                  <MiniStat label="xG" value={player.xG} />
-                  <MiniStat label="xA" value={player.xA} />
-                  <MiniStat label="Valor" value={player.marketValueFormatted} accent />
-                  <MiniStat label="Score" value={player.ggScore?.toFixed(1)} accent />
+                  <MiniStat label="Minutos"  value={player.minutesPlayed?.toLocaleString()} />
+                  {posKey === 'Arquero' ? (
+                    <>
+                      <MiniStat label="Goles recibidos"    value={player['Goles recibidos']} />
+                      <MiniStat label="GR/90"              value={player['Goles recibidos/90']} />
+                      <MiniStat label="Paradas %"          value={player['Paradas, %']}     accent />
+                      <MiniStat label="Goles evitados"     value={player['Goles evitados']} accent />
+                      <MiniStat label="Valor"  value={player.marketValueFormatted} accent />
+                      <MiniStat label="Score"  value={player.ggScore?.toFixed(1)}  accent />
+                    </>
+                  ) : (
+                    <>
+                      <MiniStat label="Goles"       value={player.Goles} />
+                      <MiniStat label="Asistencias" value={player.Asistencias} />
+                      <MiniStat label="xG"          value={player.xG} />
+                      <MiniStat label="xA"          value={player.xA} />
+                      <MiniStat label="Valor"  value={player.marketValueFormatted} accent />
+                      <MiniStat label="Score"  value={player.ggScore?.toFixed(1)}  accent />
+                    </>
+                  )}
                 </div>
 
                 {/* GG Score + mini areas grid */}
@@ -1049,9 +923,45 @@ export default function PlantelLayout({
                   <div className="text-center py-10 text-apple-gray-400">
                     <p className="text-sm">Posición no reconocida para generar métricas.</p>
                   </div>
+                ) : posKey === 'Arquero' ? (
+                  /* ── Arquero: panel de métricas sin radar (no hay normalizados) ── */
+                  <div className="space-y-4">
+                    <p className="text-xs text-apple-gray-400 uppercase tracking-wider">Métricas de arquero</p>
+                    {[
+                      { label: 'Paradas %',                   key: 'Paradas, %',                      max: 100,  good: 75 },
+                      { label: 'Goles evitados/90',           key: 'Goles evitados/90',               max: 0.5,  good: 0 },
+                      { label: 'xG en contra/90',             key: 'xG en contra/90',                 max: 2,    good: null },
+                      { label: 'Goles recibidos/90',          key: 'Goles recibidos/90',              max: 2,    good: null },
+                      { label: 'Porterías imbatidas/90',      key: 'Porterías imbatidas en los 90',   max: 0.5,  good: 0.25 },
+                      { label: 'Salidas/90',                  key: 'Salidas/90',                      max: 4,    good: 1.5 },
+                      { label: 'Duelos aéreos/90',            key: 'Duelos aéreos en los 90',         max: 3,    good: 1 },
+                      { label: 'Remates en contra/90',        key: 'Remates en contra/90',            max: 6,    good: null },
+                    ].map(({ label, key, max }) => {
+                      const raw = player[key]
+                      const num = typeof raw === 'number' ? raw : parseFloat(String(raw ?? '').replace(',', '.'))
+                      if (isNaN(num)) return (
+                        <div key={key} className="flex justify-between items-center py-2.5 border-b border-apple-gray-200 dark:border-apple-gray-800/50">
+                          <span className="text-sm text-apple-gray-500 dark:text-apple-gray-400">{label}</span>
+                          <span className="text-sm text-apple-gray-400">—</span>
+                        </div>
+                      )
+                      const pct = Math.min(100, Math.max(0, (num / max) * 100))
+                      return (
+                        <div key={key} className="py-2.5 border-b border-apple-gray-200 dark:border-apple-gray-800/50">
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="text-sm text-apple-gray-500 dark:text-apple-gray-400">{label}</span>
+                            <span className="text-sm font-bold text-apple-gray-800 dark:text-white tabular-nums">{num.toFixed(2)}</span>
+                          </div>
+                          <div className="h-1.5 bg-apple-gray-200 dark:bg-apple-gray-700 rounded-full overflow-hidden">
+                            <div className="h-full bg-brand-green rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
                 ) : (
                   <>
-                    {/* Radar chart */}
+                    {/* Radar chart — solo para posiciones de campo */}
                     <PlayerRadarChart
                       player={player}
                       allNormalized={normalized}
@@ -1071,7 +981,7 @@ export default function PlantelLayout({
                             const val = player[metric]
                             const num = typeof val === 'number' ? val : parseFloat(String(val ?? '').replace(',', '.'))
                             return (
-                              <div key={metric} className="flex justify-between py-2.5 border-b border-apple-gray-100 dark:border-apple-gray-800/50">
+                              <div key={metric} className="flex justify-between py-2.5 border-b border-apple-gray-200 dark:border-apple-gray-800/50">
                                 <span className="text-sm text-apple-gray-500 dark:text-apple-gray-400">{metric}</span>
                                 <span className="text-sm font-semibold text-apple-gray-800 dark:text-white tabular-nums">{isNaN(num) ? '—' : num.toFixed(0)}</span>
                               </div>

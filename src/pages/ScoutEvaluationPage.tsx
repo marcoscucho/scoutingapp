@@ -691,8 +691,8 @@ export default function ScoutEvaluationPage() {
                     </div>
                     {ev.technical_score && (
                       <div className={`text-lg font-bold ml-2 ${
-                        ev.technical_score >= 8 ? 'text-brand-green' :
-                        ev.technical_score >= 6 ? 'text-emerald-500' :
+                        ev.technical_score >= 8 ? 'text-[#8C1430] dark:text-[#D45A72]' :
+                        ev.technical_score >= 6 ? 'text-[#8C1430] dark:text-[#D45A72]' :
                         ev.technical_score >= 4 ? 'text-amber-500' : 'text-red-500'
                       }`}>
                         {ev.technical_score}

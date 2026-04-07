@@ -108,8 +108,9 @@ export interface AllRawData {
 }
 
 export async function loadAllData(): Promise<AllRawData> {
-  const [extRaw, intRaw, arqueroRaw, plantelPrimeraRaw, monRaw, segMetRaw, normRaw, evoRaw, metRaw, tmRaw, masDatosRaw, mvHistRaw, gpsRaw] = await Promise.all([
+  const [extRaw, extArquerosRaw, intRaw, arqueroRaw, plantelPrimeraRaw, monRaw, segMetRaw, normRaw, evoRaw, metRaw, tmRaw, masDatosRaw, mvHistRaw, gpsRaw] = await Promise.all([
     fetchCSV(SHEET_URLS.externo),
+    fetchCSV(SHEET_URLS.externoArqueros),
     fetchCSV(LOCAL_URLS.plantelInterno),
     fetchCSV(LOCAL_URLS.arquerosPlantel),
     fetchCSV(LOCAL_URLS.plantelPrimera),
@@ -124,7 +125,19 @@ export async function loadAllData(): Promise<AllRawData> {
     fetchCSV(SHEET_URLS.gps),
   ])
 
-  const external = resolveAliases(extRaw).filter(r => r['Jugador']?.trim()) as RawExternalPlayer[]
+  // External GK sheet: normalize position to 'Arquero' so the scoring pipeline picks them up
+  const extArqueros = resolveAliases(extArquerosRaw)
+    .filter(r => r['Jugador']?.trim())
+    .map(r => ({
+      ...r,
+      'Posición': 'Arquero',
+      'Posición específica': r['Posición específica'] || 'Arquero',
+    })) as RawExternalPlayer[]
+
+  const external = [
+    ...resolveAliases(extRaw).filter(r => r['Jugador']?.trim()),
+    ...extArqueros,
+  ] as RawExternalPlayer[]
   // Arqueros: normalize Posición field (CSV uses "Posición específica" = "Arquero")
   const arqueros = resolveAliases(arqueroRaw)
     .filter(r => r['Jugador']?.trim())

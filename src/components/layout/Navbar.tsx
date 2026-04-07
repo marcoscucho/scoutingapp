@@ -181,7 +181,7 @@ export default function Navbar() {
               </button>
 
               {showInfMenu && (
-                <div className="absolute top-full left-0 mt-1.5 w-52 bg-white dark:bg-apple-gray-900 rounded-2xl shadow-xl border border-apple-gray-100 dark:border-apple-gray-800 py-1.5 z-50">
+                <div className="absolute top-full left-0 mt-1.5 w-52 bg-white dark:bg-apple-gray-900 rounded-2xl shadow-xl border border-apple-gray-200 dark:border-apple-gray-800 py-1.5 z-50">
                   {inferiorLinks.map(link => (
                     <NavLink
                       key={link.to}
@@ -205,27 +205,23 @@ export default function Navbar() {
 
             {/* Scouting Externo dropdown */}
             <div className="relative" ref={scoutingMenuRef}>
-              <div className={`flex items-center rounded-lg transition-all duration-200 ${
-                isScoutingRoute ? 'bg-brand-green text-white shadow-sm' : ''
-              }`}>
+              <div className={`flex items-center rounded-lg ${isScoutingRoute ? 'bg-brand-green shadow-sm' : ''}`}>
                 <NavLink
                   to="/scouting"
-                  className={({ isActive }) =>
-                    `pl-3.5 pr-2 py-2 text-sm font-medium transition-all duration-200 rounded-l-lg ${
-                      isScoutingRoute
-                        ? 'text-white'
-                        : 'text-apple-gray-600 dark:text-apple-gray-300 hover:text-apple-gray-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-apple-gray-700/50'
-                    }`
-                  }
+                  className={`pl-3.5 pr-1.5 py-2 text-sm font-medium rounded-l-lg transition-all duration-200 ${
+                    isScoutingRoute
+                      ? 'text-white'
+                      : 'text-apple-gray-600 dark:text-apple-gray-300 hover:text-apple-gray-900 dark:hover:text-white hover:bg-white/40 dark:hover:bg-apple-gray-700/50'
+                  }`}
                 >
                   Scouting Externo
                 </NavLink>
                 <button
-                  onClick={() => setShowScoutingMenu(!showScoutingMenu)}
-                  className={`pr-2 py-2 transition-all duration-200 rounded-r-lg ${
+                  onClick={() => { setShowScoutingMenu(v => !v); setShowInfMenu(false) }}
+                  className={`pr-2 py-2 rounded-r-lg transition-all duration-200 ${
                     isScoutingRoute
                       ? 'text-white/80 hover:text-white'
-                      : 'text-apple-gray-400 dark:text-apple-gray-500 hover:text-apple-gray-700 dark:hover:text-apple-gray-200 hover:bg-white/50 dark:hover:bg-apple-gray-700/50'
+                      : 'text-apple-gray-400 dark:text-apple-gray-500 hover:text-apple-gray-700 dark:hover:text-apple-gray-200 hover:bg-white/40 dark:hover:bg-apple-gray-700/50'
                   }`}
                 >
                   <svg className={`w-3.5 h-3.5 transition-transform ${showScoutingMenu ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -235,21 +231,21 @@ export default function Navbar() {
               </div>
 
               {showScoutingMenu && (
-                <div className="absolute top-full left-0 mt-2 w-48 bg-white dark:bg-apple-gray-800 rounded-xl shadow-xl border border-apple-gray-200 dark:border-apple-gray-700 py-1 animate-scale-in origin-top-left z-50">
+                <div className="absolute top-full left-0 mt-1.5 w-52 bg-white dark:bg-apple-gray-900 rounded-2xl shadow-xl border border-apple-gray-200 dark:border-apple-gray-800 py-1.5 z-50">
                   {scoutingLinks.map(link => (
                     <NavLink
                       key={link.to}
                       to={link.to}
                       onClick={() => setShowScoutingMenu(false)}
                       className={({ isActive }) =>
-                        `flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${
+                        `flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors ${
                           isActive
-                            ? 'bg-brand-green/10 text-brand-green font-medium dark:bg-brand-green/20'
-                            : 'text-apple-gray-700 dark:text-apple-gray-300 hover:bg-apple-gray-50 dark:hover:bg-apple-gray-700'
+                            ? 'text-brand-green font-semibold bg-brand-green/5'
+                            : 'text-apple-gray-700 dark:text-apple-gray-300 hover:bg-apple-gray-50 dark:hover:bg-apple-gray-800'
                         }`
                       }
                     >
-                      <NavIcon icon={link.icon} className="w-4 h-4" />
+                      <NavIcon icon={link.icon} className="w-4 h-4 flex-shrink-0 opacity-60" />
                       {link.label}
                     </NavLink>
                   ))}

@@ -105,7 +105,7 @@ function MatchCard({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold uppercase tracking-widest opacity-80">{label}</span>
-          {isTravel && <span className="text-sm opacity-60">✈️</span>}
+          {isTravel && <span className="text-base">✈️</span>}
         </div>
         <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${match.isHome ? 'bg-white/20' : 'bg-black/20'}`}>
           {match.isHome ? 'Local' : 'Visitante'}
@@ -152,7 +152,7 @@ function ContractRow({ player, urgency }: { player: EnrichedPlayer; urgency: 'cr
   const imagen = (player as any).Imagen as string | undefined
 
   return (
-    <div className="flex items-center justify-between py-2.5 border-b border-apple-gray-100 dark:border-apple-gray-800 last:border-0">
+    <div className="flex items-center justify-between py-2.5 border-b border-apple-gray-200 dark:border-apple-gray-800 last:border-0">
       <div className="flex items-center gap-2.5 min-w-0">
         <div className="w-8 h-8 rounded-full bg-apple-gray-200 dark:bg-apple-gray-700 flex items-center justify-center text-xs font-semibold text-apple-gray-600 dark:text-apple-gray-300 flex-shrink-0 overflow-hidden">
           {imagen
@@ -176,7 +176,7 @@ function UpcomingMatchRow({ match, index }: { match: FotmobMatch; index: number 
   const isAway = !match.isHome
   const opp = match.isHome ? match.awayTeam : match.homeTeam
   return (
-    <div className={`flex items-center gap-3 py-3 border-b border-apple-gray-100 dark:border-apple-gray-800 last:border-0 ${index === 0 ? 'opacity-100' : 'opacity-90'}`}>
+    <div className={`flex items-center gap-3 py-3 border-b border-apple-gray-200 dark:border-apple-gray-800 last:border-0 ${index === 0 ? 'opacity-100' : 'opacity-90'}`}>
       <div className="text-center w-12 flex-shrink-0">
         <p className="text-xs font-semibold text-apple-gray-500 uppercase">
           {fmtDate(match.date, { month: 'short' })}
@@ -398,7 +398,7 @@ function RivalSection({
 
   if (loading) {
     return (
-      <div className="bg-white dark:bg-apple-gray-900 rounded-2xl border border-apple-gray-100 dark:border-apple-gray-800 p-6 flex items-center justify-center min-h-[120px]">
+      <div className="bg-white dark:bg-apple-gray-900 rounded-2xl border border-apple-gray-200 dark:border-apple-gray-800 p-6 flex items-center justify-center min-h-[120px]">
         <div className="w-6 h-6 border-2 border-brand-green border-t-transparent rounded-full animate-spin" />
       </div>
     )
@@ -408,9 +408,9 @@ function RivalSection({
   const hasLineup = rivalData && rivalData.lastLineup.length > 0
 
   return (
-    <div className="bg-white dark:bg-apple-gray-900 rounded-2xl border border-apple-gray-100 dark:border-apple-gray-800 overflow-hidden">
+    <div className="bg-white dark:bg-apple-gray-900 rounded-2xl border border-apple-gray-200 dark:border-apple-gray-800 overflow-hidden">
       {/* Header */}
-      <div className="px-5 py-4 border-b border-apple-gray-100 dark:border-apple-gray-800 flex items-center gap-3">
+      <div className="px-5 py-4 border-b border-apple-gray-200 dark:border-apple-gray-800 flex items-center gap-3">
         <ShieldImg team={oppName} size={32} className="flex-shrink-0" />
         <div>
           <h2 className="font-semibold text-apple-gray-800 dark:text-white">{oppName}</h2>
@@ -763,9 +763,9 @@ function WyscoutDropZone() {
           {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
         </div>
       ) : (
-        <div className="bg-white dark:bg-apple-gray-900 rounded-2xl border border-apple-gray-100 dark:border-apple-gray-800 overflow-hidden">
+        <div className="bg-white dark:bg-apple-gray-900 rounded-2xl border border-apple-gray-200 dark:border-apple-gray-800 overflow-hidden">
           {/* Header */}
-          <div className="px-5 py-4 border-b border-apple-gray-100 dark:border-apple-gray-800 flex items-center justify-between">
+          <div className="px-5 py-4 border-b border-apple-gray-200 dark:border-apple-gray-800 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <ShieldImg team={summary.teamName} size={34} />
               <div>
@@ -782,7 +782,7 @@ function WyscoutDropZone() {
           </div>
 
           {/* Stats strip */}
-          <div className="grid grid-cols-4 divide-x divide-apple-gray-100 dark:divide-apple-gray-800 border-b border-apple-gray-100 dark:border-apple-gray-800">
+          <div className="grid grid-cols-4 divide-x divide-apple-gray-100 dark:divide-apple-gray-800 border-b border-apple-gray-200 dark:border-apple-gray-800">
             {[
               { label: 'Goles', value: summary.totalGoals },
               { label: 'Asist.', value: summary.totalAssists },
@@ -847,9 +847,9 @@ function StandingsWidget({
   compSlug?: string
 }) {
   return (
-    <div className="bg-white dark:bg-apple-gray-900 rounded-2xl border border-apple-gray-100 dark:border-apple-gray-800 overflow-hidden">
+    <div className="bg-white dark:bg-apple-gray-900 rounded-2xl border border-apple-gray-200 dark:border-apple-gray-800 overflow-hidden">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-apple-gray-100 dark:border-apple-gray-800 flex items-center gap-2">
+      <div className="px-4 py-3 border-b border-apple-gray-200 dark:border-apple-gray-800 flex items-center gap-2">
         {compSlug && <CompBadge competition={compSlug} size={26} />}
         <div>
           <h3 className="text-sm font-semibold text-apple-gray-800 dark:text-white leading-none">{title}</h3>
@@ -980,7 +980,7 @@ function StatCard({ label, value, sub, to, color = 'default' }: {
   }[color]
 
   const inner = (
-    <div className="bg-white dark:bg-apple-gray-900 rounded-2xl p-5 border border-apple-gray-100 dark:border-apple-gray-800 hover:shadow-md transition-shadow">
+    <div className="bg-white dark:bg-apple-gray-900 rounded-2xl p-5 border border-apple-gray-200 dark:border-apple-gray-800 hover:shadow-md transition-shadow">
       <p className="text-xs font-semibold text-apple-gray-500 uppercase tracking-widest mb-2">{label}</p>
       <p className={`text-3xl font-bold ${colorCls}`}>{value}</p>
       {sub && <p className="text-xs text-apple-gray-400 mt-1">{sub}</p>}
@@ -1152,7 +1152,7 @@ export default function DashboardPage() {
             </h1>
             <p className="text-sm text-apple-gray-500 capitalize mt-1">{todayStr}</p>
           </div>
-          <div className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl bg-white dark:bg-apple-gray-900 border border-apple-gray-100 dark:border-apple-gray-800 shadow-sm">
+          <div className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl bg-white dark:bg-apple-gray-900 border border-apple-gray-200 dark:border-apple-gray-800 shadow-sm">
             <div className="w-2.5 h-2.5 rounded-full bg-green-400 animate-pulse" />
             <span className="text-xs font-medium text-apple-gray-600 dark:text-apple-gray-300">Datos actualizados</span>
           </div>
@@ -1194,7 +1194,7 @@ export default function DashboardPage() {
               : 'text-amber-600 dark:text-amber-400'
 
           return (
-            <section className="bg-white dark:bg-apple-gray-900 rounded-2xl border border-apple-gray-100 dark:border-apple-gray-800 px-5 py-4">
+            <section className="bg-white dark:bg-apple-gray-900 rounded-2xl border border-apple-gray-200 dark:border-apple-gray-800 px-5 py-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 {/* Streak label */}
                 <div className="flex items-center gap-3">
@@ -1217,7 +1217,7 @@ export default function DashboardPage() {
                       return (
                         <div key={i} className="relative group">
                           <div className={`w-8 h-8 rounded-full ${dot} flex items-center justify-center text-xs font-bold shadow-sm`}>
-                            {m.result}
+                            {m.result === 'W' ? 'G' : m.result === 'D' ? 'E' : 'P'}
                           </div>
                           {/* Tooltip */}
                           <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 hidden group-hover:block z-10 pointer-events-none">
@@ -1233,7 +1233,7 @@ export default function DashboardPage() {
                   </div>
 
                   {/* Stats compact */}
-                  <div className="ml-3 pl-3 border-l border-apple-gray-100 dark:border-apple-gray-800 flex items-center gap-4 text-center">
+                  <div className="ml-3 pl-3 border-l border-apple-gray-200 dark:border-apple-gray-800 flex items-center gap-4 text-center">
                     {(['W','D','L'] as const).map(r => {
                       const count = FORM.filter(m => m.result === r).length
                       const cls = r === 'W' ? 'text-emerald-600 dark:text-emerald-400' : r === 'L' ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400'
@@ -1267,8 +1267,8 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
           {/* Calendar — upcoming matches */}
-          <div className="lg:col-span-2 bg-white dark:bg-apple-gray-900 rounded-2xl border border-apple-gray-100 dark:border-apple-gray-800 overflow-hidden">
-            <div className="px-5 py-4 border-b border-apple-gray-100 dark:border-apple-gray-800 flex items-center justify-between">
+          <div className="lg:col-span-2 bg-white dark:bg-apple-gray-900 rounded-2xl border border-apple-gray-200 dark:border-apple-gray-800 overflow-hidden">
+            <div className="px-5 py-4 border-b border-apple-gray-200 dark:border-apple-gray-800 flex items-center justify-between">
               <div>
                 <h2 className="font-semibold text-apple-gray-800 dark:text-white">Calendario</h2>
                 <p className="text-xs text-apple-gray-500 mt-0.5">Próximos partidos de primera división</p>
@@ -1304,8 +1304,8 @@ export default function DashboardPage() {
           </div>
 
           {/* Contract Alerts */}
-          <div className="bg-white dark:bg-apple-gray-900 rounded-2xl border border-apple-gray-100 dark:border-apple-gray-800 overflow-hidden">
-            <div className="px-5 py-4 border-b border-apple-gray-100 dark:border-apple-gray-800 flex items-center justify-between">
+          <div className="bg-white dark:bg-apple-gray-900 rounded-2xl border border-apple-gray-200 dark:border-apple-gray-800 overflow-hidden">
+            <div className="px-5 py-4 border-b border-apple-gray-200 dark:border-apple-gray-800 flex items-center justify-between">
               <div>
                 <h2 className="font-semibold text-apple-gray-800 dark:text-white">Contratos</h2>
                 <p className="text-xs text-apple-gray-500 mt-0.5">Vencimientos del plantel</p>
@@ -1381,8 +1381,8 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
           {/* Último 11 */}
-          <div className="bg-white dark:bg-apple-gray-900 rounded-2xl border border-apple-gray-100 dark:border-apple-gray-800 overflow-hidden">
-            <div className="px-5 py-4 border-b border-apple-gray-100 dark:border-apple-gray-800 flex items-center justify-between">
+          <div className="bg-white dark:bg-apple-gray-900 rounded-2xl border border-apple-gray-200 dark:border-apple-gray-800 overflow-hidden">
+            <div className="px-5 py-4 border-b border-apple-gray-200 dark:border-apple-gray-800 flex items-center justify-between">
               <div>
                 <h2 className="font-semibold text-apple-gray-800 dark:text-white">Último 11 inicial</h2>
                 {lineup ? (
@@ -1436,8 +1436,8 @@ export default function DashboardPage() {
           </div>
 
           {/* Mensajes */}
-          <div className="bg-white dark:bg-apple-gray-900 rounded-2xl border border-apple-gray-100 dark:border-apple-gray-800 overflow-hidden flex flex-col">
-            <div className="px-5 py-4 border-b border-apple-gray-100 dark:border-apple-gray-800 flex items-center justify-between">
+          <div className="bg-white dark:bg-apple-gray-900 rounded-2xl border border-apple-gray-200 dark:border-apple-gray-800 overflow-hidden flex flex-col">
+            <div className="px-5 py-4 border-b border-apple-gray-200 dark:border-apple-gray-800 flex items-center justify-between">
               <div>
                 <h2 className="font-semibold text-apple-gray-800 dark:text-white">Mensajes</h2>
                 <p className="text-xs text-apple-gray-500 mt-0.5">Bandeja de entrada del equipo</p>
@@ -1492,7 +1492,7 @@ export default function DashboardPage() {
 
         {/* ── Goleadores · Asistidores ── */}
         {(loadingTopStats || topScorers.length > 0 || topAssisters.length > 0) && (
-          <section className="bg-white dark:bg-apple-gray-900 rounded-2xl border border-apple-gray-100 dark:border-apple-gray-800 px-5 py-4">
+          <section className="bg-white dark:bg-apple-gray-900 rounded-2xl border border-apple-gray-200 dark:border-apple-gray-800 px-5 py-4">
             <div className="flex items-center gap-2 mb-4">
               <img src="/lanus-escudo.png" alt="Lanús" className="w-5 h-5 object-contain" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.2))' }} />
               <h2 className="text-xs font-semibold text-apple-gray-400 uppercase tracking-widest">Lanús · Temporada 2026</h2>

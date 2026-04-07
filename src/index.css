@@ -96,7 +96,7 @@
 
   /* Apple-style card */
   .card-apple {
-    @apply bg-white dark:bg-apple-gray-800 rounded-apple-lg border border-apple-gray-200 dark:border-apple-gray-700;
+    @apply bg-white dark:bg-apple-gray-800 rounded-apple-lg border border-apple-gray-200/80 dark:border-apple-gray-700;
     @apply shadow-apple dark:shadow-apple-dark transition-all duration-200 ease-apple;
   }
 

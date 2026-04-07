@@ -311,16 +311,16 @@ function ScoreScoutTimeline({ playerId, playerName }: ScoreScoutTimelineProps) {
     ? scores.reduce((a, b) => a + b, 0) / scores.length
     : null
 
-  // Get score color
+  // Get score color — granate (club colors) instead of green
   const getScoreColor = (score: number) => {
-    if (score >= 8) return 'text-brand-green'
+    if (score >= 8) return 'text-[#8C1430] dark:text-[#D45A72]'
     if (score >= 6) return 'text-[#D4A843]'
     if (score >= 4) return 'text-amber-500'
     return 'text-red-500'
   }
 
   const getScoreBg = (score: number) => {
-    if (score >= 8) return 'bg-brand-green/10 border-brand-green/30'
+    if (score >= 8) return 'bg-[#8C1430]/10 border-[#8C1430]/40 dark:bg-[#D45A72]/10 dark:border-[#D45A72]/30'
     if (score >= 6) return 'bg-[#D4A843]/10 border-[#D4A843]/30'
     if (score >= 4) return 'bg-amber-500/10 border-amber-500/30'
     return 'bg-red-500/10 border-red-500/30'
@@ -362,7 +362,7 @@ function ScoreScoutTimeline({ playerId, playerName }: ScoreScoutTimelineProps) {
         <div className="relative h-2 bg-apple-gray-200 dark:bg-apple-gray-700 rounded-full overflow-hidden">
           <div
             className={`h-full rounded-full transition-all duration-500 ${
-              avgScore >= 8 ? 'bg-brand-green' :
+              avgScore >= 8 ? 'bg-[#8C1430] dark:bg-[#D45A72]' :
               avgScore >= 6 ? 'bg-[#D4A843]' :
               avgScore >= 4 ? 'bg-amber-500' : 'bg-red-500'
             }`}
@@ -390,7 +390,7 @@ function ScoreScoutTimeline({ playerId, playerName }: ScoreScoutTimelineProps) {
                 } flex items-center justify-center`}>
                   {score && (
                     <div className={`w-2 h-2 rounded-full ${
-                      score >= 8 ? 'bg-brand-green' :
+                      score >= 8 ? 'bg-[#8C1430] dark:bg-[#D45A72]' :
                       score >= 6 ? 'bg-[#D4A843]' :
                       score >= 4 ? 'bg-amber-500' : 'bg-red-500'
                     }`} />
@@ -508,7 +508,7 @@ function getDisplayPosition(rawPosition: string | undefined): string {
 function InfoRow({ label, value }: { label: string; value?: string | null }) {
   if (!value || value === '-' || value === '') return null
   return (
-    <div className="flex justify-between py-2 border-b border-apple-gray-100 dark:border-apple-gray-800/50 last:border-0">
+    <div className="flex justify-between py-2 border-b border-apple-gray-200 dark:border-apple-gray-800/50 last:border-0">
       <span className="text-sm text-apple-gray-500 dark:text-apple-gray-400">{label}</span>
       <span className="text-sm font-medium text-apple-gray-800 dark:text-white text-right ml-4">{value}</span>
     </div>
@@ -537,7 +537,7 @@ function MetricRowWithPercentile({ label, value, percentile }: MetricWithPercent
   const quality = getQualityInfo(percentile)
 
   return (
-    <div className="py-3 border-b border-apple-gray-100 dark:border-apple-gray-800/50 last:border-0">
+    <div className="py-3 border-b border-apple-gray-200 dark:border-apple-gray-800/50 last:border-0">
       <div className="flex items-center justify-between mb-1.5">
         <span className="text-sm text-apple-gray-500 dark:text-apple-gray-400">{label}</span>
         <div className="flex items-center gap-2">
@@ -1478,7 +1478,7 @@ export default function PlayerDetailPage() {
                       const val = player[metric]
                       const num = typeof val === 'number' ? val : parseFloat(String(val ?? '').replace(',', '.'))
                       return (
-                        <div key={metric} className="flex justify-between py-3 border-b border-apple-gray-100 dark:border-apple-gray-800/50">
+                        <div key={metric} className="flex justify-between py-3 border-b border-apple-gray-200 dark:border-apple-gray-800/50">
                           <span className="text-sm text-apple-gray-500 dark:text-apple-gray-400">{metric}</span>
                           <span className="text-sm font-semibold text-apple-gray-800 dark:text-white tabular-nums">
                             {isNaN(num) ? '—' : num.toFixed(0)}

@@ -46,9 +46,9 @@ export default {
         'apple-xl': '20px',
       },
       boxShadow: {
-        'apple': '0 2px 8px rgba(0, 0, 0, 0.08)',
-        'apple-md': '0 4px 16px rgba(0, 0, 0, 0.12)',
-        'apple-lg': '0 8px 32px rgba(0, 0, 0, 0.16)',
+        'apple': '0 2px 10px rgba(0, 0, 0, 0.10), 0 0 0 1px rgba(0,0,0,0.04)',
+        'apple-md': '0 4px 20px rgba(0, 0, 0, 0.14), 0 0 0 1px rgba(0,0,0,0.05)',
+        'apple-lg': '0 8px 36px rgba(0, 0, 0, 0.18)',
         'apple-dark': '0 2px 8px rgba(0, 0, 0, 0.32)',
         'apple-dark-md': '0 4px 16px rgba(0, 0, 0, 0.48)',
       },

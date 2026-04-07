@@ -1,4 +1,6 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useMemo } from 'react'
+import { useData } from '@/context/DataContext'
+import type { EnrichedPlayer } from '@/types'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -20,6 +22,9 @@ interface InfPlayer {
   // Extended fields for primera_div
   contractStatus?: ContractStatus
   contractType?: ContractType
+  // Plantel link (primera_div)
+  plantelKey?: string
+  plantelImagen?: string
 }
 
 type FormationKey = '4-3-3' | '4-4-2' | '4-2-3-1' | '3-5-2' | '5-3-2'
@@ -51,7 +56,7 @@ const TEAM_CATEGORIES: { key: TeamCategory; label: string; isPrimera?: boolean; 
 
 const CATEGORY_CONFIG: Record<Category, { label: string; color: string; bg: string; dot: string }> = {
   primera:    { label: 'Primera opción',        color: 'text-blue-700 dark:text-blue-300',    bg: 'bg-blue-100 dark:bg-blue-900/40',    dot: 'bg-blue-500'   },
-  clave:      { label: 'Clave',                 color: 'text-orange-700 dark:text-orange-300', bg: 'bg-orange-100 dark:bg-orange-900/40', dot: 'bg-orange-500' },
+  clave:      { label: 'Jugador clave',          color: 'text-orange-700 dark:text-orange-300', bg: 'bg-orange-100 dark:bg-orange-900/40', dot: 'bg-orange-500' },
   desarrollar:{ label: 'Jugador a desarrollar', color: 'text-yellow-700 dark:text-yellow-300', bg: 'bg-yellow-100 dark:bg-yellow-900/40',  dot: 'bg-yellow-400' },
   talento:    { label: 'Joven talento',         color: 'text-purple-700 dark:text-purple-300', bg: 'bg-purple-100 dark:bg-purple-900/40', dot: 'bg-purple-500' },
 }
@@ -184,21 +189,65 @@ function saveToDisk(formations: SavedFormation[]) {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function PlayerChip({ player, onRemove }: { player: InfPlayer; onRemove: () => void }) {
+function PlayerChip({
+  player,
+  onRemove,
+  plantelPlayers,
+  onLink,
+}: {
+  player: InfPlayer
+  onRemove: () => void
+  plantelPlayers?: EnrichedPlayer[]
+  onLink?: (plantelKey: string, plantelImagen: string) => void
+}) {
   const cfg = CATEGORY_CONFIG[player.category]
   const displayYear = player.categoryYear ?? (player.birthDate ? player.birthDate.slice(0, 4) : null)
   const statusCfg = player.contractStatus ? CONTRACT_STATUS_CONFIG[player.contractStatus] : null
+  const [showLinkSearch, setShowLinkSearch] = useState(false)
+  const [linkQuery, setLinkQuery] = useState('')
+
+  const linkSuggestions = useMemo(() => {
+    if (!plantelPlayers || !linkQuery.trim()) return []
+    const q = linkQuery.toLowerCase()
+    return plantelPlayers.filter(p =>
+      p.Jugador.toLowerCase().includes(q) ||
+      (p['Nombre Completo'] || '').toLowerCase().includes(q)
+    ).slice(0, 5)
+  }, [linkQuery, plantelPlayers])
 
   return (
-    <div className={`flex flex-col gap-0.5 px-2 py-1 rounded-lg text-xs ${cfg.bg} ${cfg.color} group`}>
+    <div className={`relative flex flex-col gap-0.5 px-2 py-1 rounded-lg text-xs ${cfg.bg} ${cfg.color} group`}>
       <div className="flex items-center gap-1.5">
-        {statusCfg ? (
+        {/* Avatar or status dot */}
+        {player.plantelImagen ? (
+          <img src={player.plantelImagen} alt="" className="w-4 h-4 rounded-full object-cover flex-shrink-0 border border-white/30" />
+        ) : statusCfg ? (
           <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: statusCfg.dot }} />
         ) : (
           <span className={`w-2 h-2 rounded-full flex-shrink-0 ${cfg.dot}`} />
         )}
+        {/* Status dot alongside photo */}
+        {player.plantelImagen && statusCfg && (
+          <span className="w-1.5 h-1.5 rounded-full flex-shrink-0 -ml-1" style={{ background: statusCfg.dot }} />
+        )}
         <span className="font-medium truncate max-w-[80px]">{player.name}</span>
         {displayYear && <span className="opacity-60 text-[10px]">{displayYear}</span>}
+        {/* Link button — shown on hover for unlinked primera players */}
+        {plantelPlayers && !player.plantelKey && onLink && (
+          <button
+            onClick={e => { e.stopPropagation(); setShowLinkSearch(v => !v); setLinkQuery('') }}
+            className="ml-0.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity text-current leading-none"
+            title="Vincular con plantel"
+          >
+            <svg viewBox="0 0 16 16" className="w-3 h-3 fill-current"><path d="M6.354 5.5H4a3 3 0 0 0 0 6h3a3 3 0 0 0 2.83-4H9c-.086 0-.17.01-.25.031A2 2 0 0 1 7 9.5H4a2 2 0 1 1 0-4h1.535c.218-.376.495-.714.82-1z"/><path d="M9 5.5a3 3 0 0 0-2.83 4h.098A2 2 0 0 1 9 8.5h3a2 2 0 1 1 0 4h-1.535a4.02 4.02 0 0 1-.82 1H12a3 3 0 1 0 0-6H9z"/></svg>
+          </button>
+        )}
+        {/* Linked indicator */}
+        {player.plantelKey && (
+          <span className="opacity-40 leading-none" title={`Vinculado: ${player.plantelKey}`}>
+            <svg viewBox="0 0 16 16" className="w-2.5 h-2.5 fill-current"><path d="M6.354 5.5H4a3 3 0 0 0 0 6h3a3 3 0 0 0 2.83-4H9c-.086 0-.17.01-.25.031A2 2 0 0 1 7 9.5H4a2 2 0 1 1 0-4h1.535c.218-.376.495-.714.82-1z"/><path d="M9 5.5a3 3 0 0 0-2.83 4h.098A2 2 0 0 1 9 8.5h3a2 2 0 1 1 0 4h-1.535a4.02 4.02 0 0 1-.82 1H12a3 3 0 1 0 0-6H9z"/></svg>
+          </span>
+        )}
         <button
           onClick={onRemove}
           className="ml-0.5 opacity-0 group-hover:opacity-70 hover:opacity-100 text-current leading-none"
@@ -211,6 +260,44 @@ function PlayerChip({ player, onRemove }: { player: InfPlayer; onRemove: () => v
           {player.contractType === 'primer_contrato' ? '● Primer contrato' : '● Renovación ctto.'}
         </span>
       )}
+      {/* Inline link search dropdown */}
+      {showLinkSearch && plantelPlayers && onLink && (
+        <div
+          className="absolute top-full left-0 mt-1 z-50 bg-white dark:bg-apple-gray-900 rounded-xl border border-apple-gray-200 dark:border-apple-gray-700 shadow-xl w-56 p-2"
+          onClick={e => e.stopPropagation()}
+        >
+          <input
+            autoFocus
+            value={linkQuery}
+            onChange={e => setLinkQuery(e.target.value)}
+            placeholder="Buscar en plantel..."
+            className="w-full px-2 py-1.5 text-xs rounded-lg border border-apple-gray-200 dark:border-apple-gray-700 bg-apple-gray-50 dark:bg-apple-gray-800 text-apple-gray-900 dark:text-white focus:outline-none mb-1"
+          />
+          {linkQuery && linkSuggestions.length === 0 && (
+            <p className="text-[10px] text-apple-gray-400 px-1 py-1">Sin resultados</p>
+          )}
+          {!linkQuery && (
+            <p className="text-[10px] text-apple-gray-400 px-1 py-1">Escribí el apellido del jugador</p>
+          )}
+          {linkSuggestions.map(p => (
+            <button
+              key={p.Jugador}
+              onMouseDown={e => e.preventDefault()}
+              onClick={() => { onLink(p.Jugador, p.Imagen || ''); setShowLinkSearch(false) }}
+              className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-apple-gray-100 dark:hover:bg-apple-gray-800 text-left transition-colors"
+            >
+              {p.Imagen
+                ? <img src={p.Imagen} alt="" className="w-6 h-6 rounded-full object-cover flex-shrink-0" />
+                : <span className="w-6 h-6 rounded-full bg-apple-gray-200 dark:bg-apple-gray-700 flex-shrink-0" />
+              }
+              <div className="flex-1 min-w-0">
+                <p className="text-[11px] font-semibold text-apple-gray-900 dark:text-white truncate">{p.Jugador}</p>
+                <p className="text-[9px] text-apple-gray-400">{p['Posición específica'] || p['Posición']}</p>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -219,11 +306,12 @@ interface AddPlayerModalProps {
   positionKey: string
   positionLabel: string
   teamCategory: TeamCategory
+  plantelPlayers?: EnrichedPlayer[]
   onAdd: (player: Omit<InfPlayer, 'id'>) => void
   onClose: () => void
 }
 
-function AddPlayerModal({ positionKey, positionLabel, teamCategory, onAdd, onClose }: AddPlayerModalProps) {
+function AddPlayerModal({ positionKey, positionLabel, teamCategory, plantelPlayers, onAdd, onClose }: AddPlayerModalProps) {
   const [name, setName] = useState('')
   const [category, setCategory] = useState<Category>('primera')
   const [birthDate, setBirthDate] = useState('')
@@ -231,9 +319,23 @@ function AddPlayerModal({ positionKey, positionLabel, teamCategory, onAdd, onClo
   const [notes, setNotes] = useState('')
   const [contractStatus, setContractStatus] = useState<ContractStatus | undefined>(undefined)
   const [contractType, setContractType] = useState<ContractType>(null)
+  const [linkedPlantel, setLinkedPlantel] = useState<EnrichedPlayer | null>(null)
+  const [showSuggestions, setShowSuggestions] = useState(false)
 
-  const isPrimera = teamCategory === 'primera_div'
+  const isPrimera  = teamCategory === 'primera_div'
+  const isReserva  = teamCategory === 'reserva'
+  const hasContractStatus = isPrimera || isReserva
+  const hasBothContractTypes = isPrimera || isReserva
   const hasContractType = TEAM_CATEGORIES.find(t => t.key === teamCategory)?.hasContractType ?? false
+
+  const suggestions = useMemo(() => {
+    if (!plantelPlayers || !isPrimera || !name.trim() || linkedPlantel) return []
+    const q = name.toLowerCase().trim()
+    return plantelPlayers.filter(p =>
+      p.Jugador.toLowerCase().includes(q) ||
+      (p['Nombre Completo'] || '').toLowerCase().includes(q)
+    ).slice(0, 6)
+  }, [name, plantelPlayers, isPrimera, linkedPlantel])
 
   function handleAdd() {
     if (!name.trim()) return
@@ -243,10 +345,20 @@ function AddPlayerModal({ positionKey, positionLabel, teamCategory, onAdd, onClo
       birthDate: birthDate || undefined,
       categoryYear: categoryYear.trim() || undefined,
       notes: notes.trim() || undefined,
-      contractStatus: isPrimera ? contractStatus : undefined,
+      contractStatus: hasContractStatus ? contractStatus : undefined,
       contractType: hasContractType ? contractType : null,
+      plantelKey: linkedPlantel?.Jugador,
+      plantelImagen: linkedPlantel?.Imagen || undefined,
     })
     onClose()
+  }
+
+  function selectPlantelPlayer(p: EnrichedPlayer) {
+    setLinkedPlantel(p)
+    setName(p.Jugador)
+    setShowSuggestions(false)
+    // Auto-fill contract status from plantel data
+    if (!contractStatus && p.contractStatus === 'critical') setContractStatus('baja')
   }
 
   const inputCls = "w-full px-3 py-2 text-sm rounded-xl border border-apple-gray-200 dark:border-apple-gray-700 bg-apple-gray-50 dark:bg-apple-gray-800 text-apple-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -258,24 +370,82 @@ function AddPlayerModal({ positionKey, positionLabel, teamCategory, onAdd, onClo
         <p className="text-xs text-apple-gray-400 mb-4">Posición: <span className="font-semibold">{positionLabel} ({positionKey})</span></p>
 
         <div className="space-y-3">
-          {/* Nombre */}
+          {/* Nombre + Plantel autocomplete */}
           <div>
-            <label className="text-xs font-medium text-apple-gray-500 mb-1 block">Nombre *</label>
-            <input
-              autoFocus
-              value={name}
-              onChange={e => setName(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') handleAdd() }}
-              placeholder="Apellido, Nombre"
-              className={inputCls}
-            />
+            <label className="text-xs font-medium text-apple-gray-500 mb-1 block">
+              Nombre *
+              {isPrimera && plantelPlayers && (
+                <span className="ml-1.5 text-[10px] text-apple-gray-400 font-normal">· sugerencias del plantel al escribir</span>
+              )}
+            </label>
+
+            {/* Linked player card */}
+            {linkedPlantel ? (
+              <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700">
+                {linkedPlantel.Imagen
+                  ? <img src={linkedPlantel.Imagen} alt="" className="w-9 h-9 rounded-full object-cover flex-shrink-0 border border-white/40 shadow" />
+                  : <span className="w-9 h-9 rounded-full bg-emerald-200 dark:bg-emerald-800 flex-shrink-0" />
+                }
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-apple-gray-900 dark:text-white truncate">{linkedPlantel.Jugador}</p>
+                  <p className="text-[10px] text-apple-gray-400">{linkedPlantel['Posición específica'] || linkedPlantel['Posición']}</p>
+                </div>
+                <div className="flex flex-col items-end gap-1">
+                  <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/40 px-1.5 py-0.5 rounded-full">PLANTEL</span>
+                  <button onClick={() => { setLinkedPlantel(null); setName('') }} className="text-[10px] text-apple-gray-400 hover:text-red-500 transition-colors">cambiar</button>
+                </div>
+              </div>
+            ) : (
+              <div className="relative">
+                <input
+                  autoFocus
+                  value={name}
+                  onChange={e => { setName(e.target.value); setShowSuggestions(true) }}
+                  onFocus={() => setShowSuggestions(true)}
+                  onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                  onKeyDown={e => { if (e.key === 'Enter') handleAdd() }}
+                  placeholder="Apellido, Nombre"
+                  className={inputCls}
+                />
+                {isPrimera && plantelPlayers && !showSuggestions && name.trim() && !linkedPlantel && (
+                  <p className="text-[10px] text-apple-gray-400 mt-1">
+                    Sin vínculo al plantel — podés vincular después desde el chip.
+                  </p>
+                )}
+                {/* Autocomplete dropdown */}
+                {isPrimera && plantelPlayers && showSuggestions && suggestions.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-1 z-10 bg-white dark:bg-apple-gray-900 rounded-xl border border-apple-gray-200 dark:border-apple-gray-700 shadow-xl overflow-hidden">
+                    {suggestions.map(p => (
+                      <button
+                        key={p.Jugador}
+                        onMouseDown={e => e.preventDefault()}
+                        onClick={() => selectPlantelPlayer(p)}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-apple-gray-100 dark:hover:bg-apple-gray-800 text-left transition-colors border-b border-apple-gray-100 dark:border-apple-gray-800 last:border-0"
+                      >
+                        {p.Imagen
+                          ? <img src={p.Imagen} alt="" className="w-7 h-7 rounded-full object-cover flex-shrink-0" />
+                          : <span className="w-7 h-7 rounded-full bg-apple-gray-200 dark:bg-apple-gray-700 flex-shrink-0" />
+                        }
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-apple-gray-900 dark:text-white">{p.Jugador}</p>
+                          <p className="text-[10px] text-apple-gray-400">{p['Posición específica'] || p['Posición']}</p>
+                        </div>
+                        <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 opacity-70">PLANTEL</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Rol en el equipo */}
           <div>
             <label className="text-xs font-medium text-apple-gray-500 mb-2 block">Rol</label>
             <div className="grid grid-cols-2 gap-2">
-              {(Object.entries(CATEGORY_CONFIG) as [Category, typeof CATEGORY_CONFIG[Category]][]).map(([key, cfg]) => (
+              {(Object.entries(CATEGORY_CONFIG) as [Category, typeof CATEGORY_CONFIG[Category]][])
+              .filter(([key]) => !isPrimera || key === 'primera' || key === 'clave')
+              .map(([key, cfg]) => (
                 <button
                   key={key}
                   onClick={() => setCategory(key)}
@@ -290,8 +460,8 @@ function AddPlayerModal({ positionKey, positionLabel, teamCategory, onAdd, onClo
             </div>
           </div>
 
-          {/* Estado contractual — solo Primera División */}
-          {isPrimera && (
+          {/* Estado contractual — Primera División y Reserva */}
+          {hasContractStatus && (
             <div>
               <label className="text-xs font-medium text-apple-gray-500 mb-2 block">Estado</label>
               <div className="grid grid-cols-2 gap-1.5">
@@ -330,7 +500,7 @@ function AddPlayerModal({ positionKey, positionLabel, teamCategory, onAdd, onClo
                 >
                   Primer contrato
                 </button>
-                {isPrimera && (
+                {hasBothContractTypes && (
                   <button
                     onClick={() => setContractType(contractType === 'renovacion_contrato' ? null : 'renovacion_contrato')}
                     className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
@@ -404,7 +574,8 @@ function AddPlayerModal({ positionKey, positionLabel, teamCategory, onAdd, onClo
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function ArmadoEquiposPage() {
-  const [activeTeam, setActiveTeam] = useState<TeamCategory>('reserva')
+  const { plantelPrimera } = useData()
+  const [activeTeam, setActiveTeam] = useState<TeamCategory>('primera_div')
   const [hoveredPos, setHoveredPos] = useState<string | null>(null)
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [allStates, setAllStates] = useState<AllTeamStates>(loadAllStates)
@@ -454,6 +625,26 @@ export default function ArmadoEquiposPage() {
           positions: {
             ...state.positions,
             [posKey]: (state.positions[posKey] ?? []).filter(p => p.id !== playerId),
+          },
+        },
+      }
+      persistAllStates(next)
+      return next
+    })
+  }, [activeTeam])
+
+  const linkPlayer = useCallback((posKey: string, playerId: string, plantelKey: string, plantelImagen: string) => {
+    setAllStates(prev => {
+      const state = prev[activeTeam]
+      const next = {
+        ...prev,
+        [activeTeam]: {
+          ...state,
+          positions: {
+            ...state.positions,
+            [posKey]: (state.positions[posKey] ?? []).map(p =>
+              p.id === playerId ? { ...p, plantelKey, plantelImagen } : p
+            ),
           },
         },
       }
@@ -554,7 +745,7 @@ export default function ArmadoEquiposPage() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {savedFormations.map(f => (
-                  <div key={f.id} className="bg-white dark:bg-apple-gray-900 rounded-2xl border-2 border-apple-gray-100 dark:border-apple-gray-800 transition-colors p-4">
+                  <div key={f.id} className="bg-white dark:bg-apple-gray-900 rounded-2xl border-2 border-apple-gray-200 dark:border-apple-gray-800 transition-colors p-4">
                     <div className="flex items-start justify-between mb-3">
                       <div>
                         <p className="font-bold text-apple-gray-900 dark:text-white">{f.name}</p>
@@ -728,10 +919,12 @@ export default function ArmadoEquiposPage() {
               <div className="xl:col-span-2 space-y-4">
 
                 {/* Legend */}
-                <div className="bg-white dark:bg-apple-gray-900 rounded-2xl border border-apple-gray-100 dark:border-apple-gray-800 p-4">
+                <div className="bg-white dark:bg-apple-gray-900 rounded-2xl border border-apple-gray-200 dark:border-apple-gray-800 p-4">
                   <p className="text-xs font-semibold text-apple-gray-400 uppercase tracking-widest mb-3">Categorías de rol</p>
                   <div className="space-y-1.5">
-                    {(Object.entries(CATEGORY_CONFIG) as [Category, typeof CATEGORY_CONFIG[Category]][]).map(([cat, cfg]) => (
+                    {(Object.entries(CATEGORY_CONFIG) as [Category, typeof CATEGORY_CONFIG[Category]][])
+                    .filter(([cat]) => activeTeam !== 'primera_div' || cat === 'primera' || cat === 'clave')
+                    .map(([cat, cfg]) => (
                       <div key={cat} className="flex items-center gap-2">
                         <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${cfg.dot}`} />
                         <span className="text-xs text-apple-gray-700 dark:text-apple-gray-300">{cfg.label}</span>
@@ -739,8 +932,8 @@ export default function ArmadoEquiposPage() {
                     ))}
                   </div>
 
-                  {/* Contract status legend — only for primera_div */}
-                  {activeTeam === 'primera_div' && (
+                  {/* Contract status legend — Primera División y Reserva */}
+                  {(activeTeam === 'primera_div' || activeTeam === 'reserva') && (
                     <>
                       <p className="text-xs font-semibold text-apple-gray-400 uppercase tracking-widest mt-4 mb-2">Estado</p>
                       <div className="space-y-1.5">
@@ -754,14 +947,14 @@ export default function ArmadoEquiposPage() {
                     </>
                   )}
 
-                  <p className="text-[10px] text-apple-gray-400 mt-3 border-t border-apple-gray-100 dark:border-apple-gray-800 pt-2">
+                  <p className="text-[10px] text-apple-gray-400 mt-3 border-t border-apple-gray-200 dark:border-apple-gray-800 pt-2">
                     Máx. {MAX_PER_POSITION} por posición · Click en el círculo para agregar
                   </p>
                 </div>
 
                 {/* Players by position */}
-                <div className="bg-white dark:bg-apple-gray-900 rounded-2xl border border-apple-gray-100 dark:border-apple-gray-800 overflow-hidden">
-                  <div className="px-4 py-3 border-b border-apple-gray-100 dark:border-apple-gray-800 flex items-center justify-between">
+                <div className="bg-white dark:bg-apple-gray-900 rounded-2xl border border-apple-gray-200 dark:border-apple-gray-800 overflow-hidden">
+                  <div className="px-4 py-3 border-b border-apple-gray-200 dark:border-apple-gray-800 flex items-center justify-between">
                     <p className="text-sm font-semibold text-apple-gray-800 dark:text-white">Jugadores — {TEAM_CATEGORIES.find(t => t.key === activeTeam)?.label}</p>
                     <span className="text-xs text-apple-gray-400">{totalPlayers} total</span>
                   </div>
@@ -774,7 +967,13 @@ export default function ArmadoEquiposPage() {
                           <p className="text-[10px] font-bold text-apple-gray-400 uppercase tracking-wider mb-1.5">{pos.label} — {pos.key}</p>
                           <div className="flex flex-wrap gap-1">
                             {players.map(p => (
-                              <PlayerChip key={p.id} player={p} onRemove={() => removePlayer(pos.key, p.id)} />
+                              <PlayerChip
+                                key={p.id}
+                                player={p}
+                                onRemove={() => removePlayer(pos.key, p.id)}
+                                plantelPlayers={activeTeam === 'primera_div' ? plantelPrimera : undefined}
+                                onLink={activeTeam === 'primera_div' ? (key, img) => linkPlayer(pos.key, p.id, key, img) : undefined}
+                              />
                             ))}
                             {players.length < MAX_PER_POSITION && (
                               <button
@@ -816,6 +1015,7 @@ export default function ArmadoEquiposPage() {
           positionKey={modal.key}
           positionLabel={modal.label}
           teamCategory={activeTeam}
+          plantelPlayers={activeTeam === 'primera_div' ? plantelPrimera : undefined}
           onAdd={p => addPlayer(modal.key, p)}
           onClose={() => setModal(null)}
         />

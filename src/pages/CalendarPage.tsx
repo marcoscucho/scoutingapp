@@ -139,7 +139,7 @@ export default function CalendarPage() {
                 </svg>
               </button>
 
-              <span className="px-4 py-2 text-sm font-semibold text-apple-gray-800 dark:text-white w-44 text-center border-x border-apple-gray-100 dark:border-apple-gray-800">
+              <span className="px-4 py-2 text-sm font-semibold text-apple-gray-800 dark:text-white w-44 text-center border-x border-apple-gray-200 dark:border-apple-gray-800">
                 {MONTH_NAMES[month]} {year}
               </span>
 
@@ -174,10 +174,10 @@ export default function CalendarPage() {
         )}
 
         {/* Calendar grid */}
-        <div className="bg-white dark:bg-apple-gray-900 rounded-2xl border border-apple-gray-100 dark:border-apple-gray-800 overflow-hidden shadow-sm">
+        <div className="bg-white dark:bg-apple-gray-900 rounded-2xl border border-apple-gray-200 dark:border-apple-gray-800 overflow-hidden shadow-sm">
 
           {/* Day headers */}
-          <div className="grid grid-cols-7 border-b border-apple-gray-100 dark:border-apple-gray-800 bg-apple-gray-50/50 dark:bg-apple-gray-800/30">
+          <div className="grid grid-cols-7 border-b border-apple-gray-200 dark:border-apple-gray-800 bg-apple-gray-50/50 dark:bg-apple-gray-800/30">
             {DAY_NAMES.map(d => (
               <div key={d} className="py-3 text-center text-[11px] font-semibold text-apple-gray-400 uppercase tracking-widest">
                 {d}
@@ -283,7 +283,7 @@ export default function CalendarPage() {
                     className={`
                       flex items-center gap-4 px-4 py-3 rounded-xl border transition-colors
                       ${past
-                        ? 'bg-white dark:bg-apple-gray-900 border-apple-gray-100 dark:border-apple-gray-800 opacity-60'
+                        ? 'bg-white dark:bg-apple-gray-900 border-apple-gray-200 dark:border-apple-gray-800 opacity-60'
                         : match.isHome
                           ? 'bg-brand-green/5 border-brand-green/20 dark:bg-brand-green/10 dark:border-brand-green/20'
                           : 'bg-blue-50 border-blue-100 dark:bg-blue-900/10 dark:border-blue-900/30'

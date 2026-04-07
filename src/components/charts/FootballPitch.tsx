@@ -2,6 +2,7 @@ interface PitchZone { x: number; y: number; w: number; h: number }
 
 const PITCH_ZONES: Record<string, PitchZone> = {
   'Portero':          { x: 1,  y: 21, w: 17, h: 26 },
+  'Arquero':          { x: 1,  y: 21, w: 17, h: 26 },
   'Defensor Central': { x: 5,  y: 10, w: 26, h: 48 },
   'Lateral':          { x: 4,  y: 4,  w: 28, h: 28 },
   'Volante central':  { x: 26, y: 14, w: 33, h: 40 },

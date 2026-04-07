@@ -17,6 +17,7 @@ const CLUB_SHEET_BASE = '/spreadsheets/d/e/2PACX-1vTcd6UXpIKwzscpkPXkst_8oYu4t0F
 
 export const SHEET_URLS = {
   externo: buildSheetUrl(`${CLUB_SHEET_BASE}?gid=0&single=true&output=csv`),
+  externoArqueros: buildSheetUrl(`${CLUB_SHEET_BASE}?gid=1459019256&single=true&output=csv`),
   interno: buildSheetUrl(`${CLUB_SHEET_BASE}?gid=1004139572&single=true&output=csv`),
   rivalData: buildSheetUrl(`${CLUB_SHEET_BASE}?gid=11363191&single=true&output=csv`),
   seguimiento: buildSheetUrl(`${CLUB_SHEET_BASE}?gid=887155501&single=true&output=csv`),

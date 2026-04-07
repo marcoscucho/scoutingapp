@@ -1,4 +1,5 @@
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
+import { parseWyscoutPdf, type WyscoutData } from '@/services/wyscoutParser'
 import {
   RadarChart, PolarGrid, PolarAngleAxis, Radar, ResponsiveContainer,
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -31,7 +32,7 @@ function fmtPct(n: number) { return n.toFixed(0) + '%' }
 // ─── StatCard ──────────────────────────────────────────────────────────────────
 function StatCard({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: string }) {
   return (
-    <div className="bg-white dark:bg-apple-gray-900 border border-apple-gray-100 dark:border-apple-gray-800 rounded-xl p-4">
+    <div className="bg-white dark:bg-apple-gray-900 border border-apple-gray-200 dark:border-apple-gray-800 rounded-xl shadow-sm dark:shadow-none p-4">
       <p className="text-xs text-apple-gray-400 uppercase tracking-wider mb-1">{label}</p>
       <p className={`text-2xl font-bold ${accent ?? 'text-apple-gray-900 dark:text-white'}`}>{value}</p>
       {sub && <p className="text-xs text-apple-gray-400 mt-0.5">{sub}</p>}
@@ -49,7 +50,7 @@ function FormDot({ m }: { m: MatchData }) {
       </div>
       <div className="flex flex-col items-center gap-0.5">
         <ShieldImg team={m.rival} size={16} fallbackInitials={false} />
-        <p className="text-[9px] text-apple-gray-400 max-w-[48px] text-center truncate leading-none">{m.rival.split(' ')[0]}</p>
+        <p className="text-[9px] text-apple-gray-400 max-w-[48px] text-center truncate leading-none">{(() => { const p = m.rival.split(' '); return p[0].length <= 3 && p[1] ? `${p[0]} ${p[1]}` : p[0] })()}</p>
       </div>
       <div className="absolute bottom-full mb-2 hidden group-hover:flex bg-apple-gray-900 dark:bg-black text-white text-xs rounded-xl px-3 py-2 whitespace-nowrap z-10 flex-col items-center gap-1 shadow-xl">
         <ShieldImg team={m.rival} size={28} />
@@ -147,7 +148,7 @@ function TabResumen({ matches }: { matches: MatchData[] }) {
       </div>
 
       {/* Recent form */}
-      <div className="bg-white dark:bg-apple-gray-900 border border-apple-gray-100 dark:border-apple-gray-800 rounded-xl p-4">
+      <div className="bg-white dark:bg-apple-gray-900 border border-apple-gray-200 dark:border-apple-gray-800 rounded-xl shadow-sm dark:shadow-none p-4">
         <p className="text-xs text-apple-gray-400 uppercase tracking-wider mb-4">Últimos 5 partidos</p>
         <div className="flex gap-4 flex-wrap">
           {last5.map(m => <FormDot key={m.id} m={m} />)}
@@ -165,7 +166,7 @@ function TabResumen({ matches }: { matches: MatchData[] }) {
       {/* Radar + Goleadores */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Team style radar */}
-        <div className="bg-white dark:bg-apple-gray-900 border border-apple-gray-100 dark:border-apple-gray-800 rounded-xl p-4">
+        <div className="bg-white dark:bg-apple-gray-900 border border-apple-gray-200 dark:border-apple-gray-800 rounded-xl shadow-sm dark:shadow-none p-4">
           <p className="text-xs text-apple-gray-400 uppercase tracking-wider mb-2">Identidad de juego</p>
           <ResponsiveContainer width="100%" height={280}>
             <RadarChart data={radarData}>
@@ -177,7 +178,7 @@ function TabResumen({ matches }: { matches: MatchData[] }) {
         </div>
 
         {/* Top scorers / assisters */}
-        <div className="bg-white dark:bg-apple-gray-900 border border-apple-gray-100 dark:border-apple-gray-800 rounded-xl p-4 space-y-4">
+        <div className="bg-white dark:bg-apple-gray-900 border border-apple-gray-200 dark:border-apple-gray-800 rounded-xl shadow-sm dark:shadow-none p-4 space-y-4">
           <div>
             <p className="text-xs text-apple-gray-400 uppercase tracking-wider mb-2">Goleadores</p>
             {topScorers.length > 0 ? (
@@ -266,7 +267,7 @@ function TabPartidos({ matches }: { matches: MatchData[] }) {
       {/* Match table */}
       <div className="space-y-2">
         {sorted.map(m => (
-          <div key={m.id} className="bg-white dark:bg-apple-gray-900 border border-apple-gray-100 dark:border-apple-gray-800 rounded-xl overflow-hidden">
+          <div key={m.id} className="bg-white dark:bg-apple-gray-900 border border-apple-gray-200 dark:border-apple-gray-800 rounded-xl shadow-sm dark:shadow-none overflow-hidden">
             {/* Row summary */}
             <button
               onClick={() => setExpanded(expanded === m.id ? null : m.id)}
@@ -303,7 +304,7 @@ function TabPartidos({ matches }: { matches: MatchData[] }) {
 
             {/* Expanded stats */}
             {expanded === m.id && (
-              <div className="border-t border-apple-gray-100 dark:border-apple-gray-800 p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 bg-apple-gray-50 dark:bg-apple-gray-800/60">
+              <div className="border-t border-apple-gray-200 dark:border-apple-gray-800 p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 bg-apple-gray-50 dark:bg-apple-gray-800/60">
                 {[
                   ['xG', m.xG.toString()],
                   ['Tiros (portería)', `${m.tiros} (${m.tirosPorteria})`],
@@ -439,7 +440,7 @@ function TabProximoPartido({ matches }: { matches: MatchData[] }) {
       </div>
 
       {/* Input mode selector */}
-      <div className="flex gap-1 bg-white dark:bg-apple-gray-900 border border-apple-gray-100 dark:border-apple-gray-800 rounded-xl p-1 w-fit">
+      <div className="flex gap-1 bg-white dark:bg-apple-gray-900 border border-apple-gray-200 dark:border-apple-gray-800 rounded-xl shadow-sm dark:shadow-none p-1 w-fit">
         {(['form', 'csv', 'texto'] as const).map(mode => (
           <button
             key={mode}
@@ -455,7 +456,7 @@ function TabProximoPartido({ matches }: { matches: MatchData[] }) {
 
       {/* Input form */}
       {inputMode === 'form' && (
-        <div className="bg-white dark:bg-apple-gray-900 border border-apple-gray-100 dark:border-apple-gray-800 rounded-xl p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="bg-white dark:bg-apple-gray-900 border border-apple-gray-200 dark:border-apple-gray-800 rounded-xl shadow-sm dark:shadow-none p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="text-xs text-apple-gray-400 uppercase tracking-wider block mb-1.5">Posición en la tabla</label>
             <input value={rivalData.position} onChange={e => setRivalData(d => ({ ...d, position: e.target.value }))}
@@ -534,7 +535,7 @@ function TabProximoPartido({ matches }: { matches: MatchData[] }) {
       )}
 
       {inputMode === 'csv' && (
-        <div className="bg-white dark:bg-apple-gray-900 border border-apple-gray-100 dark:border-apple-gray-800 rounded-xl p-5 space-y-4">
+        <div className="bg-white dark:bg-apple-gray-900 border border-apple-gray-200 dark:border-apple-gray-800 rounded-xl shadow-sm dark:shadow-none p-5 space-y-4">
           <p className="text-sm text-apple-gray-400">Subí el archivo Excel/CSV exportado de Wyscout del rival (mismo formato que Team Stats Lanús.xlsx).</p>
           <div
             onClick={() => fileRef.current?.click()}
@@ -555,7 +556,7 @@ function TabProximoPartido({ matches }: { matches: MatchData[] }) {
       )}
 
       {inputMode === 'texto' && (
-        <div className="bg-white dark:bg-apple-gray-900 border border-apple-gray-100 dark:border-apple-gray-800 rounded-xl p-5 space-y-3">
+        <div className="bg-white dark:bg-apple-gray-900 border border-apple-gray-200 dark:border-apple-gray-800 rounded-xl shadow-sm dark:shadow-none p-5 space-y-3">
           <p className="text-sm text-apple-gray-400">Escribí o pegá cualquier análisis, estadísticas, notas de scouting o contexto del rival. El sistema extrae insights automáticamente.</p>
           <textarea
             value={freeText}
@@ -570,7 +571,7 @@ function TabProximoPartido({ matches }: { matches: MatchData[] }) {
 
       {/* Comparison table */}
       {(rivalData.posesion || rivalData.xG || rivalData.ppda || rivalData.pases_pct) && (
-        <div className="bg-white dark:bg-apple-gray-900 border border-apple-gray-100 dark:border-apple-gray-800 rounded-xl p-5">
+        <div className="bg-white dark:bg-apple-gray-900 border border-apple-gray-200 dark:border-apple-gray-800 rounded-xl shadow-sm dark:shadow-none p-5">
           <p className="text-xs text-apple-gray-400 uppercase tracking-wider mb-4">Comparación vs rival</p>
           <div className="space-y-3">
             {[
@@ -609,7 +610,7 @@ function TabProximoPartido({ matches }: { matches: MatchData[] }) {
 
       {/* Rival last 5 */}
       {rivalData.lastResults.some(r => r) && (
-        <div className="bg-white dark:bg-apple-gray-900 border border-apple-gray-100 dark:border-apple-gray-800 rounded-xl p-5">
+        <div className="bg-white dark:bg-apple-gray-900 border border-apple-gray-200 dark:border-apple-gray-800 rounded-xl shadow-sm dark:shadow-none p-5">
           <p className="text-xs text-apple-gray-400 uppercase tracking-wider mb-3">Últimos 5 resultados del rival</p>
           <div className="flex gap-3">
             {rivalData.lastResults.map((r, i) => (
@@ -623,7 +624,7 @@ function TabProximoPartido({ matches }: { matches: MatchData[] }) {
 
       {/* Key players */}
       {(rivalData.topScorer || rivalData.topAssister) && (
-        <div className="bg-white dark:bg-apple-gray-900 border border-apple-gray-100 dark:border-apple-gray-800 rounded-xl p-5 grid grid-cols-2 gap-4">
+        <div className="bg-white dark:bg-apple-gray-900 border border-apple-gray-200 dark:border-apple-gray-800 rounded-xl shadow-sm dark:shadow-none p-5 grid grid-cols-2 gap-4">
           {rivalData.topScorer && (
             <div>
               <p className="text-xs text-apple-gray-400 uppercase tracking-wider mb-1">⚽ Goleador</p>
@@ -647,7 +648,7 @@ function TabProximoPartido({ matches }: { matches: MatchData[] }) {
 
       {/* Notes */}
       {rivalData.notes && (
-        <div className="bg-white dark:bg-apple-gray-900 border border-apple-gray-100 dark:border-apple-gray-800 rounded-xl p-5">
+        <div className="bg-white dark:bg-apple-gray-900 border border-apple-gray-200 dark:border-apple-gray-800 rounded-xl shadow-sm dark:shadow-none p-5">
           <p className="text-xs text-apple-gray-400 uppercase tracking-wider mb-2">📝 Notas del scout</p>
           <p className="text-apple-gray-200 text-sm leading-relaxed whitespace-pre-wrap">{rivalData.notes}</p>
         </div>
@@ -668,150 +669,386 @@ function TabProximoPartido({ matches }: { matches: MatchData[] }) {
   )
 }
 
-// ─── TabAnalisis ───────────────────────────────────────────────────────────────
+// ─── TabAnalisis (merged: charts + stats + detailed wyscout sections) ──────────
 function TabAnalisis({ matches }: { matches: MatchData[] }) {
+  const [wyscoutData, setWyscoutData] = useState<WyscoutData | null>(null)
   const sorted = [...matches].sort((a, b) => a.date.localeCompare(b.date))
+  const n = matches.length || 1
 
-  const xgGoalsData = sorted.map(m => ({
-    name: m.rival.split(' ')[0],
-    xG: m.xG,
-    Goles: m.golesAFavor,
-    xGA: m.golesRecibidos,
-  }))
+  // ── Totals ──
+  const totGoles   = matches.reduce((s, m) => s + m.golesAFavor, 0)
+  const totGC      = matches.reduce((s, m) => s + m.golesRecibidos, 0)
+  const totAtaqPos = matches.reduce((s, m) => s + m.ataquesPositionales, 0)
+  const totContra  = matches.reduce((s, m) => s + m.contraataques, 0)
+  const totBalonP  = matches.reduce((s, m) => s + m.balonParado, 0)
+  const totCentros = matches.reduce((s, m) => s + m.centros, 0)
+  const totCenPrc  = matches.reduce((s, m) => s + m.centrosPrecisos, 0)
+  const totPasePrg = matches.reduce((s, m) => s + m.pasesProgresivos, 0)
+  const totPaseUT  = matches.reduce((s, m) => s + m.pasesUltimoTercio, 0)
+  const totInterc  = matches.reduce((s, m) => s + m.interceptaciones, 0)
+  const totDesp    = matches.reduce((s, m) => s + m.despejes, 0)
+  const totTiros   = matches.reduce((s, m) => s + m.tiros, 0)
+  const totTirosP  = matches.reduce((s, m) => s + m.tirosPorteria, 0)
+  const totCorners = matches.reduce((s, m) => s + m.corners, 0)
 
-  const possessionData = sorted.map(m => ({
-    name: m.rival.split(' ')[0],
-    Posesión: Math.round(m.posesion),
-    Pases: Math.round(m.pases_pct),
-  }))
-
-  const ppdaData = sorted.map(m => ({
-    name: m.rival.split(' ')[0],
-    PPDA: m.ppda,
-  }))
-
-  const attackPatternData = sorted.map(m => ({
-    name: m.rival.split(' ')[0],
-    'Pos. posicional': m.ataquesPositionales,
-    'Contraataques': m.contraataques,
-    'Balón parado': m.balonParado,
-  }))
-
-  const tooltipStyle = {
-    backgroundColor: '#1f2937',
-    border: '1px solid #374151',
-    borderRadius: '8px',
-    color: '#f9fafb',
-    fontSize: 12,
+  // ── Time series ──
+  const rivalLabel = (m: MatchData) => {
+    const p = m.rival.split(' ')
+    return p[0].length <= 3 && p[1] ? `${p[0]} ${p[1]}` : p[0]
   }
-  const chartMargin = { top: 5, right: 10, left: -20, bottom: 0 }
+  const series = sorted.map((m) => ({
+    f: rivalLabel(m),
+    posicional: m.ataquesPositionales,
+    contra: m.contraataques,
+    balonP: m.balonParado,
+    centros: m.centros,
+    cenPrx: m.centrosPrecisos,
+    progresivos: m.pasesProgresivos,
+    ultimoTercio: m.pasesUltimoTercio,
+    interceptaciones: m.interceptaciones,
+    despejes: m.despejes,
+    tiros: m.tiros,
+    tirosPorteria: m.tirosPorteria,
+    goles: m.golesAFavor,
+    golesContra: m.golesRecibidos,
+    xG: m.xG,
+    posesion: Math.round(m.posesion),
+    pases: Math.round(m.pases_pct),
+    ppda: m.ppda,
+  }))
+
+  const dark = { backgroundColor: '#111827', border: '1px solid #1f2937', borderRadius: 8, color: '#f9fafb', fontSize: 11 }
+  const mg   = { top: 5, right: 8, left: -18, bottom: 0 }
+  const tick = { fill: '#6b7280', fontSize: 9 }
+
+  // Card wrapper — adaptive light/dark
+  const card = 'bg-white dark:bg-apple-gray-900 border border-apple-gray-200 dark:border-apple-gray-800 rounded-2xl p-5 shadow-sm dark:shadow-none'
+
+  function SectionHeader({ title }: { title: string }) {
+    return (
+      <div className="flex items-center gap-3 mb-4">
+        <div className="w-1 h-5 bg-[#8C1430] dark:bg-brand-green rounded-full" />
+        <h3 className="text-xs font-bold tracking-widest uppercase text-apple-gray-600 dark:text-apple-gray-300">{title}</h3>
+      </div>
+    )
+  }
+
+  function KpiBox({ label, value, sub, accent }: { label: string; value: string | number; sub?: string; accent?: string }) {
+    return (
+      <div className="bg-apple-gray-50 dark:bg-[#0f1923] border border-apple-gray-200 dark:border-apple-gray-800 rounded-xl p-3 text-center">
+        <p className={`text-2xl font-black tabular-nums ${accent ?? 'text-apple-gray-900 dark:text-white'}`}>{value}</p>
+        <p className="text-[10px] text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider leading-tight mt-0.5">{label}</p>
+        {sub && <p className="text-[10px] text-apple-gray-400 dark:text-apple-gray-500 mt-0.5">{sub}</p>}
+      </div>
+    )
+  }
+
+  // ── Stats table insight logic ──
+  function getInsight(label: string, val: number): { text: string; color: string } {
+    if (label === 'Goles/partido')       return val >= 1.5 ? { text: 'Efectivo', color: 'text-emerald-400' } : val >= 1 ? { text: 'Normal', color: 'text-apple-gray-400' } : { text: 'Bajo', color: 'text-red-400' }
+    if (label === 'xG/partido')          return val >= 1.5 ? { text: 'Generación alta', color: 'text-emerald-400' } : val >= 1 ? { text: 'Moderado', color: 'text-apple-gray-400' } : { text: 'Por debajo', color: 'text-red-400' }
+    if (label === 'Posesión %')          return val >= 55 ? { text: 'Dominante', color: 'text-emerald-400' } : val >= 45 ? { text: 'Equilibrado', color: 'text-apple-gray-400' } : { text: 'Sin pelota', color: 'text-amber-400' }
+    if (label === 'Precisión pase %')    return val >= 85 ? { text: 'Alta', color: 'text-emerald-400' } : val >= 80 ? { text: 'Normal', color: 'text-apple-gray-400' } : { text: 'Baja', color: 'text-red-400' }
+    if (label === 'Tiros/partido')       return val >= 14 ? { text: 'Ofensivo', color: 'text-emerald-400' } : val >= 10 ? { text: 'Normal', color: 'text-apple-gray-400' } : { text: 'Escaso', color: 'text-amber-400' }
+    if (label === 'Duelos ganados %')    return val >= 52 ? { text: 'Superior', color: 'text-emerald-400' } : val >= 48 ? { text: 'Equilibrado', color: 'text-apple-gray-400' } : { text: 'Inferior', color: 'text-red-400' }
+    if (label === 'PPDA')                return val < 9 ? { text: 'Pressing alto', color: 'text-emerald-400' } : val < 14 ? { text: 'Moderado', color: 'text-apple-gray-400' } : { text: 'Bloque bajo', color: 'text-amber-400' }
+    if (label === 'Goles concedidos/pdo') return val <= 0.8 ? { text: 'Sólido', color: 'text-emerald-400' } : val <= 1.3 ? { text: 'Normal', color: 'text-apple-gray-400' } : { text: 'Permisivo', color: 'text-red-400' }
+    if (label === 'Pases prog./partido') return val >= 50 ? { text: 'Muy progresivo', color: 'text-emerald-400' } : val >= 35 ? { text: 'Normal', color: 'text-apple-gray-400' } : { text: 'Conservador', color: 'text-amber-400' }
+    if (label === 'Interceptaciones/pdo') return val >= 10 ? { text: 'Activo', color: 'text-emerald-400' } : val >= 7 ? { text: 'Normal', color: 'text-apple-gray-400' } : { text: 'Bajo', color: 'text-amber-400' }
+    return { text: '—', color: 'text-apple-gray-500' }
+  }
 
   return (
-    <div className="space-y-6">
-      {/* xG vs Goles */}
-      <div className="bg-white dark:bg-apple-gray-900 border border-apple-gray-100 dark:border-apple-gray-800 rounded-xl p-5">
-        <p className="text-xs text-apple-gray-400 uppercase tracking-wider mb-1">xG vs Goles reales por partido</p>
-        <p className="text-xs text-apple-gray-500 mb-4">Cuánto generamos vs cuánto concretamos</p>
-        <ResponsiveContainer width="100%" height={220}>
-          <LineChart data={xgGoalsData} margin={chartMargin}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
-            <XAxis dataKey="name" tick={{ fill: '#6b7280', fontSize: 10 }} />
-            <YAxis tick={{ fill: '#6b7280', fontSize: 10 }} />
-            <Tooltip contentStyle={tooltipStyle} />
-            <Legend wrapperStyle={{ fontSize: 11 }} />
-            <Line type="monotone" dataKey="xG" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3 }} name="xG" />
-            <Line type="monotone" dataKey="Goles" stroke="#16a34a" strokeWidth={2} dot={{ r: 3 }} name="Goles" />
-            <Line type="monotone" dataKey="xGA" stroke="#ef4444" strokeWidth={1.5} strokeDasharray="4 4" dot={{ r: 2 }} name="Goles concedidos" />
+    <div className="space-y-6 text-apple-gray-900 dark:text-white">
+
+      {/* ── xG vs Goles ── */}
+      <div className={card}>
+        <SectionHeader title="xG vs Goles reales por partido" />
+        <p className="text-[11px] text-apple-gray-500 mb-4 -mt-2">Cuánto generamos vs cuánto concretamos</p>
+        <ResponsiveContainer width="100%" height={200}>
+          <LineChart data={series} margin={mg}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#d1d5db" className="dark:[stroke:#374151]" />
+            <XAxis dataKey="f" tick={tick} />
+            <YAxis tick={tick} />
+            <Tooltip contentStyle={dark} />
+            <Legend wrapperStyle={{ fontSize: 10 }} />
+            <Line type="monotone" dataKey="xG"         stroke="#3b82f6" strokeWidth={2} dot={{ r: 3 }} name="xG" />
+            <Line type="monotone" dataKey="goles"       stroke="#16a34a" strokeWidth={2} dot={{ r: 3 }} name="Goles" />
+            <Line type="monotone" dataKey="golesContra" stroke="#ef4444" strokeWidth={1.5} strokeDasharray="4 4" dot={{ r: 2 }} name="Goles concedidos" />
           </LineChart>
         </ResponsiveContainer>
       </div>
 
-      {/* Attack patterns */}
-      <div className="bg-white dark:bg-apple-gray-900 border border-apple-gray-100 dark:border-apple-gray-800 rounded-xl p-5">
-        <p className="text-xs text-apple-gray-400 uppercase tracking-wider mb-1">Patrones de ataque</p>
-        <p className="text-xs text-apple-gray-500 mb-4">Ataques posicionales / Contraataques / Balón parado por partido</p>
-        <ResponsiveContainer width="100%" height={220}>
-          <BarChart data={attackPatternData} margin={chartMargin}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
-            <XAxis dataKey="name" tick={{ fill: '#6b7280', fontSize: 10 }} />
-            <YAxis tick={{ fill: '#6b7280', fontSize: 10 }} />
-            <Tooltip contentStyle={tooltipStyle} />
-            <Legend wrapperStyle={{ fontSize: 11 }} />
-            <Bar dataKey="Pos. posicional" stackId="a" fill="#16a34a" />
-            <Bar dataKey="Contraataques" stackId="a" fill="#3b82f6" />
-            <Bar dataKey="Balón parado" stackId="a" fill="#9333ea" radius={[3, 3, 0, 0]} />
+      {/* ── Patrones de ataque ── */}
+      <div className={card}>
+        <SectionHeader title="Patrones de ataque" />
+        <p className="text-[11px] text-apple-gray-500 mb-4 -mt-2">Ataques posicionales / Contraataques / Balón parado</p>
+        <div className="grid grid-cols-3 gap-3 mb-4">
+          <KpiBox label="Ataques posicionales" value={totAtaqPos} sub={`${fmt1(totAtaqPos/n)}/pdo`} />
+          <KpiBox label="Contraataques"         value={totContra}  sub={`${fmt1(totContra/n)}/pdo`} />
+          <KpiBox label="Balón parado"           value={totBalonP}  sub={`${fmt1(totBalonP/n)}/pdo`} />
+        </div>
+        <ResponsiveContainer width="100%" height={180}>
+          <AreaChart data={series} margin={mg}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#d1d5db" className="dark:[stroke:#374151]" />
+            <XAxis dataKey="f" tick={tick} />
+            <YAxis tick={tick} />
+            <Tooltip contentStyle={dark} />
+            <Legend wrapperStyle={{ fontSize: 10 }} />
+            <Area type="monotone" dataKey="posicional" stackId="1" stroke="#16a34a" fill="#16a34a" fillOpacity={0.4} name="Posicional"   strokeWidth={1.5} />
+            <Area type="monotone" dataKey="contra"     stackId="1" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.4} name="Contraataque" strokeWidth={1.5} />
+            <Area type="monotone" dataKey="balonP"     stackId="1" stroke="#9333ea" fill="#9333ea" fillOpacity={0.4} name="Balón parado" strokeWidth={1.5} />
+          </AreaChart>
+        </ResponsiveContainer>
+
+        {/* ── Zonas de ataque ── */}
+        <div className="mt-5 pt-4 border-t border-apple-gray-100 dark:border-apple-gray-800">
+          <p className="text-[10px] text-apple-gray-500 uppercase tracking-wider mb-3">Zonas de ataque · Temporada 2026</p>
+          <div className="flex flex-col sm:flex-row items-center gap-4">
+            <MiniPitchZones zones={[
+              { x: 54, y: 2,  w: 49, h: 20, value: '—', label: 'Banda izq.',   color: 'rgba(140,20,48,0.30)' },
+              { x: 54, y: 24, w: 49, h: 20, value: '—', label: 'Carril cent.', color: 'rgba(140,20,48,0.30)' },
+              { x: 54, y: 46, w: 49, h: 20, value: '—', label: 'Banda der.',   color: 'rgba(140,20,48,0.30)' },
+            ]} />
+            <div className="flex-1 space-y-2 min-w-[160px]">
+              {[
+                { label: 'Banda izquierda', value: '—', pct: 0, color: 'bg-slate-400' },
+                { label: 'Carril central',  value: '—', pct: 0, color: 'bg-slate-500' },
+                { label: 'Banda derecha',   value: '—', pct: 0, color: 'bg-slate-400' },
+              ].map(z => (
+                <div key={z.label}>
+                  <div className="flex justify-between text-[11px] mb-0.5">
+                    <span className="text-apple-gray-600 dark:text-apple-gray-400">{z.label}</span>
+                    <span className="font-semibold text-apple-gray-900 dark:text-white">{z.value}</span>
+                  </div>
+                  <div className="h-1.5 bg-apple-gray-200 dark:bg-apple-gray-700 rounded-full">
+                    <div className={`h-full rounded-full ${z.color} opacity-40`} style={{ width: `${z.pct}%` }} />
+                  </div>
+                </div>
+              ))}
+              <p className="text-[10px] text-apple-gray-400 dark:text-apple-gray-600 mt-2 italic">
+                Datos disponibles al cargar Wyscout PDF actualizado
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Posesión y pressing ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className={card}>
+          <SectionHeader title="Posesión y precisión de pase" />
+          <ResponsiveContainer width="100%" height={180}>
+            <AreaChart data={series} margin={mg}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#d1d5db" className="dark:[stroke:#374151]" />
+              <XAxis dataKey="f" tick={tick} />
+              <YAxis domain={[20, 100]} tick={tick} />
+              <Tooltip contentStyle={dark} />
+              <Legend wrapperStyle={{ fontSize: 10 }} />
+              <ReferenceLine y={50} stroke="#4b5563" strokeDasharray="3 3" />
+              <Area type="monotone" dataKey="posesion" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.15} strokeWidth={2} name="Posesión %" />
+              <Area type="monotone" dataKey="pases"    stroke="#16a34a" fill="#16a34a" fillOpacity={0.10} strokeWidth={2} name="Precisión pase %" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+        <div className={card}>
+          <SectionHeader title="Pressing (PPDA)" />
+          <p className="text-[11px] text-apple-gray-500 mb-3 -mt-2">Más bajo = más intenso · &lt;9 alto · 9–14 moderado · &gt;14 bloque bajo</p>
+          <ResponsiveContainer width="100%" height={165}>
+            <AreaChart data={series} margin={mg}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#d1d5db" className="dark:[stroke:#374151]" />
+              <XAxis dataKey="f" tick={tick} />
+              <YAxis domain={[0, 20]} tick={tick} />
+              <Tooltip contentStyle={dark} />
+              <ReferenceLine y={9}  stroke="#16a34a" strokeDasharray="3 3" label={{ value: '9', fill: '#16a34a', fontSize: 8 }} />
+              <ReferenceLine y={14} stroke="#f59e0b" strokeDasharray="3 3" label={{ value: '14', fill: '#f59e0b', fontSize: 8 }} />
+              <Area type="monotone" dataKey="ppda" stroke="#9333ea" fill="#9333ea" fillOpacity={0.2} strokeWidth={2} name="PPDA" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* ── Enhanced stats table ── */}
+      <div className={`${card} overflow-x-auto`}>
+        <SectionHeader title="Promedios generales · Temporada 2026" />
+        <table className="w-full text-sm min-w-[480px]">
+          <thead>
+            <tr className="border-b border-apple-gray-800">
+              {['Métrica', 'Promedio', 'Máx', 'Mín', 'Nivel'].map(h => (
+                <th key={h} className="text-left text-[10px] text-apple-gray-500 font-semibold pb-2 pr-3 uppercase tracking-wider">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-apple-gray-800/40">
+            {([
+              ['Goles/partido',       avg(matches, 'golesAFavor'),      Math.max(...matches.map(m => m.golesAFavor)),      Math.min(...matches.map(m => m.golesAFavor))],
+              ['xG/partido',          avg(matches, 'xG'),               Math.max(...matches.map(m => m.xG)),               Math.min(...matches.map(m => m.xG))],
+              ['Posesión %',          avg(matches, 'posesion'),         Math.max(...matches.map(m => m.posesion)),         Math.min(...matches.map(m => m.posesion))],
+              ['Precisión pase %',    avg(matches, 'pases_pct'),        Math.max(...matches.map(m => m.pases_pct)),        Math.min(...matches.map(m => m.pases_pct))],
+              ['Tiros/partido',       avg(matches, 'tiros'),            Math.max(...matches.map(m => m.tiros)),            Math.min(...matches.map(m => m.tiros))],
+              ['Duelos ganados %',    avg(matches, 'duelos_pct'),       Math.max(...matches.map(m => m.duelos_pct)),       Math.min(...matches.map(m => m.duelos_pct))],
+              ['PPDA',                avg(matches, 'ppda'),             Math.max(...matches.map(m => m.ppda)),             Math.min(...matches.map(m => m.ppda))],
+              ['Goles concedidos/pdo', avg(matches, 'golesRecibidos'),  Math.max(...matches.map(m => m.golesRecibidos)),   Math.min(...matches.map(m => m.golesRecibidos))],
+              ['Pases prog./partido', avg(matches, 'pasesProgresivos'), Math.max(...matches.map(m => m.pasesProgresivos)), Math.min(...matches.map(m => m.pasesProgresivos))],
+              ['Interceptaciones/pdo', avg(matches, 'interceptaciones'), Math.max(...matches.map(m => m.interceptaciones)), Math.min(...matches.map(m => m.interceptaciones))],
+            ] as [string, number, number, number][]).map(([label, a, max, min]) => {
+              const ins = getInsight(label, a)
+              return (
+                <tr key={label}>
+                  <td className="py-2 pr-3 text-apple-gray-600 dark:text-apple-gray-300 text-xs">{label}</td>
+                  <td className="py-2 pr-3 text-apple-gray-900 dark:text-white font-bold tabular-nums text-sm">{fmt1(a)}</td>
+                  <td className="py-2 pr-3 text-emerald-400 tabular-nums text-xs">{fmt1(max)}</td>
+                  <td className="py-2 pr-3 text-red-400 tabular-nums text-xs">{fmt1(min)}</td>
+                  <td className="py-2">
+                    <span className={`text-[10px] font-semibold ${ins.color}`}>{ins.text}</span>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* ── Goles ── */}
+      <div className={card}>
+        <SectionHeader title="Goles · Total torneo" />
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+          <KpiBox label="Goles a favor"     value={totGoles}          accent="text-emerald-400" />
+          <KpiBox label="Goles en contra"   value={totGC}             accent="text-red-400" />
+          <KpiBox label="Promedio a favor"  value={fmt1(totGoles / n)} sub={`${n} partidos`} accent="text-emerald-400" />
+          <KpiBox label="Promedio en contra" value={fmt1(totGC / n)}   accent="text-red-400" />
+        </div>
+        <ResponsiveContainer width="100%" height={160}>
+          <BarChart data={series} margin={mg}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#d1d5db" className="dark:[stroke:#374151]" />
+            <XAxis dataKey="f" tick={tick} />
+            <YAxis tick={tick} />
+            <Tooltip contentStyle={dark} />
+            <Legend wrapperStyle={{ fontSize: 10 }} />
+            <Bar dataKey="goles"       fill="#16a34a" name="A favor"   radius={[3,3,0,0]} />
+            <Bar dataKey="golesContra" fill="#ef4444" name="En contra" radius={[3,3,0,0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
 
-      {/* Possession + passing */}
-      <div className="bg-white dark:bg-apple-gray-900 border border-apple-gray-100 dark:border-apple-gray-800 rounded-xl p-5">
-        <p className="text-xs text-apple-gray-400 uppercase tracking-wider mb-1">Posesión y precisión de pase</p>
-        <ResponsiveContainer width="100%" height={220}>
-          <AreaChart data={possessionData} margin={chartMargin}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
-            <XAxis dataKey="name" tick={{ fill: '#6b7280', fontSize: 10 }} />
-            <YAxis domain={[20, 100]} tick={{ fill: '#6b7280', fontSize: 10 }} />
-            <Tooltip contentStyle={tooltipStyle} />
-            <Legend wrapperStyle={{ fontSize: 11 }} />
-            <ReferenceLine y={50} stroke="#4b5563" strokeDasharray="3 3" />
-            <Area type="monotone" dataKey="Posesión" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.15} strokeWidth={2} name="Posesión %" />
-            <Area type="monotone" dataKey="Pases" stroke="#16a34a" fill="#16a34a" fillOpacity={0.1} strokeWidth={2} name="Precisión pase %" />
+      {/* ── Aproximaciones y centros ── */}
+      <div className={card}>
+        <SectionHeader title="Aproximaciones y centros" />
+        <div className="grid grid-cols-3 gap-3 mb-4">
+          <KpiBox label="Centros totales"  value={totCentros} sub={`${fmt1(totCentros/n)}/pdo`} />
+          <KpiBox label="Centros precisos" value={totCenPrc}  accent="text-emerald-400" sub={`${fmtPct(totCenPrc/Math.max(totCentros,1)*100)} precisión`} />
+          <KpiBox label="Corners"           value={totCorners} sub={`${fmt1(totCorners/n)}/pdo`} />
+        </div>
+        <ResponsiveContainer width="100%" height={160}>
+          <LineChart data={series} margin={mg}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#d1d5db" className="dark:[stroke:#374151]" />
+            <XAxis dataKey="f" tick={tick} />
+            <YAxis tick={tick} />
+            <Tooltip contentStyle={dark} />
+            <Legend wrapperStyle={{ fontSize: 10 }} />
+            <Line type="monotone" dataKey="centros" stroke="#f59e0b" strokeWidth={2} dot={{ r: 2 }} name="Centros" />
+            <Line type="monotone" dataKey="cenPrx"  stroke="#16a34a" strokeWidth={2} dot={{ r: 2 }} name="Precisos" />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* ── Circulaciones ── */}
+      <div className={card}>
+        <SectionHeader title="Circulaciones (pases progresivos)" />
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+          <KpiBox label="Pases progresivos" value={totPasePrg} sub={`${fmt1(totPasePrg/n)}/pdo`} />
+          <KpiBox label="Último tercio"      value={totPaseUT}  sub={`${fmt1(totPaseUT/n)}/pdo`} />
+          <KpiBox label="Máx. / partido"    value={Math.max(...matches.map(m=>m.pasesProgresivos))} accent="text-emerald-400" />
+          <KpiBox label="Mín. / partido"    value={Math.min(...matches.map(m=>m.pasesProgresivos))} accent="text-amber-400" />
+        </div>
+        <ResponsiveContainer width="100%" height={160}>
+          <AreaChart data={series} margin={mg}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#d1d5db" className="dark:[stroke:#374151]" />
+            <XAxis dataKey="f" tick={tick} />
+            <YAxis tick={tick} />
+            <Tooltip contentStyle={dark} />
+            <Legend wrapperStyle={{ fontSize: 10 }} />
+            <Area type="monotone" dataKey="progresivos"  stroke="#06b6d4" fill="#06b6d4" fillOpacity={0.2} strokeWidth={2} name="Pases prog." />
+            <Area type="monotone" dataKey="ultimoTercio" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.15} strokeWidth={2} name="Último tercio" />
           </AreaChart>
         </ResponsiveContainer>
       </div>
 
-      {/* PPDA / Pressing */}
-      <div className="bg-white dark:bg-apple-gray-900 border border-apple-gray-100 dark:border-apple-gray-800 rounded-xl p-5">
-        <p className="text-xs text-apple-gray-400 uppercase tracking-wider mb-1">Índice de pressing (PPDA)</p>
-        <p className="text-xs text-apple-gray-500 mb-4">Cuanto más bajo, más intenso el pressing. &lt;9 = alto · 9–14 = moderado · &gt;14 = bloque bajo</p>
-        <ResponsiveContainer width="100%" height={180}>
-          <AreaChart data={ppdaData} margin={chartMargin}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
-            <XAxis dataKey="name" tick={{ fill: '#6b7280', fontSize: 10 }} />
-            <YAxis domain={[0, 20]} tick={{ fill: '#6b7280', fontSize: 10 }} />
-            <Tooltip contentStyle={tooltipStyle} />
-            <ReferenceLine y={9} stroke="#16a34a" strokeDasharray="3 3" label={{ value: 'Pressing alto', fill: '#16a34a', fontSize: 9 }} />
-            <ReferenceLine y={14} stroke="#f59e0b" strokeDasharray="3 3" label={{ value: 'Bloque bajo', fill: '#f59e0b', fontSize: 9 }} />
-            <Area type="monotone" dataKey="PPDA" stroke="#9333ea" fill="#9333ea" fillOpacity={0.2} strokeWidth={2} />
-          </AreaChart>
-        </ResponsiveContainer>
+      {/* ── Salidas + Recuperadas ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className={card}>
+          <SectionHeader title="Salidas (tiros propios)" />
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            <KpiBox label="Tiros totales" value={totTiros}  sub={`${fmt1(totTiros/n)}/pdo`} />
+            <KpiBox label="A portería"    value={totTirosP} accent="text-emerald-400" sub={`${fmtPct(totTirosP/Math.max(totTiros,1)*100)} precisión`} />
+          </div>
+          <ResponsiveContainer width="100%" height={140}>
+            <BarChart data={series} margin={mg}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#d1d5db" className="dark:[stroke:#374151]" />
+              <XAxis dataKey="f" tick={tick} />
+              <YAxis tick={tick} />
+              <Tooltip contentStyle={dark} />
+              <Bar dataKey="tiros"         fill="#6b7280" name="Tiros"      radius={[2,2,0,0]} />
+              <Bar dataKey="tirosPorteria" fill="#16a34a" name="A portería" radius={[2,2,0,0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        <div className={card}>
+          <SectionHeader title="Recuperadas e interceptaciones" />
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            <KpiBox label="Interceptaciones" value={totInterc} sub={`${fmt1(totInterc/n)}/pdo`} accent="text-emerald-400" />
+            <KpiBox label="Despejes"          value={totDesp}  sub={`${fmt1(totDesp/n)}/pdo`} />
+          </div>
+          <ResponsiveContainer width="100%" height={140}>
+            <LineChart data={series} margin={mg}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#d1d5db" className="dark:[stroke:#374151]" />
+              <XAxis dataKey="f" tick={tick} />
+              <YAxis tick={tick} />
+              <Tooltip contentStyle={dark} />
+              <Legend wrapperStyle={{ fontSize: 10 }} />
+              <Line type="monotone" dataKey="interceptaciones" stroke="#16a34a" strokeWidth={2} dot={{ r: 2 }} name="Intercepciones" />
+              <Line type="monotone" dataKey="despejes"         stroke="#6b7280" strokeWidth={2} dot={{ r: 2 }} name="Despejes" />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
       </div>
 
-      {/* Summary table */}
-      <div className="bg-white dark:bg-apple-gray-900 border border-apple-gray-100 dark:border-apple-gray-800 rounded-xl p-5 overflow-x-auto">
-        <p className="text-xs text-apple-gray-400 uppercase tracking-wider mb-3">Promedios generales · Temporada 2026</p>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-apple-gray-100 dark:border-apple-gray-800">
-              {['Métrica', 'Promedio', 'Máx', 'Mín'].map(h => (
-                <th key={h} className="text-left text-xs text-apple-gray-500 font-medium pb-2 pr-4">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-apple-gray-800/50">
-            {[
-              ['Goles/partido', avg(matches, 'golesAFavor'), Math.max(...matches.map(m => m.golesAFavor)), Math.min(...matches.map(m => m.golesAFavor))],
-              ['xG/partido', avg(matches, 'xG'), Math.max(...matches.map(m => m.xG)), Math.min(...matches.map(m => m.xG))],
-              ['Posesión %', avg(matches, 'posesion'), Math.max(...matches.map(m => m.posesion)), Math.min(...matches.map(m => m.posesion))],
-              ['Precisión pase %', avg(matches, 'pases_pct'), Math.max(...matches.map(m => m.pases_pct)), Math.min(...matches.map(m => m.pases_pct))],
-              ['Tiros/partido', avg(matches, 'tiros'), Math.max(...matches.map(m => m.tiros)), Math.min(...matches.map(m => m.tiros))],
-              ['Duelos ganados %', avg(matches, 'duelos_pct'), Math.max(...matches.map(m => m.duelos_pct)), Math.min(...matches.map(m => m.duelos_pct))],
-              ['PPDA', avg(matches, 'ppda'), Math.max(...matches.map(m => m.ppda)), Math.min(...matches.map(m => m.ppda))],
-              ['Goles concedidos/pdo', avg(matches, 'golesRecibidos'), Math.max(...matches.map(m => m.golesRecibidos)), Math.min(...matches.map(m => m.golesRecibidos))],
-              ['Pases prog./partido', avg(matches, 'pasesProgresivos'), Math.max(...matches.map(m => m.pasesProgresivos)), Math.min(...matches.map(m => m.pasesProgresivos))],
-              ['Interceptaciones/pdo', avg(matches, 'interceptaciones'), Math.max(...matches.map(m => m.interceptaciones)), Math.min(...matches.map(m => m.interceptaciones))],
-            ].map(([label, a, max, min]) => (
-              <tr key={String(label)}>
-                <td className="py-2 pr-4 text-apple-gray-300">{label}</td>
-                <td className="py-2 pr-4 text-white font-medium">{typeof a === 'number' ? fmt1(a) : a}</td>
-                <td className="py-2 pr-4 text-emerald-400">{typeof max === 'number' ? fmt1(max) : max}</td>
-                <td className="py-2 text-red-400">{typeof min === 'number' ? fmt1(min) : min}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {/* ── Recuperaciones de balón (heatmap) ── */}
+      {(() => {
+        const recovData: ZoneCell[][] = wyscoutData?.recoveries?.map(row =>
+          row.map(c => ({ value: parseFloat(c.value) || c.value, count: c.count ?? undefined }))
+        ) ?? DEFAULT_RECOVERIES
+        return (
+          <div className={card}>
+            <SectionHeader title="Recuperaciones de balón · Zonas" />
+            <div className="flex items-center gap-4 mb-4">
+              <span className="flex items-center gap-1.5 text-[10px] text-apple-gray-400"><span className="w-3 h-3 rounded-sm bg-emerald-500/60 inline-block" />Alta concentración</span>
+              <span className="flex items-center gap-1.5 text-[10px] text-apple-gray-400"><span className="w-3 h-3 rounded-sm bg-emerald-900/40 inline-block" />Baja concentración</span>
+            </div>
+            <ZoneHeatmap colorMode="green" compact data={recovData} />
+          </div>
+        )
+      })()}
+
+      {/* ── Pérdidas de balón (heatmap) ── */}
+      {(() => {
+        const lossData: ZoneCell[][] = wyscoutData?.losses?.map(row =>
+          row.map(c => ({ value: parseFloat(c.value) || c.value, count: c.count ?? undefined }))
+        ) ?? DEFAULT_LOSSES
+        return (
+          <div className={card}>
+            <SectionHeader title="Pérdidas de balón · Zonas" />
+            <div className="flex items-center gap-4 mb-4">
+              <span className="flex items-center gap-1.5 text-[10px] text-apple-gray-400"><span className="w-3 h-3 rounded-sm bg-red-900/40 inline-block" />Baja concentración</span>
+              <span className="flex items-center gap-1.5 text-[10px] text-apple-gray-400"><span className="w-3 h-3 rounded-sm bg-red-500/60 inline-block" />Alta concentración</span>
+            </div>
+            <ZoneHeatmap colorMode="red" compact data={lossData} />
+          </div>
+        )
+      })()}
+
+      {/* ── Wyscout Upload ── */}
+      <WyscoutUploadZone current={wyscoutData} onData={setWyscoutData} />
     </div>
   )
 }
@@ -890,7 +1127,7 @@ function TabVideo({ matches }: { matches: MatchData[] }) {
   return (
     <div className="space-y-6">
       {/* New note form */}
-      <div className="bg-white dark:bg-apple-gray-900 border border-apple-gray-100 dark:border-apple-gray-800 rounded-xl p-5 space-y-4">
+      <div className="bg-white dark:bg-apple-gray-900 border border-apple-gray-200 dark:border-apple-gray-800 rounded-xl shadow-sm dark:shadow-none p-5 space-y-4">
         <p className="text-sm font-semibold text-white">Nueva nota de análisis</p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -958,7 +1195,7 @@ function TabVideo({ matches }: { matches: MatchData[] }) {
           </div>
 
           {filtered.map(note => (
-            <div key={note.id} className="bg-white dark:bg-apple-gray-900 border border-apple-gray-100 dark:border-apple-gray-800 rounded-xl p-4 space-y-2">
+            <div key={note.id} className="bg-white dark:bg-apple-gray-900 border border-apple-gray-200 dark:border-apple-gray-800 rounded-xl shadow-sm dark:shadow-none p-4 space-y-2">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${categoryColors[note.category] ?? 'text-apple-gray-400 bg-apple-gray-700'}`}>
@@ -995,217 +1232,348 @@ function TabVideo({ matches }: { matches: MatchData[] }) {
   )
 }
 
-// ─── TabInforme (Wyscout-style) ────────────────────────────────────────────────
-function TabInforme({ matches }: { matches: MatchData[] }) {
-  const sorted = [...matches].sort((a, b) => a.date.localeCompare(b.date))
-  const n = matches.length || 1
+// ─── Mini pitch with zone overlays ────────────────────────────────────────────
+// zones: array of { x, y, w, h, value, label, color }
+interface PitchZoneData { x: number; y: number; w: number; h: number; value: number | string; label: string; color: string }
 
-  // ── Totales acumulados ──
-  const totGoles   = matches.reduce((s, m) => s + m.golesAFavor, 0)
-  const totGC      = matches.reduce((s, m) => s + m.golesRecibidos, 0)
-  const totAtaqPos = matches.reduce((s, m) => s + m.ataquesPositionales, 0)
-  const totContra  = matches.reduce((s, m) => s + m.contraataques, 0)
-  const totBalonP  = matches.reduce((s, m) => s + m.balonParado, 0)
-  const totCentros = matches.reduce((s, m) => s + m.centros, 0)
-  const totCenPrc  = matches.reduce((s, m) => s + m.centrosPrecisos, 0)
-  const totPasePrg = matches.reduce((s, m) => s + m.pasesProgresivos, 0)
-  const totPaseUT  = matches.reduce((s, m) => s + m.pasesUltimoTercio, 0)
-  const totInterc  = matches.reduce((s, m) => s + m.interceptaciones, 0)
-  const totDesp    = matches.reduce((s, m) => s + m.despejes, 0)
-  const totTiros   = matches.reduce((s, m) => s + m.tiros, 0)
-  const totTirosP  = matches.reduce((s, m) => s + m.tirosPorteria, 0)
-  const totCorners = matches.reduce((s, m) => s + m.corners, 0)
+function MiniPitchZones({ zones, title }: { zones: PitchZoneData[]; title?: string }) {
+  const pl  = 'rgba(255,255,255,0.25)'
+  const pls = 'rgba(255,255,255,0.15)'
+  return (
+    <div className="flex flex-col items-center gap-2">
+      {title && <p className="text-[10px] text-apple-gray-400 uppercase tracking-wider">{title}</p>}
+      <svg viewBox="0 0 105 68" xmlns="http://www.w3.org/2000/svg" className="w-full rounded-xl" style={{ maxWidth: 340 }}>
+        {/* Background */}
+        <rect x="0" y="0" width="105" height="68" fill="#163d22" rx="3" />
+        {/* Zone overlays */}
+        {zones.map((z, i) => (
+          <g key={i}>
+            <rect x={z.x} y={z.y} width={z.w} height={z.h} fill={z.color} rx="2" opacity="0.75" />
+            <text x={z.x + z.w / 2} y={z.y + z.h / 2 - 2.5} textAnchor="middle" dominantBaseline="middle"
+              fontSize="5.5" fontWeight="700" fill="white" opacity="0.95">{z.value}</text>
+            <text x={z.x + z.w / 2} y={z.y + z.h / 2 + 4} textAnchor="middle" dominantBaseline="middle"
+              fontSize="3.2" fill="rgba(255,255,255,0.75)">{z.label}</text>
+          </g>
+        ))}
+        {/* Pitch lines */}
+        <rect x="2" y="2" width="101" height="64" fill="none" stroke={pl} strokeWidth="0.9" />
+        <line x1="52.5" y1="2" x2="52.5" y2="66" stroke={pl} strokeWidth="0.7" />
+        <circle cx="52.5" cy="34" r="9.15" fill="none" stroke={pl} strokeWidth="0.7" />
+        <circle cx="52.5" cy="34" r="0.85" fill={pl} />
+        <rect x="2" y="14.5" width="17" height="39" fill="none" stroke={pls} strokeWidth="0.6" />
+        <rect x="2" y="24" width="6" height="20" fill="none" stroke={pls} strokeWidth="0.55" />
+        <path d="M19,27.5 A9.15,9.15 0 0 1 19,40.5" fill="none" stroke={pls} strokeWidth="0.6" />
+        <rect x="86" y="14.5" width="17" height="39" fill="none" stroke={pls} strokeWidth="0.6" />
+        <rect x="97" y="24" width="6" height="20" fill="none" stroke={pls} strokeWidth="0.55" />
+        <path d="M86,27.5 A9.15,9.15 0 0 0 86,40.5" fill="none" stroke={pls} strokeWidth="0.6" />
+        <rect x="1"     y="29" width="1.5" height="10" fill="none" stroke={pl} strokeWidth="0.6" />
+        <rect x="102.5" y="29" width="1.5" height="10" fill="none" stroke={pl} strokeWidth="0.6" />
+        <circle cx="12" cy="34" r="0.75" fill={pls} />
+        <circle cx="93" cy="34" r="0.75" fill={pls} />
+      </svg>
+    </div>
+  )
+}
 
-  // ── Series temporales ──
-  const series = sorted.map((m, i) => ({
-    f: `F${i + 1}`,
-    llegadas: m.ataquesPositionales + m.contraataques + m.balonParado,
-    posicional: m.ataquesPositionales,
-    contra: m.contraataques,
-    balonP: m.balonParado,
-    centros: m.centros,
-    cenPrx: m.centrosPrecisos,
-    progresivos: m.pasesProgresivos,
-    ultimoTercio: m.pasesUltimoTercio,
-    interceptaciones: m.interceptaciones,
-    despejes: m.despejes,
-    tiros: m.tiros,
-    tirosPorteria: m.tirosPorteria,
-    goles: m.golesAFavor,
-    golesContra: m.golesRecibidos,
-  }))
+// ─── Default zone data (from CA Lanús Wyscout PDF, 5 jornadas 2026) ─────────
+const DEFAULT_RECOVERIES: ZoneCell[][] = [
+  [{ value: 10.5, count: 9  }, { value: 14.3, count: 13 }, { value: 6.1, count: 5  }],
+  [{ value: 23.3, count: 21 }, { value: 13.7, count: 12 }, { value: 4.7, count: 4  }],
+  [{ value: 10.8, count: 10 }, { value: 12.3, count: 11 }, { value: 4.3, count: 4  }],
+]
+const DEFAULT_LOSSES: ZoneCell[][] = [
+  [{ value: 6.4,  count: 7  }, { value: 15.8, count: 17 }, { value: 12.1, count: 13 }],
+  [{ value: 11.0, count: 12 }, { value: 12.3, count: 13 }, { value: 10.7, count: 12 }],
+  [{ value: 7.7,  count: 8  }, { value: 13.1, count: 14 }, { value: 10.8, count: 12 }],
+]
+const DEFAULT_CORNER_KICKERS = [
+  { name: 'D. Aquino',    total: 9, left: 5, right: 4 },
+  { name: 'E. Salvio',    total: 6, left: 3, right: 3 },
+  { name: 'M. Sepúlveda', total: 1, left: 1, right: 0 },
+]
 
-  const dark = { backgroundColor: '#111827', border: '1px solid #1f2937', borderRadius: 8, color: '#f9fafb', fontSize: 11 }
-  const mg   = { top: 5, right: 8, left: -18, bottom: 0 }
-  const tick = { fill: '#6b7280', fontSize: 9 }
+// ─── ZoneHeatmap ──────────────────────────────────────────────────────────────
+interface ZoneCell { value: string | number; count?: number }
 
-  function SectionHeader({ title }: { title: string }) {
-    return (
-      <div className="flex items-center gap-3 mb-3">
-        <div className="w-1 h-5 bg-brand-green rounded-full" />
-        <h3 className="text-xs font-bold tracking-widest uppercase text-apple-gray-300">{title}</h3>
-      </div>
-    )
-  }
-
-  function KpiBox({ label, value, sub, accent }: { label: string; value: string | number; sub?: string; accent?: string }) {
-    return (
-      <div className="bg-apple-gray-900 border border-apple-gray-800 rounded-xl p-3 text-center">
-        <p className={`text-2xl font-black tabular-nums ${accent ?? 'text-white'}`}>{value}</p>
-        <p className="text-[10px] text-apple-gray-400 uppercase tracking-wider leading-tight mt-0.5">{label}</p>
-        {sub && <p className="text-[10px] text-apple-gray-500 mt-0.5">{sub}</p>}
-      </div>
-    )
-  }
+function ZoneHeatmap({ data, colorMode, compact }: { data: ZoneCell[][]; colorMode: 'green' | 'red'; compact?: boolean }) {
+  const pl  = 'rgba(255,255,255,0.28)'
+  const pls = 'rgba(255,255,255,0.16)'
+  const bandY  = [2, 23, 45]
+  const bandH  = [21, 22, 21]
+  const thirdX = [2, 36, 70]
+  const thirdW = [34, 34, 33]
 
   return (
-    <div className="space-y-6 text-white">
-
-      {/* ── GOLES ── */}
-      <div className="bg-apple-gray-900 border border-apple-gray-800 rounded-2xl p-5">
-        <SectionHeader title="Goles · Total torneo" />
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-          <KpiBox label="Goles a favor"    value={totGoles}              accent="text-brand-green" />
-          <KpiBox label="Goles en contra"  value={totGC}                 accent="text-red-400" />
-          <KpiBox label="Promedio a favor"  value={fmt1(totGoles / n)}    sub={`${n} partidos`} accent="text-brand-green" />
-          <KpiBox label="Promedio en contra" value={fmt1(totGC / n)}      accent="text-red-400" />
+    <div style={{ maxWidth: compact ? 460 : 560 }} className="mx-auto space-y-1.5">
+      <div className="flex items-start gap-2">
+        <div className="flex flex-col justify-around" style={{ minWidth: 50, paddingTop: 18 }}>
+          {['Banda izq.', 'Centro', 'Banda der.'].map(l => (
+            <p key={l} className="text-[8px] text-apple-gray-500 uppercase tracking-wide text-right leading-none py-[3px]">{l}</p>
+          ))}
         </div>
-        <p className="text-[10px] text-apple-gray-500 mb-2 uppercase tracking-wider">Goles por partido</p>
-        <ResponsiveContainer width="100%" height={160}>
-          <BarChart data={series} margin={mg}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
-            <XAxis dataKey="f" tick={tick} />
-            <YAxis tick={tick} />
-            <Tooltip contentStyle={dark} />
-            <Legend wrapperStyle={{ fontSize: 10 }} />
-            <Bar dataKey="goles"       fill="#16a34a" name="A favor"    radius={[3,3,0,0]} />
-            <Bar dataKey="golesContra" fill="#ef4444" name="En contra"  radius={[3,3,0,0]} />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-
-      {/* ── LLEGADAS ── */}
-      <div className="bg-apple-gray-900 border border-apple-gray-800 rounded-2xl p-5">
-        <SectionHeader title="Llegadas" />
-        <div className="grid grid-cols-3 gap-3 mb-4">
-          <KpiBox label="Ataques posicionales" value={totAtaqPos} sub={`${fmt1(totAtaqPos/n)}/pdo`} />
-          <KpiBox label="Contraataques"         value={totContra}  sub={`${fmt1(totContra/n)}/pdo`} />
-          <KpiBox label="Balón parado"           value={totBalonP}  sub={`${fmt1(totBalonP/n)}/pdo`} />
-        </div>
-        <p className="text-[10px] text-apple-gray-500 mb-2 uppercase tracking-wider">Total llegadas por partido</p>
-        <ResponsiveContainer width="100%" height={180}>
-          <AreaChart data={series} margin={mg}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
-            <XAxis dataKey="f" tick={tick} />
-            <YAxis tick={tick} />
-            <Tooltip contentStyle={dark} />
-            <Legend wrapperStyle={{ fontSize: 10 }} />
-            <Area type="monotone" dataKey="posicional" stackId="1" stroke="#16a34a" fill="#16a34a" fillOpacity={0.4} name="Posicional" strokeWidth={1.5} />
-            <Area type="monotone" dataKey="contra"     stackId="1" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.4} name="Contraataque" strokeWidth={1.5} />
-            <Area type="monotone" dataKey="balonP"     stackId="1" stroke="#9333ea" fill="#9333ea" fillOpacity={0.4} name="Balón parado" strokeWidth={1.5} />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
-
-      {/* ── APROXIMACIONES ── */}
-      <div className="bg-apple-gray-900 border border-apple-gray-800 rounded-2xl p-5">
-        <SectionHeader title="Aproximaciones y centros" />
-        <div className="grid grid-cols-3 gap-3 mb-4">
-          <KpiBox label="Centros totales"  value={totCentros} sub={`${fmt1(totCentros/n)}/pdo`} />
-          <KpiBox label="Centros precisos" value={totCenPrc}  accent="text-brand-green" sub={`${fmtPct(totCenPrc/Math.max(totCentros,1)*100)} precisión`} />
-          <KpiBox label="Corners"           value={totCorners} sub={`${fmt1(totCorners/n)}/pdo`} />
-        </div>
-        <ResponsiveContainer width="100%" height={160}>
-          <LineChart data={series} margin={mg}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
-            <XAxis dataKey="f" tick={tick} />
-            <YAxis tick={tick} />
-            <Tooltip contentStyle={dark} />
-            <Legend wrapperStyle={{ fontSize: 10 }} />
-            <Line type="monotone" dataKey="centros" stroke="#f59e0b" strokeWidth={2} dot={{ r: 2 }} name="Centros" />
-            <Line type="monotone" dataKey="cenPrx"  stroke="#16a34a" strokeWidth={2} dot={{ r: 2 }} name="Precisos" />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-
-      {/* ── CIRCULACIONES ── */}
-      <div className="bg-apple-gray-900 border border-apple-gray-800 rounded-2xl p-5">
-        <SectionHeader title="Circulaciones (pases progresivos)" />
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-          <KpiBox label="Pases progresivos" value={totPasePrg} sub={`${fmt1(totPasePrg/n)}/pdo`} />
-          <KpiBox label="Último tercio"      value={totPaseUT}  sub={`${fmt1(totPaseUT/n)}/pdo`} />
-          <KpiBox label="Prog. / partido (máx)" value={Math.max(...matches.map(m=>m.pasesProgresivos))} accent="text-brand-green" />
-          <KpiBox label="Prog. / partido (mín)" value={Math.min(...matches.map(m=>m.pasesProgresivos))} accent="text-amber-400" />
-        </div>
-        <ResponsiveContainer width="100%" height={180}>
-          <AreaChart data={series} margin={mg}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
-            <XAxis dataKey="f" tick={tick} />
-            <YAxis tick={tick} />
-            <Tooltip contentStyle={dark} />
-            <Legend wrapperStyle={{ fontSize: 10 }} />
-            <Area type="monotone" dataKey="progresivos"  stroke="#06b6d4" fill="#06b6d4" fillOpacity={0.2} strokeWidth={2} name="Pases prog." />
-            <Area type="monotone" dataKey="ultimoTercio" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.15} strokeWidth={2} name="Último tercio" />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
-
-      {/* ── SALIDAS + RECUPERADAS ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-
-        {/* Salidas (tiros en contra / portería rival) */}
-        <div className="bg-apple-gray-900 border border-apple-gray-800 rounded-2xl p-5">
-          <SectionHeader title="Salidas (tiros propios)" />
-          <div className="grid grid-cols-2 gap-3 mb-4">
-            <KpiBox label="Tiros totales"     value={totTiros}  sub={`${fmt1(totTiros/n)}/pdo`} />
-            <KpiBox label="A portería"         value={totTirosP} accent="text-brand-green" sub={`${fmtPct(totTirosP/Math.max(totTiros,1)*100)} precisión`} />
+        <div className="flex-1">
+          <div className="grid grid-cols-3 mb-1">
+            {['Ter. def.', 'Ter. medio', 'Ter. of.'].map(l => (
+              <p key={l} className="text-[9px] text-apple-gray-500 uppercase tracking-wide text-center">{l}</p>
+            ))}
           </div>
-          <ResponsiveContainer width="100%" height={140}>
-            <BarChart data={series} margin={mg}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
-              <XAxis dataKey="f" tick={tick} />
-              <YAxis tick={tick} />
-              <Tooltip contentStyle={dark} />
-              <Bar dataKey="tiros"        fill="#6b7280" name="Tiros"     radius={[2,2,0,0]} />
-              <Bar dataKey="tirosPorteria" fill="#16a34a" name="A portería" radius={[2,2,0,0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          <svg viewBox="0 0 105 68" xmlns="http://www.w3.org/2000/svg" className="w-full rounded-xl">
+            <rect x="0" y="0" width="105" height="68" fill="#163d22" rx="3" />
+            {bandY.map((by, bi) =>
+              thirdX.map((tx, ti) => {
+                const cell: ZoneCell = data[bi]?.[ti] ?? { value: '—' }
+                const num = typeof cell.value === 'number' ? cell.value : null
+                const alpha = num !== null ? Math.min(0.62, num / 30) : 0.0
+                const fill = colorMode === 'green'
+                  ? `rgba(34,197,94,${0.07 + alpha})`
+                  : `rgba(239,68,68,${0.07 + alpha})`
+                const cx = tx + thirdW[ti] / 2
+                const cy = by + bandH[bi] / 2
+                return (
+                  <g key={`${bi}-${ti}`}>
+                    <rect x={tx} y={by} width={thirdW[ti]} height={bandH[bi]} fill={fill} />
+                    <text x={cx} y={cy - (cell.count !== undefined ? 2.5 : 0)}
+                      textAnchor="middle" dominantBaseline="middle"
+                      fontSize="6.5" fontWeight="800" fill="white" opacity="0.9">
+                      {typeof cell.value === 'number' ? `${cell.value}%` : cell.value}
+                    </text>
+                    {cell.count !== undefined && (
+                      <text x={cx} y={cy + 4} textAnchor="middle" dominantBaseline="middle"
+                        fontSize="3.5" fill="rgba(255,255,255,0.55)">{cell.count}</text>
+                    )}
+                  </g>
+                )
+              })
+            )}
+            {/* Grid dashes */}
+            <line x1="36" y1="2" x2="36" y2="66" stroke="rgba(255,255,255,0.18)" strokeWidth="0.4" strokeDasharray="2,2" />
+            <line x1="70" y1="2" x2="70" y2="66" stroke="rgba(255,255,255,0.18)" strokeWidth="0.4" strokeDasharray="2,2" />
+            <line x1="2" y1="23" x2="103" y2="23" stroke="rgba(255,255,255,0.18)" strokeWidth="0.4" strokeDasharray="2,2" />
+            <line x1="2" y1="45" x2="103" y2="45" stroke="rgba(255,255,255,0.18)" strokeWidth="0.4" strokeDasharray="2,2" />
+            {/* Pitch lines */}
+            <rect x="2" y="2" width="101" height="64" fill="none" stroke={pl} strokeWidth="0.9" />
+            <line x1="52.5" y1="2" x2="52.5" y2="66" stroke={pl} strokeWidth="0.8" />
+            <circle cx="52.5" cy="34" r="9.15" fill="none" stroke={pl} strokeWidth="0.7" />
+            <circle cx="52.5" cy="34" r="0.85" fill={pl} />
+            <rect x="2" y="14.5" width="17" height="39" fill="none" stroke={pls} strokeWidth="0.6" />
+            <rect x="2" y="24" width="6" height="20" fill="none" stroke={pls} strokeWidth="0.55" />
+            <path d="M19,27.5 A9.15,9.15 0 0 1 19,40.5" fill="none" stroke={pls} strokeWidth="0.6" />
+            <rect x="86" y="14.5" width="17" height="39" fill="none" stroke={pls} strokeWidth="0.6" />
+            <rect x="97" y="24" width="6" height="20" fill="none" stroke={pls} strokeWidth="0.55" />
+            <path d="M86,27.5 A9.15,9.15 0 0 0 86,40.5" fill="none" stroke={pls} strokeWidth="0.6" />
+            <rect x="1" y="29" width="1.5" height="10" fill="none" stroke={pl} strokeWidth="0.6" />
+            <rect x="102.5" y="29" width="1.5" height="10" fill="none" stroke={pl} strokeWidth="0.6" />
+            <circle cx="12" cy="34" r="0.75" fill={pls} />
+            <circle cx="93" cy="34" r="0.75" fill={pls} />
+          </svg>
         </div>
-
-        {/* Recuperadas */}
-        <div className="bg-apple-gray-900 border border-apple-gray-800 rounded-2xl p-5">
-          <SectionHeader title="Recuperadas e interceptaciones" />
-          <div className="grid grid-cols-2 gap-3 mb-4">
-            <KpiBox label="Interceptaciones" value={totInterc} sub={`${fmt1(totInterc/n)}/pdo`} accent="text-brand-green" />
-            <KpiBox label="Despejes"          value={totDesp}  sub={`${fmt1(totDesp/n)}/pdo`} />
-          </div>
-          <ResponsiveContainer width="100%" height={140}>
-            <LineChart data={series} margin={mg}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
-              <XAxis dataKey="f" tick={tick} />
-              <YAxis tick={tick} />
-              <Tooltip contentStyle={dark} />
-              <Legend wrapperStyle={{ fontSize: 10 }} />
-              <Line type="monotone" dataKey="interceptaciones" stroke="#16a34a" strokeWidth={2} dot={{ r: 2 }} name="Intercepciones" />
-              <Line type="monotone" dataKey="despejes"         stroke="#6b7280" strokeWidth={2} dot={{ r: 2 }} name="Despejes" />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* ── Nota sobre datos de zona ── */}
-      <div className="flex items-start gap-3 p-4 bg-blue-900/20 border border-blue-500/20 rounded-xl text-xs text-blue-300">
-        <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-        <span>El desglose por banda (Izquierda / Central / Derecha) requiere exportar el CSV de Wyscout desde la sección <strong>Próximo Partido</strong>.</span>
       </div>
     </div>
   )
 }
 
+// ─── CornerHalfPitch ──────────────────────────────────────────────────────────
+function CornerHalfPitch({ side, total }: { side: 'left' | 'right'; total: number }) {
+  const pl  = 'rgba(255,255,255,0.30)'
+  const pls = 'rgba(255,255,255,0.16)'
+  // Half pitch (attacking end): viewBox "0 0 54 68"
+  // x=0 = midfield line, x=52 = goal line
+  // Corners at goal-line corners: left=y≈2 (top), right=y≈66 (bottom)
+  const cornerY = side === 'left' ? 2 : 66
+  const arrowD  = side === 'left'
+    ? 'M52,3  Q40,14 38,27'
+    : 'M52,65 Q40,54 38,41'
+  const nearY = side === 'left' ? 14.5 : 44
+  const farY  = side === 'left' ? 44   : 14.5
+
+  return (
+    <div className="flex flex-col items-center gap-2">
+      <p className="text-[10px] text-apple-gray-400 uppercase tracking-wider font-semibold">
+        {side === 'left' ? 'Córneres izquierdos' : 'Córneres derechos'}
+      </p>
+      <svg viewBox="0 0 54 68" xmlns="http://www.w3.org/2000/svg" className="w-full rounded-xl" style={{ maxWidth: 220 }}>
+        <rect x="0" y="0" width="54" height="68" fill="#163d22" rx="3" />
+
+        {/* Zone overlays inside penalty area */}
+        <rect x="33" y={nearY} width="19" height="11" fill="rgba(234,179,8,0.28)"  rx="1" />
+        <rect x="33" y="26"    width="19" height="16" fill="rgba(59,130,246,0.22)" rx="1" />
+        <rect x="33" y={farY}  width="19" height="11" fill="rgba(168,85,247,0.22)" rx="1" />
+
+        {/* Trajectory arrow */}
+        <path d={arrowD} fill="none" stroke="rgba(255,255,255,0.50)" strokeWidth="0.9" strokeDasharray="2,1.5" />
+
+        {/* Pitch boundary */}
+        <rect x="2" y="2" width="50" height="64" fill="none" stroke={pl} strokeWidth="0.9" />
+
+        {/* Midfield dashed marker */}
+        <line x1="2" y1="2" x2="2" y2="66" stroke="rgba(255,255,255,0.16)" strokeWidth="0.5" strokeDasharray="2.5,2" />
+
+        {/* Penalty area */}
+        <rect x="33" y="14.5" width="19" height="39" fill="none" stroke={pls} strokeWidth="0.7" />
+
+        {/* Goal box */}
+        <rect x="44" y="24" width="8" height="20" fill="none" stroke={pls} strokeWidth="0.55" />
+
+        {/* Penalty arc */}
+        <path d="M33,27.5 A9.15,9.15 0 0 0 33,40.5" fill="none" stroke={pls} strokeWidth="0.6" />
+
+        {/* Goal */}
+        <rect x="52" y="29" width="2" height="10" fill="rgba(255,255,255,0.10)" stroke={pl} strokeWidth="0.6" />
+
+        {/* Penalty spot */}
+        <circle cx="44" cy="34" r="0.75" fill={pls} />
+
+        {/* Corner flag (red dot) */}
+        <circle cx="52" cy={cornerY} r="2.2" fill="#ef4444" opacity="0.9" />
+
+        {/* Zone placeholder values */}
+        <text x="42.5" y={nearY + 5.5} textAnchor="middle" dominantBaseline="middle"
+          fontSize="4.5" fontWeight="700" fill="rgba(255,255,255,0.65)">—</text>
+        <text x="42.5" y="34" textAnchor="middle" dominantBaseline="middle"
+          fontSize="4.5" fontWeight="700" fill="rgba(255,255,255,0.65)">—</text>
+        <text x="42.5" y={farY + 5.5} textAnchor="middle" dominantBaseline="middle"
+          fontSize="4.5" fontWeight="700" fill="rgba(255,255,255,0.65)">—</text>
+
+        {/* "MITAD ADVERSARIA" rotated */}
+        <text x="9" y="34" textAnchor="middle" dominantBaseline="middle"
+          fontSize="2.6" fill="rgba(255,255,255,0.20)" letterSpacing="0.2"
+          transform="rotate(-90,9,34)">MITAD ADVERSARIA</text>
+      </svg>
+      <div className="flex items-center gap-3 text-[10px] text-apple-gray-500">
+        <span>Total <span className="text-white font-bold">{total > 0 ? total : '—'}</span></span>
+        <span className="w-px h-3 bg-apple-gray-700" />
+        <span>Goles <span className="text-white font-bold">—</span></span>
+      </div>
+      {/* Zone legend */}
+      <div className="flex gap-3 text-[9px] text-apple-gray-500">
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-yellow-500/50 inline-block" />Palo cercano</span>
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-blue-500/50 inline-block" />Centro</span>
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-purple-500/50 inline-block" />Palo lejano</span>
+      </div>
+    </div>
+  )
+}
+
+// ─── WyscoutUploadZone ────────────────────────────────────────────────────────
+interface WyscoutUploadProps {
+  current?: WyscoutData | null
+  onData: (d: WyscoutData) => void
+}
+
+function WyscoutUploadZone({ current, onData }: WyscoutUploadProps) {
+  const [status, setStatus]   = useState<'idle' | 'loading' | 'ok' | 'err'>('idle')
+  const [errMsg, setErrMsg]   = useState('')
+  const [dragging, setDragging] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const processFile = useCallback(async (file: File) => {
+    if (!file.name.toLowerCase().endsWith('.pdf')) {
+      setStatus('err'); setErrMsg('Solo se aceptan archivos PDF de Wyscout.'); return
+    }
+    setStatus('loading')
+    try {
+      const data = await parseWyscoutPdf(file)
+      onData(data)
+      setStatus('ok')
+    } catch {
+      setStatus('err')
+      setErrMsg('No se pudo leer el PDF. Verificá que sea un informe de equipo de Wyscout.')
+    }
+  }, [onData])
+
+  function onDrop(e: React.DragEvent) {
+    e.preventDefault(); setDragging(false)
+    const file = e.dataTransfer.files[0]
+    if (file) processFile(file)
+  }
+
+  function onChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (file) processFile(file)
+    e.target.value = ''
+  }
+
+  const isLoading = status === 'loading'
+
+  return (
+    <div className="bg-white dark:bg-apple-gray-900 border border-apple-gray-200 dark:border-apple-gray-800 rounded-2xl p-5 shadow-sm dark:shadow-none">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="w-1 h-5 bg-brand-green rounded-full" />
+        <h3 className="text-xs font-bold tracking-widest uppercase text-apple-gray-600 dark:text-apple-gray-300">Actualizar con Wyscout</h3>
+        {current && (
+          <span className="ml-auto flex items-center gap-1.5 text-[10px] text-brand-green bg-brand-green/10 border border-brand-green/20 rounded-full px-2.5 py-1 font-semibold">
+            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+            Datos cargados · {current.fileName}
+          </span>
+        )}
+      </div>
+
+      <div
+        className={`relative border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all duration-200 ${
+          dragging
+            ? 'border-brand-green bg-brand-green/10'
+            : 'border-apple-gray-700 hover:border-apple-gray-500 hover:bg-apple-gray-800/40'
+        }`}
+        onDragOver={e => { e.preventDefault(); setDragging(true) }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={onDrop}
+        onClick={() => !isLoading && inputRef.current?.click()}
+      >
+        <input
+          ref={inputRef}
+          type="file"
+          accept=".pdf"
+          className="hidden"
+          onChange={onChange}
+        />
+
+        {isLoading ? (
+          <div className="flex flex-col items-center gap-3 text-apple-gray-400">
+            <svg className="w-8 h-8 animate-spin text-brand-green" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+            <p className="text-sm font-medium">Procesando PDF de Wyscout…</p>
+            <p className="text-xs text-apple-gray-500">Extrayendo zonas, córneres y transiciones</p>
+          </div>
+        ) : status === 'ok' ? (
+          <div className="flex flex-col items-center gap-2 text-brand-green">
+            <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            <p className="text-sm font-semibold">PDF procesado correctamente</p>
+            <p className="text-xs text-apple-gray-400">Los datos de zona se actualizaron. Arrastrá otro PDF para reemplazar.</p>
+          </div>
+        ) : status === 'err' ? (
+          <div className="flex flex-col items-center gap-2 text-red-400">
+            <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            <p className="text-sm font-semibold">Error al procesar</p>
+            <p className="text-xs text-apple-gray-500">{errMsg}</p>
+            <p className="text-xs text-apple-gray-600 mt-1">Hacé click para intentar con otro archivo</p>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center gap-3 text-apple-gray-400">
+            <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
+            <div>
+              <p className="text-sm font-semibold text-white">Arrastrá el PDF de Wyscout aquí</p>
+              <p className="text-xs text-apple-gray-500 mt-1">o hacé click para seleccionarlo</p>
+            </div>
+            <div className="flex gap-4 text-[10px] text-apple-gray-600 mt-1">
+              <span>✓ Recuperaciones de balón</span>
+              <span>✓ Pérdidas de balón</span>
+              <span>✓ Córneres</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <p className="text-[10px] text-apple-gray-600 mt-3 text-center">
+        Subí el <strong className="text-apple-gray-500">Informe de equipo</strong> de Wyscout (PDF). Se actualizan automáticamente las zonas de calor, córneres y transiciones. Alimentalo partido a partido.
+      </p>
+    </div>
+  )
+}
+
 // ─── Main Page ─────────────────────────────────────────────────────────────────
-const TABS = ['Resumen', 'Partidos', 'Próximo Partido', 'Análisis', 'Informe', 'Video & Notas'] as const
+const TABS = ['Resumen', 'Partidos', 'Próximo Partido', 'Análisis', 'Video & Notas'] as const
 type Tab = typeof TABS[number]
 
 export default function EquipoPage() {
@@ -1246,7 +1614,7 @@ export default function EquipoPage() {
 
         {/* No data state */}
         {!selectedDivision?.hasData ? (
-          <div className="text-center py-20 bg-white dark:bg-apple-gray-900 border border-apple-gray-100 dark:border-apple-gray-800 rounded-2xl">
+          <div className="text-center py-20 bg-white dark:bg-apple-gray-900 border border-apple-gray-200 dark:border-apple-gray-800 rounded-2xl shadow-sm dark:shadow-none">
             <div className="text-5xl mb-4">📊</div>
             <h2 className="text-xl font-bold text-white mb-2">{selectedDivision?.label} — Sin datos cargados</h2>
             <p className="text-apple-gray-400 text-sm max-w-md mx-auto">
@@ -1256,7 +1624,7 @@ export default function EquipoPage() {
         ) : (
           <>
             {/* Tab navigation */}
-            <div className="flex gap-1 border-b border-apple-gray-100 dark:border-apple-gray-800 overflow-x-auto scrollbar-hide">
+            <div className="flex gap-1 border-b border-apple-gray-200 dark:border-apple-gray-800 overflow-x-auto scrollbar-hide">
               {TABS.map(t => (
                 <button
                   key={t}
@@ -1278,7 +1646,7 @@ export default function EquipoPage() {
               {tab === 'Partidos' && <TabPartidos matches={LANUS_2026} />}
               {tab === 'Próximo Partido' && <TabProximoPartido matches={LANUS_2026} />}
               {tab === 'Análisis' && <TabAnalisis matches={matches.length ? matches : LANUS_2026} />}
-              {tab === 'Informe' && <TabInforme matches={matches.length ? matches : LANUS_2026} />}
+              
               {tab === 'Video & Notas' && <TabVideo matches={LANUS_2026} />}
             </div>
           </>
