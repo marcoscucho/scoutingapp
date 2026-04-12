@@ -3,6 +3,9 @@
   publish = "dist"
   functions = "netlify/functions"
 
+[functions]
+  timeout = 26
+
 # FotMob calendar proxy (ICS feed)
 [[redirects]]
   from = "/fotmob-proxy/*"

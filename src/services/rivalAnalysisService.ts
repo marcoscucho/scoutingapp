@@ -783,14 +783,13 @@ function normalizeStats(parsed: Partial<StatsResult>): StatsResult {
 
 export async function analyzeWyscoutComprehensive(file: File): Promise<WyscoutFullAnalysis> {
   const rawText = await extractRawPdfText(file)
-  const truncated = rawText.slice(0, 80000)
+  // Limitar a 35k chars para mantener la llamada rápida dentro del timeout de Netlify
+  const truncated = rawText.slice(0, 35000)
   const pdfSection = `\n\nTEXTO DEL PDF:\n${truncated}`
 
-  // Paralelo: Sonnet para formaciones (razonamiento), Haiku para stats (extracción numérica)
-  const [formResult, statsResult] = await Promise.all([
-    callClaude(`${PROMPT_FORMATIONS}${pdfSection}`, 'claude-sonnet-4-6', 8000),
-    callClaude(`${PROMPT_STATS}${pdfSection}`, 'claude-haiku-4-5-20251001', 9000),
-  ])
+  // Secuencial para no saturar el endpoint: formaciones primero (prioritarias), luego stats
+  const formResult  = await callClaude(`${PROMPT_FORMATIONS}${pdfSection}`, 'claude-haiku-4-5-20251001', 4000)
+  const statsResult = await callClaude(`${PROMPT_STATS}${pdfSection}`,      'claude-haiku-4-5-20251001', 4000)
 
   const formations = normalizeFormations(extractJson<Partial<FormationsResult>>(formResult))
   const stats = normalizeStats(extractJson<Partial<StatsResult>>(statsResult))
