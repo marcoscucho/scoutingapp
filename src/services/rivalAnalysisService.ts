@@ -781,18 +781,106 @@ function normalizeStats(parsed: Partial<StatsResult>): StatsResult {
   }
 }
 
+// Prompt combinado: formaciones + stats en una sola llamada para minimizar tiempo de ejecución
+const PROMPT_COMBINED = `Sos un analista de fútbol profesional especializado en Wyscout. Analizá este informe y devolvé DOS secciones de análisis en un único JSON.
+
+Devolvé ÚNICAMENTE JSON válido con esta estructura (sin markdown, sin texto adicional):
+
+{
+  "formations": {
+    "teamName": "string",
+    "recentFormations": [
+      {
+        "date": "DD.MM.YYYY",
+        "opponent": "string",
+        "isHome": boolean,
+        "goalsFor": number,
+        "goalsAgainst": number,
+        "result": "W"|"D"|"L",
+        "competition": "string",
+        "formation": "string (ej: 4-4-2)",
+        "players": [
+          {
+            "number": number|null,
+            "name": "string (apellido)",
+            "role": "GK|CB|LB|RB|LWB|RWB|DM|CM|AM|LM|RM|LW|RW|CF|SS",
+            "goals": number,
+            "assists": number,
+            "yellowCard": boolean,
+            "redCard": boolean,
+            "minutesPlayed": number,
+            "subbedOff": boolean,
+            "subbedOffAt": number|null,
+            "subbedIn": boolean,
+            "subbedInAt": number|null,
+            "subbedFor": string|null
+          }
+        ],
+        "injured": [],
+        "suspended": []
+      }
+    ],
+    "formationUsage": [{"formation": "4-4-2", "pct": 70}],
+    "overallStats": {
+      "partidos": number|null,
+      "victorias": number|null,
+      "empates": number|null,
+      "derrotas": number|null,
+      "goles": number|null,
+      "golesContra": number|null,
+      "avgXG": number|null,
+      "avgPosesion": number|null,
+      "avgPPDA": number|null,
+      "shotsTotal": number|null,
+      "shotsOnTarget": number|null,
+      "shotsOnTargetPct": number|null
+    },
+    "tacticalNotes": ["string (máx 5)"],
+    "strengths": ["string (máx 4)"],
+    "weaknesses": ["string (máx 4)"],
+    "keyPlayers": ["string (3-5 jugadores)"]
+  },
+  "stats": {
+    "defensiveDuels": {"totalWon": number, "totalLost": number, "topPlayers": [{"name": "string", "won": number, "lost": number, "pct": number}]},
+    "aerialDuels": {"totalWon": number, "totalLost": number, "topPlayers": [{"name": "string", "won": number, "lost": number, "pct": number}]},
+    "crosses": {"total": number, "successful": number, "pct": number, "topCrossers": [{"name": "string", "total": number, "successful": number, "pct": number, "xA": number|null}], "topReceivers": [{"name": "string", "received": number, "successful": number}]},
+    "dribbles": {"total": number, "successful": number, "pct": number, "topDribblers": [{"name": "string", "total": number, "successful": number, "pct": number}]},
+    "highRecoveries": [{"name": "string", "count": number}],
+    "shots": {"total": number, "onTarget": number, "pct": number, "xG": number|null, "goals": number, "byType": [{"type": "string", "count": number, "goals": number, "xG": number|null}], "byPlayer": [{"name": "string", "shots": number, "onTarget": number, "goals": number, "xG": number|null, "minutes": number|null}]},
+    "corners": {"total": number, "left": number, "right": number, "goals": number, "kickers": [{"name": "string", "total": number, "left": number, "right": number}]},
+    "freeKicks": {"total": number, "left": number, "right": number, "goals": number, "kickers": [{"name": "string", "total": number, "left": number, "right": number}]},
+    "goalSections": {"topLeft": {"shots": number, "goals": number}, "topCenter": {"shots": number, "goals": number}, "topRight": {"shots": number, "goals": number}, "midLeft": {"shots": number, "goals": number}, "midCenter": {"shots": number, "goals": number}, "midRight": {"shots": number, "goals": number}, "botLeft": {"shots": number, "goals": number}, "botCenter": {"shots": number, "goals": number}, "botRight": {"shots": number, "goals": number}, "missed": number},
+    "shotPitchZones": {"defLeft": {"count": number, "goals": number}, "defCenter": {"count": number, "goals": number}, "defRight": {"count": number, "goals": number}, "midLeft": {"count": number, "goals": number}, "midCenter": {"count": number, "goals": number}, "midRight": {"count": number, "goals": number}, "atkLeft": {"count": number, "goals": number}, "atkCenter": {"count": number, "goals": number}, "atkRight": {"count": number, "goals": number}},
+    "duelZones": {"defLeft": {"count": number, "won": number, "lost": number}, "defCenter": {"count": number, "won": number, "lost": number}, "defRight": {"count": number, "won": number, "lost": number}, "midLeft": {"count": number, "won": number, "lost": number}, "midCenter": {"count": number, "won": number, "lost": number}, "midRight": {"count": number, "won": number, "lost": number}, "atkLeft": {"count": number, "won": number, "lost": number}, "atkCenter": {"count": number, "won": number, "lost": number}, "atkRight": {"count": number, "won": number, "lost": number}},
+    "recoveryZones": {"defLeft": {"count": number}, "defCenter": {"count": number}, "defRight": {"count": number}, "midLeft": {"count": number}, "midCenter": {"count": number}, "midRight": {"count": number}, "atkLeft": {"count": number}, "atkCenter": {"count": number}, "atkRight": {"count": number}}
+  }
+}
+
+REGLAS:
+- recentFormations: hasta 5 partidos más recientes, del más reciente al más antiguo
+- Cada partido: exactamente 11 jugadores titulares ordenados GK → DEF → MID → FWD
+- result SIEMPRE desde la perspectiva del teamName
+- isHome=true si teamName jugó de local
+- Respondé SOLO con JSON válido, sin markdown, sin texto antes ni después`
+
 export async function analyzeWyscoutComprehensive(file: File): Promise<WyscoutFullAnalysis> {
   const rawText = await extractRawPdfText(file)
-  // Limitar a 35k chars para mantener la llamada rápida dentro del timeout de Netlify
-  const truncated = rawText.slice(0, 35000)
+  // 20k chars: suficiente para formaciones + stats, garantiza respuesta dentro del timeout de Netlify
+  const truncated = rawText.slice(0, 20000)
   const pdfSection = `\n\nTEXTO DEL PDF:\n${truncated}`
 
-  // Secuencial para no saturar el endpoint: formaciones primero (prioritarias), luego stats
-  const formResult  = await callClaude(`${PROMPT_FORMATIONS}${pdfSection}`, 'claude-haiku-4-5-20251001', 4000)
-  const statsResult = await callClaude(`${PROMPT_STATS}${pdfSection}`,      'claude-haiku-4-5-20251001', 4000)
+  // Una sola llamada Haiku con ambas secciones → ~5-8s en producción
+  const combined = await callClaude(`${PROMPT_COMBINED}${pdfSection}`, 'claude-haiku-4-5-20251001', 6000)
 
-  const formations = normalizeFormations(extractJson<Partial<FormationsResult>>(formResult))
-  const stats = normalizeStats(extractJson<Partial<StatsResult>>(statsResult))
+  let parsedCombined: { formations?: Partial<FormationsResult>; stats?: Partial<StatsResult> } = {}
+  try {
+    parsedCombined = extractJson<typeof parsedCombined>(combined)
+  } catch (e) {
+    console.warn('analyzeWyscoutComprehensive: error parseando JSON combinado', e)
+  }
+
+  const formations = normalizeFormations(parsedCombined.formations ?? {})
+  const stats = normalizeStats(parsedCombined.stats ?? {})
 
   return { ...formations, ...stats }
 }
