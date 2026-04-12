@@ -381,7 +381,7 @@ function enrichWithTransfermarkt(
     'Vencimiento contrato': newContractStr,
     Transfermkt: tm.Transfermkt || player.Transfermkt,
     Representante: newRepresentante,
-    Imagen: newImagen || player.Imagen,
+    Imagen: player.Imagen || newImagen,
     // Recalculated derived values
     marketValueRaw,
     marketValueFormatted,

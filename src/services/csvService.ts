@@ -8,6 +8,14 @@ import type {
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 
+/** Normalize league name aliases so the same league always has one canonical string */
+function normalizeLiga(raw: string): string {
+  const s = (raw ?? '').trim()
+  // "3° Argentina" and "B Metro (3° Arg)" are the same league
+  if (s === '3° Argentina' || s === '3era Argentina' || s === '3ra Argentina') return 'B Metro (3° Arg)'
+  return s
+}
+
 function trimHeaders(row: RawRow): RawRow {
   const trimmed: RawRow = {}
   for (const [key, value] of Object.entries(row)) {
@@ -152,7 +160,7 @@ export async function loadAllData(): Promise<AllRawData> {
     .map(r => ({
       ...r,
       'Posición': r['Posición específica'] || 'Arquero',
-      Liga: r['Liga'] || 'Liga Argentina',
+      Liga: normalizeLiga(r['Liga'] || 'Liga Argentina'),
     })) as RawInternalPlayer[]
   const internal = [...resolveAliases(intRaw).filter(r => r['Jugador']?.trim()), ...arqueros] as RawInternalPlayer[]
   // Plantel Primera: inject Liga field for scoring pipeline compatibility
@@ -166,7 +174,7 @@ export async function loadAllData(): Promise<AllRawData> {
       Jugador: r['Jugador'] ?? '',
       'Nombre jugador': r['Nombre jugador'] ?? '',
       Club: r['Club'] ?? '',
-      Liga: r['Liga'] ?? '',
+      Liga: normalizeLiga(r['Liga'] ?? ''),
       Nacionalidad: r['Nacionalidad'] ?? '',
       'Fecha de nacimiento': r['Fecha de nacimiento'] ?? '',
       Edad: r['Edad'] ?? '',
@@ -186,7 +194,7 @@ export async function loadAllData(): Promise<AllRawData> {
       const player: SeguimientoMetricsPlayer = {
         Jugador: r['Jugador'] ?? '',
         Equipo: r['Equipo'] ?? '',
-        Liga: r['Liga'] ?? '',
+        Liga: normalizeLiga(r['Liga'] ?? ''),
         'Posición': r['Posición'] ?? r['Posición específica'] ?? '',
         'Posición específica': r['Posición específica'] ?? '',
         Edad: r['Edad'] ?? '',
@@ -208,7 +216,7 @@ export async function loadAllData(): Promise<AllRawData> {
     .map(r => {
       const obj: NormalizedPlayer = {
         Jugador: r['Jugador'] ?? '',
-        Liga: r['Liga'] ?? '',
+        Liga: normalizeLiga(r['Liga'] ?? ''),
         Equipo: r['Equipo'] ?? '',
         'Posición': r['Posición'] ?? '',
         'Posición específica': r['Posición específica'] ?? '',
@@ -280,7 +288,7 @@ export async function loadAllData(): Promise<AllRawData> {
     .map(r => ({
       Jugador: r['Jugador'] ?? '',
       Equipo: r['Equipo'] ?? r['equipo_csv'] ?? '',
-      Liga: r['Liga'] ?? r['liga_csv'] ?? '',
+      Liga: normalizeLiga(r['Liga'] ?? r['liga_csv'] ?? ''),
       // New format columns
       'Nombre TM': r['Nombre TM'] ?? '',
       'Valor Mercado €': r['Valor Mercado €'] ?? '',

@@ -1,10 +1,10 @@
-import { useState, useMemo, useEffect, type ChangeEvent, type FormEvent } from 'react'
+import { useState, useMemo, useEffect, useRef, type ChangeEvent, type FormEvent, type MouseEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useData } from '@/context/DataContext'
 import { useAuth } from '@/context/AuthContext'
 import { useMonitoringStatus, STATUS_CONFIG, formatStatusWithScout } from '@/hooks/useMonitoringStatus'
 import type { MonitoringStatusRecord } from '@/services/monitoringService'
-import { getSeguimientoList, addToSeguimiento, type DbSeguimiento } from '@/lib/supabase'
+import { getSeguimientoList, addToSeguimiento, removeFromSeguimiento, type DbSeguimiento } from '@/lib/supabase'
 import { normalizeName } from '@/utils/scoring'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import EmptyState from '@/components/ui/EmptyState'
@@ -56,8 +56,23 @@ function StatusBadge({
 }) {
   const [isOpen, setIsOpen] = useState(false)
   const [isUpdating, setIsUpdating] = useState(false)
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, right: 0 })
+  const btnRef = useRef<HTMLButtonElement>(null)
   const status: ManagementStatus = statusRecord?.status || 'en_seguimiento'
   const config = STATUS_CONFIG[status]
+
+  const handleOpen = (e: MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation()
+    if (isOpen) { setIsOpen(false); return }
+    if (btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect()
+      setDropdownPos({
+        top: rect.bottom + window.scrollY + 4,
+        right: window.innerWidth - rect.right,
+      })
+    }
+    setIsOpen(true)
+  }
 
   const handleChange = async (newStatus: ManagementStatus) => {
     if (requiresAuth) {
@@ -81,7 +96,8 @@ function StatusBadge({
   return (
     <div className="relative">
       <button
-        onClick={(e) => { e.stopPropagation(); setIsOpen(!isOpen) }}
+        ref={btnRef}
+        onClick={handleOpen}
         disabled={isUpdating}
         className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${config.bgColor} ${config.color} hover:opacity-80 whitespace-nowrap disabled:opacity-50`}
       >
@@ -91,7 +107,6 @@ function StatusBadge({
         </svg>
       </button>
 
-      {/* Show who changed it - only for non-default statuses */}
       {statusRecord?.changed_by_name && status !== 'en_seguimiento' && (
         <p className="text-2xs text-apple-gray-400 mt-0.5 truncate max-w-[140px]">
           por {statusRecord.changed_by_name}
@@ -101,19 +116,19 @@ function StatusBadge({
       {isOpen && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
-          <div className="absolute right-0 top-full mt-1 z-50 bg-white dark:bg-apple-gray-800 rounded-xl shadow-xl border border-apple-gray-200 dark:border-apple-gray-700 py-1.5 min-w-[180px]">
+          <div
+            className="fixed z-50 bg-white dark:bg-apple-gray-800 rounded-xl shadow-xl border border-apple-gray-200 dark:border-apple-gray-700 py-1.5 min-w-[180px]"
+            style={{ top: dropdownPos.top, right: dropdownPos.right }}
+          >
             {requiresAuth && (
               <p className="px-4 py-2 text-xs text-apple-gray-500 border-b border-apple-gray-100 dark:border-apple-gray-700">
-                Inicia sesion para cambiar
+                Iniciá sesión para cambiar
               </p>
             )}
             {(Object.entries(STATUS_CONFIG) as [ManagementStatus, typeof config][]).map(([key, cfg]) => (
               <button
                 key={key}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handleChange(key)
-                }}
+                onClick={(e) => { e.stopPropagation(); handleChange(key) }}
                 className={`w-full px-4 py-2 text-left text-sm hover:bg-apple-gray-100 dark:hover:bg-apple-gray-700 transition-colors ${
                   key === status ? 'font-semibold' : ''
                 } ${cfg.color}`}
@@ -474,6 +489,12 @@ export default function MonitoringPage() {
     getSeguimientoList().then(setSupabaseSeguimiento)
   }
 
+  const handleRemoveFromSeguimiento = async (playerKey: string, e: MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation()
+    const result = await removeFromSeguimiento(playerKey)
+    if (result.success) refreshSeguimiento()
+  }
+
   // Load seguimiento from Supabase
   useEffect(() => {
     getSeguimientoList()
@@ -752,16 +773,6 @@ export default function MonitoringPage() {
           </p>
         </div>
 
-        {/* Actions + Status pills */}
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={() => setShowAddPlayerModal(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-[#8B1530] text-white hover:bg-[#A01A38] transition-colors shadow-sm"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-            Agregar jugador
-          </button>
-        </div>
         {/* Status summary pills */}
         <div className="flex flex-wrap items-center gap-2">
           {(Object.entries(STATUS_CONFIG) as [ManagementStatus, typeof STATUS_CONFIG.en_seguimiento][]).map(([key, cfg]) => (
@@ -778,6 +789,17 @@ export default function MonitoringPage() {
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Add player button — above the list, right-aligned */}
+      <div className="flex justify-end mb-3">
+        <button
+          onClick={() => setShowAddPlayerModal(true)}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[#8B1530] text-white hover:bg-[#A01A38] transition-colors shadow-sm"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+          Agregar jugador
+        </button>
       </div>
 
       {/* Search bar */}
@@ -1197,7 +1219,7 @@ export default function MonitoringPage() {
                             />
                           </td>
 
-                          {/* Links */}
+                          {/* Links + remove */}
                           <td className="px-3 py-3">
                             <div className="flex items-center gap-2">
                               {/* Transfermarkt */}
@@ -1230,6 +1252,18 @@ export default function MonitoringPage() {
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                   </svg>
                                 </a>
+                              )}
+                              {/* Remove from seguimiento */}
+                              {segEntry && (
+                                <button
+                                  onClick={(e) => handleRemoveFromSeguimiento(playerKey, e)}
+                                  className="p-1.5 rounded-md text-apple-gray-300 dark:text-apple-gray-600 hover:text-red-500 hover:bg-red-500/10 transition-colors"
+                                  title="Sacar del seguimiento"
+                                >
+                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                                  </svg>
+                                </button>
                               )}
                             </div>
                           </td>

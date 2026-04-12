@@ -515,13 +515,55 @@ function InfoRow({ label, value }: { label: string; value?: string | null }) {
   )
 }
 
+// ─── CLEAR METRIC NAMES ───────────────────────────────────────────────────────
+// Maps raw CSV column names → human-readable labels that make the unit explicit
+
+const CLEAR_METRIC_NAMES: Record<string, string> = {
+  'Gambetas completadas/90':          'Gambetas completadas por 90 min',
+  'Gambetas completadas, %':          '% gambetas completadas (efectividad)',
+  'Duelos defensivos ganados, %':     '% duelos defensivos ganados',
+  'Duelos aéreos ganados, %':         '% duelos aéreos ganados',
+  'Duelos ganados, %':                '% duelos totales ganados',
+  'Duelos atacantes ganados/90':      'Duelos ofensivos ganados por 90 min',
+  'Interceptaciones/90':              'Interceptaciones por 90 min',
+  'Pases progresivos exitosos/90':    'Pases progresivos por 90 min',
+  'Carreras en progresión/90':        'Carreras en progresión por 90 min',
+  'Precisión pases largos, %':        '% pases largos precisos',
+  'Precisión pases hacia adelante, %':'% pases hacia adelante precisos',
+  'Pases hacia adelante/90':          'Pases hacia adelante por 90 min',
+  'Acciones de ataque exitosas/90':   'Acciones de ataque exitosas por 90 min',
+  'xA/90':                            'xA por 90 min (asistencias esperadas)',
+  'xG':                               'xG total (goles esperados)',
+  'xG/90':                            'xG por 90 min (goles esperados)',
+  'Centros precisos/90':              'Centros precisos por 90 min',
+  'Jugadas claves/90':                'Jugadas clave por 90 min',
+  'Entradas/90':                      'Entradas por 90 min',
+  'Acciones defensivas realizadas/90':'Acciones defensivas por 90 min',
+  'Goles evitados/90':                'Goles evitados por 90 min (vs xG)',
+  'Paradas, %':                       '% de paradas sobre remates al arco',
+  'Porterías imbatidas en los 90':    'Porterías imbatidas por 90 min',
+  'Goles recibidos/90':               'Goles recibidos por 90 min',
+  'xG en contra/90':                  'xG en contra por 90 min',
+  'Salidas/90':                       'Salidas del arquero por 90 min',
+  'Duelos aéreos en los 90':          'Duelos aéreos por 90 min',
+  'Remates/90':                       'Remates por 90 min',
+  'Toques en el área de penalti/90':  'Toques en área rival por 90 min',
+  'Faltas recibidas/90':              'Faltas recibidas por 90 min',
+  'Ataque en profundidad/90':         'Ataques en profundidad por 90 min',
+  'Pases al tercer tercio/90':        'Pases al último tercio por 90 min',
+  'Pases precisos/90':                'Pases precisos por 90 min',
+  'Asistencias/90':                   'Asistencias por 90 min',
+  'Goles/90':                         'Goles por 90 min',
+}
+
 interface MetricWithPercentileProps {
   label: string
   value?: string | number | null
   percentile?: number | null
+  avgPercentile?: number | null
 }
 
-function MetricRowWithPercentile({ label, value, percentile }: MetricWithPercentileProps) {
+function MetricRowWithPercentile({ label, value, percentile, avgPercentile }: MetricWithPercentileProps) {
   const num = typeof value === 'number' ? value : parseFloat(String(value ?? '').replace(',', '.'))
   const displayVal = isNaN(num) ? (value || '—') : (num % 1 === 0 ? num.toFixed(0) : num.toFixed(2))
 
@@ -541,9 +583,7 @@ function MetricRowWithPercentile({ label, value, percentile }: MetricWithPercent
       <div className="flex items-center justify-between mb-1.5">
         <span className="text-sm text-apple-gray-500 dark:text-apple-gray-400">{label}</span>
         <div className="flex items-center gap-2">
-          <span className={`text-sm font-bold tabular-nums ${quality.textColor}`}>
-            {displayVal}
-          </span>
+          <span className={`text-sm font-bold tabular-nums ${quality.textColor}`}>{displayVal}</span>
           {percentile !== null && percentile !== undefined && (
             <span className={`text-2xs font-semibold px-1.5 py-0.5 rounded ${quality.color}/15 ${quality.textColor}`}>
               {quality.label}
@@ -553,11 +593,20 @@ function MetricRowWithPercentile({ label, value, percentile }: MetricWithPercent
       </div>
       {percentile !== null && percentile !== undefined && (
         <div className="flex items-center gap-2">
-          <div className="flex-1 h-1.5 bg-apple-gray-200 dark:bg-apple-gray-700 rounded-full overflow-hidden">
+          {/* Bar with avg marker at 50% */}
+          <div className="flex-1 relative h-1.5 bg-apple-gray-200 dark:bg-apple-gray-700 rounded-full overflow-visible">
             <div
               className={`h-full rounded-full transition-all duration-500 ${quality.color}`}
               style={{ width: `${Math.min(100, Math.max(0, percentile))}%` }}
             />
+            {/* Average marker — real position of the mean in the distribution */}
+            <div
+              className="absolute top-1/2 -translate-y-1/2 flex flex-col items-center gap-px"
+              style={{ left: `${Math.min(100, Math.max(0, avgPercentile ?? 50))}%`, transform: 'translate(-50%, -50%)' }}
+              title="Promedio del grupo de comparación"
+            >
+              <div className="w-0.5 h-3.5 rounded-full bg-white dark:bg-white/80 shadow-[0_0_4px_rgba(255,255,255,0.8)] ring-1 ring-white/30" />
+            </div>
           </div>
           <span className="text-2xs text-apple-gray-400 tabular-nums w-12 text-right">
             Top {100 - Math.round(percentile)}%
@@ -699,45 +748,56 @@ export default function PlayerDetailPage() {
     return sum / samePosPlayers.length
   }, [player, posKey, external, internal])
 
-  // Calculate percentiles for metrics
-  const metricPercentiles = useMemo(() => {
-    if (!player || !posKey) return {}
+  // Calculate percentiles + average percentile position for each metric
+  const { metricPercentiles, avgPercentiles, percentileLeague } = useMemo(() => {
+    const empty = { metricPercentiles: {} as Record<string, number>, avgPercentiles: {} as Record<string, number>, percentileLeague: 'all' }
+    if (!player || !posKey) return empty
 
     const allPlayers = [...external, ...internal]
-    const samePosList = allPlayers.filter(p => {
-      const pPosKey = POSITION_MAP[p['Posición']?.trim() ?? ''] ?? ''
-      return pPosKey === posKey && p.minutesPlayed >= 300
-    })
+    const byLeague = comparisonLeague !== 'all'
+      ? allPlayers.filter(p => {
+          const pPosKey = POSITION_MAP[p['Posición']?.trim() ?? ''] ?? ''
+          return pPosKey === posKey && p.minutesPlayed >= 300 && p.Liga === comparisonLeague
+        })
+      : []
+    const usedLeague = byLeague.length >= 5 ? comparisonLeague : 'all'
+    const samePosList = usedLeague !== 'all'
+      ? byLeague
+      : allPlayers.filter(p => {
+          const pPosKey = POSITION_MAP[p['Posición']?.trim() ?? ''] ?? ''
+          return pPosKey === posKey && p.minutesPlayed >= 300
+        })
 
-    if (samePosList.length < 5) return {}
+    if (samePosList.length < 5) return { ...empty, percentileLeague: usedLeague }
 
     const percentiles: Record<string, number> = {}
+    const avgPcts: Record<string, number> = {}
     const displayMetricsList = DISPLAY_METRICS[posKey] ?? DISPLAY_METRICS['_default']
 
     for (const metric of displayMetricsList) {
       if (metric === 'Partidos jugados' || metric === 'Minutos jugados') continue
 
-      const playerVal = player[metric]
-      const playerNum = typeof playerVal === 'number' ? playerVal : parseFloat(String(playerVal ?? '').replace(',', '.'))
-
-      if (isNaN(playerNum)) continue
-
       const values = samePosList
-        .map(p => {
-          const v = p[metric]
-          return typeof v === 'number' ? v : parseFloat(String(v ?? '').replace(',', '.'))
-        })
+        .map(p => { const v = p[metric]; return typeof v === 'number' ? v : parseFloat(String(v ?? '').replace(',', '.')) })
         .filter(v => !isNaN(v))
         .sort((a, b) => a - b)
 
       if (values.length < 5) continue
 
-      const countBelow = values.filter(v => v < playerNum).length
-      percentiles[metric] = (countBelow / values.length) * 100
+      // Player percentile
+      const playerVal = player[metric]
+      const playerNum = typeof playerVal === 'number' ? playerVal : parseFloat(String(playerVal ?? '').replace(',', '.'))
+      if (!isNaN(playerNum)) {
+        percentiles[metric] = (values.filter(v => v < playerNum).length / values.length) * 100
+      }
+
+      // Where the average value falls in the distribution
+      const avg = values.reduce((a, b) => a + b, 0) / values.length
+      avgPcts[metric] = (values.filter(v => v < avg).length / values.length) * 100
     }
 
-    return percentiles
-  }, [player, posKey, external, internal])
+    return { metricPercentiles: percentiles, avgPercentiles: avgPcts, percentileLeague: usedLeague }
+  }, [player, posKey, external, internal, comparisonLeague])
 
   const availableLeagues = useMemo(() => {
     const allPlayers = [...external, ...internal]
@@ -747,6 +807,120 @@ export default function PlayerDetailPage() {
     }
     return [...leagueSet].sort()
   }, [external, internal])
+
+  // Averages per metric filtered by league + position (for delta display)
+  const leagueMetricAverages = useMemo(() => {
+    if (!player || !posKey) return {} as Record<string, number>
+    const displayMetricsList = DISPLAY_METRICS[posKey] ?? DISPLAY_METRICS['_default']
+    const allPlayers = [...external, ...internal]
+    const peers = allPlayers.filter(p => {
+      const pPosKey = POSITION_MAP[p['Posición']?.trim() ?? ''] ?? ''
+      const matchesLeague = comparisonLeague === 'all' || p.Liga === comparisonLeague
+      return pPosKey === posKey && matchesLeague && p.minutesPlayed >= 300
+    })
+    if (peers.length < 3) return {} as Record<string, number>
+    const avgs: Record<string, number> = {}
+    for (const metric of displayMetricsList) {
+      if (['Partidos jugados', 'Minutos jugados', 'Altura', 'Goles', 'Asistencias'].includes(metric)) continue
+      const vals = peers
+        .map(p => { const v = p[metric]; return typeof v === 'number' ? v : parseFloat(String(v ?? '').replace(',', '.')) })
+        .filter(v => !isNaN(v))
+      if (vals.length >= 3) avgs[metric] = vals.reduce((a, b) => a + b, 0) / vals.length
+    }
+    return avgs
+  }, [player, posKey, external, internal, comparisonLeague])
+
+  // Internal squad players of same position for comparison
+  const squadComparison = useMemo(() => {
+    if (!player || !posKey) return [] as { player: EnrichedPlayer; scoreDiff: number }[]
+    return internal
+      .filter(p => {
+        const pPosKey = POSITION_MAP[p['Posición']?.trim() ?? ''] ?? ''
+        return pPosKey === posKey && p.minutesPlayed >= 200
+      })
+      .map(p => ({ player: p, scoreDiff: (player.ggScore ?? 0) - (p.ggScore ?? 0) }))
+      .sort((a, b) => (b.player.ggScore ?? 0) - (a.player.ggScore ?? 0))
+      .slice(0, 4)
+  }, [player, posKey, internal])
+
+  // Auto-insight text based on metrics
+  const insightText = useMemo(() => {
+    if (!player || !posKey) return null
+    const displayMetricsList = DISPLAY_METRICS[posKey] ?? DISPLAY_METRICS['_default']
+
+    // Positions where xG alone is NOT a virtue — what matters is Goles vs xG (finishing quality)
+    const isFinisher = posKey === 'Delantero' || posKey === 'Extremo'
+
+    // Metrics to skip from generic highlight/weakness logic (handled separately)
+    const SKIP_GENERIC = new Set(['Partidos jugados', 'Minutos jugados', 'Goles', 'Asistencias'])
+    // Also skip xG for finishers — we handle it via the Goles-xG delta instead
+    if (isFinisher) {
+      SKIP_GENERIC.add('xG')
+      SKIP_GENERIC.add('Goles esperados')
+      SKIP_GENERIC.add('xG/90')
+      SKIP_GENERIC.add('Goles esperados/90')
+    }
+
+    const highlights: { key: string; name: string; pct: number }[] = []
+    const weak: { key: string; name: string }[] = []
+    for (const m of displayMetricsList) {
+      if (SKIP_GENERIC.has(m)) continue
+      const p = metricPercentiles[m]
+      if (p === undefined) continue
+      const name = CLEAR_METRIC_NAMES[m] ?? m
+      if (p >= 75) highlights.push({ key: m, name, pct: p })
+      else if (p <= 25) weak.push({ key: m, name })
+    }
+
+    const parts: string[] = []
+
+    // ── xG insight: context-aware ──────────────────────────────────────────────
+    const parseNum = (v: unknown) => {
+      const n = typeof v === 'number' ? v : parseFloat(String(v ?? '').replace(',', '.'))
+      return isNaN(n) ? null : n
+    }
+    const golesVal = parseNum(player['Goles'])
+    // Try different column names for xG total
+    const xgVal = parseNum(player['xG']) ?? parseNum(player['Goles esperados']) ?? parseNum(player['xG total'])
+
+    if (isFinisher && golesVal !== null && xgVal !== null && xgVal > 0) {
+      const delta = golesVal - xgVal
+      const ratio = golesVal / xgVal
+      if (delta >= 1 || ratio >= 1.25) {
+        parts.push(
+          `Definición elite: marcó ${golesVal} goles con un xG de ${xgVal.toFixed(1)} — convierte ${delta >= 0 ? '+' : ''}${delta.toFixed(1)} por encima de lo esperado`
+        )
+      } else if (delta <= -1.5 || ratio <= 0.65) {
+        parts.push(
+          `Área de mejora: definición baja — marcó ${golesVal} goles con xG de ${xgVal.toFixed(1)} (${Math.abs(delta).toFixed(1)} por debajo de lo esperado)`
+        )
+      }
+    } else if (!isFinisher && xgVal !== null) {
+      // For midfielders/laterals, xG high = goal threat = positive
+      const xgKey = displayMetricsList.find(m => ['xG', 'Goles esperados', 'xG/90', 'Goles esperados/90'].includes(m))
+      if (xgKey) {
+        const xgPct = metricPercentiles[xgKey]
+        if (xgPct !== undefined && xgPct >= 75) {
+          highlights.push({ key: xgKey, name: 'llegada al gol (xG)', pct: xgPct })
+        }
+      }
+    }
+
+    // ── Generic highlights ─────────────────────────────────────────────────────
+    if (highlights.length > 0) {
+      const top2 = highlights.sort((a, b) => b.pct - a.pct).slice(0, 2)
+      const minPct = Math.min(...top2.map(h => h.pct))
+      parts.push(`Destaca en ${top2.map(h => h.name).join(' y ')} (top ${Math.round(100 - minPct)}% de su posición)`)
+    }
+    if (weak.length > 0) parts.push(`Área de mejora: ${weak.slice(0, 2).map(w => w.name).join(' y ')}`)
+
+    // ── Contract / market value ────────────────────────────────────────────────
+    if (player.contractStatus === 'critical') parts.push(`Oportunidad de mercado: contrato vence en ${player.monthsRemaining} mes${player.monthsRemaining !== 1 ? 'es' : ''}`)
+    else if (player.contractStatus === 'warning') parts.push(`Contrato vence en ${player.monthsRemaining} meses`)
+    if (player.marketValueRaw > 0) parts.push(`Valor de mercado: ${player.marketValueFormatted}`)
+
+    return parts.length > 0 ? parts : null
+  }, [player, posKey, metricPercentiles])
 
   useEffect(() => {
     if (player) {
@@ -809,9 +983,10 @@ export default function PlayerDetailPage() {
   }, [player, source, marketValueHistory])
 
   // Define tabs based on source
+  // External: Radar+Métricas unified into 'Métricas'
   const tabs = source === 'interno'
     ? ['General', 'Radar', 'Físico', 'Valor', 'Evolución', 'Métricas']
-    : ['General', 'Radar', 'Métricas']
+    : ['General', 'Métricas']
 
   // Compute radar data for PDF export
   const computeRadarData = useMemo(() => {
@@ -1460,48 +1635,216 @@ export default function PlayerDetailPage() {
             {/* MÉTRICAS TAB */}
             {activeTab === 'Métricas' && (
               <div className="animate-fade-in" id="tab-content-metrics">
-                <div className="mb-5">
-                  <h3 className="text-sm font-semibold text-apple-gray-700 dark:text-apple-gray-300">
-                    Métricas Detalladas — {posKey || 'General'}
-                  </h3>
-                  <p className="text-xs text-apple-gray-400 mt-0.5">
-                    Comparado vs jugadores de su posición con +300 minutos
-                  </p>
-                </div>
+                {source === 'externo' ? (
+                  /* ── EXTERNAL: Radar + Métricas unificados ── */
+                  <div className="space-y-6">
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
-                  {displayMetrics.map((metric, idx) => {
-                    const isBasicStat = metric === 'Partidos jugados' || metric === 'Minutos jugados'
-                    const percentile = metricPercentiles[metric]
+                    {/* Header + selector de liga */}
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <h3 className="text-sm font-semibold text-apple-gray-700 dark:text-apple-gray-300">
+                          Métricas · {displayPosition}
+                        </h3>
+                        <p className="text-xs text-apple-gray-400 mt-0.5">Radar y percentiles vs jugadores de su posición con +300 min</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs text-apple-gray-500 whitespace-nowrap">Comparar vs:</label>
+                        <select
+                          value={comparisonLeague}
+                          onChange={e => setComparisonLeague(e.target.value)}
+                          className="input-apple text-sm py-1.5 px-3 min-w-[150px]"
+                        >
+                          <option value="all">Todas las ligas</option>
+                          {availableLeagues.map(l => <option key={l} value={l}>{l}</option>)}
+                        </select>
+                      </div>
+                    </div>
 
-                    if (isBasicStat) {
-                      const val = player[metric]
-                      const num = typeof val === 'number' ? val : parseFloat(String(val ?? '').replace(',', '.'))
-                      return (
-                        <div key={metric} className="flex justify-between py-3 border-b border-apple-gray-200 dark:border-apple-gray-800/50">
-                          <span className="text-sm text-apple-gray-500 dark:text-apple-gray-400">{metric}</span>
-                          <span className="text-sm font-semibold text-apple-gray-800 dark:text-white tabular-nums">
-                            {isNaN(num) ? '—' : num.toFixed(0)}
-                          </span>
+                    {/* Radar — ancho completo */}
+                    <div>
+                      {!posKey ? (
+                        <EmptyState title="Posición no reconocida" description="No se puede generar el radar para esta posición." />
+                      ) : (
+                        <PlayerRadarChart
+                          player={player}
+                          allNormalized={normalized}
+                          allPlayers={[...external, ...internal]}
+                          comparisonLeague={comparisonLeague}
+                          overridePosition={rawPosition}
+                        />
+                      )}
+                    </div>
+
+                    {/* Divider */}
+                    <div className="border-t border-apple-gray-200 dark:border-apple-gray-800" />
+
+                    {/* Todas las métricas */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="text-[10px] font-semibold text-apple-gray-400 uppercase tracking-widest">Métricas</p>
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-0.5 h-3.5 rounded-full bg-apple-gray-400 dark:bg-apple-gray-400 shadow-sm ring-1 ring-apple-gray-300/50 dark:ring-apple-gray-600/50" />
+                          <p className="text-[10px] text-apple-gray-400">
+                            Promedio de {posKey?.toLowerCase() ?? 'su posición'} en{' '}
+                            {percentileLeague === 'all' ? 'todas las ligas' : percentileLeague}
+                          </p>
                         </div>
-                      )
-                    }
+                      </div>
+                      <p className="text-xs text-apple-gray-400 mb-4">
+                        Percentil vs {posKey?.toLowerCase() ?? 'su posición'} ·{' '}
+                        {percentileLeague === 'all' ? 'todas las ligas' : percentileLeague}
+                        {percentileLeague !== comparisonLeague && comparisonLeague !== 'all' && (
+                          <span className="text-apple-gray-300 dark:text-apple-gray-600"> (sin suficientes datos en {comparisonLeague})</span>
+                        )}
+                      </p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
+                        {displayMetrics.map(metric => {
+                          const isBasic = metric === 'Partidos jugados' || metric === 'Minutos jugados'
+                          const clearLabel = CLEAR_METRIC_NAMES[metric] ?? metric
+                          if (isBasic) {
+                            const val = player[metric]
+                            const num = typeof val === 'number' ? val : parseFloat(String(val ?? '').replace(',', '.'))
+                            return (
+                              <div key={metric} className="flex justify-between py-3 border-b border-apple-gray-200 dark:border-apple-gray-800/50">
+                                <span className="text-sm text-apple-gray-500 dark:text-apple-gray-400">{clearLabel}</span>
+                                <span className="text-sm font-semibold text-apple-gray-800 dark:text-white tabular-nums">
+                                  {isNaN(num) ? '—' : num.toFixed(0)}
+                                </span>
+                              </div>
+                            )
+                          }
+                          return (
+                            <MetricRowWithPercentile
+                              key={metric}
+                              label={clearLabel}
+                              value={player[metric]}
+                              percentile={metricPercentiles[metric]}
+                              avgPercentile={avgPercentiles[metric]}
+                            />
+                          )
+                        })}
+                      </div>
+                    </div>
 
-                    return (
-                      <MetricRowWithPercentile
-                        key={metric}
-                        label={metric}
-                        value={player[metric]}
-                        percentile={percentile}
-                      />
-                    )
-                  })}
-                </div>
+                    {/* vs Plantel */}
+                    {squadComparison.length > 0 && (
+                      <>
+                        <div className="border-t border-apple-gray-200 dark:border-apple-gray-800" />
+                        <div>
+                          <p className="text-[10px] font-semibold text-apple-gray-400 uppercase tracking-widest mb-3">
+                            vs Plantel Lanús · {posKey ?? displayPosition}
+                          </p>
+                          <div className="space-y-2">
+                            {squadComparison.map(({ player: sp, scoreDiff }) => {
+                              const extScore = player.ggScore ?? 0
+                              const intScore = sp.ggScore ?? 0
+                              const maxScore = Math.max(extScore, intScore, 1)
+                              const isAhead = scoreDiff > 2
+                              const isBehind = scoreDiff < -2
+                              return (
+                                <div key={sp.Jugador} className="p-3 rounded-xl bg-apple-gray-50 dark:bg-apple-gray-800/50 border border-apple-gray-100 dark:border-apple-gray-800">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <span className="text-sm font-medium text-apple-gray-800 dark:text-white truncate">{sp.Jugador}</span>
+                                      <span className="text-[10px] text-apple-gray-400 whitespace-nowrap">Lanús</span>
+                                    </div>
+                                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ml-3 ${
+                                      isAhead  ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400'
+                                      : isBehind ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400'
+                                               : 'bg-apple-gray-100 dark:bg-apple-gray-700 text-apple-gray-500'
+                                    }`}>
+                                      {scoreDiff > 0 ? '+' : ''}{Math.round(scoreDiff)} pts
+                                    </span>
+                                  </div>
+                                  {/* Score bars */}
+                                  <div className="space-y-1">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-[10px] text-apple-gray-400 w-20 truncate">{player.Jugador.split(' ').pop()}</span>
+                                      <div className="flex-1 h-1.5 bg-apple-gray-200 dark:bg-apple-gray-700 rounded-full overflow-hidden">
+                                        <div className="h-full bg-brand-green rounded-full transition-all duration-500" style={{ width: `${(extScore / maxScore) * 100}%` }} />
+                                      </div>
+                                      <span className="text-[10px] font-semibold text-brand-green w-7 text-right tabular-nums">{Math.round(extScore)}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-[10px] text-apple-gray-400 w-20 truncate">{sp.Jugador.split(' ').pop()}</span>
+                                      <div className="flex-1 h-1.5 bg-apple-gray-200 dark:bg-apple-gray-700 rounded-full overflow-hidden">
+                                        <div className="h-full bg-apple-gray-400 dark:bg-apple-gray-500 rounded-full transition-all duration-500" style={{ width: `${(intScore / maxScore) * 100}%` }} />
+                                      </div>
+                                      <span className="text-[10px] font-semibold text-apple-gray-500 w-7 text-right tabular-nums">{Math.round(intScore)}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      </>
+                    )}
 
-                {!posKey && (
-                  <p className="mt-4 text-xs text-apple-gray-400">
-                    Posición no reconocida para mostrar métricas específicas.
-                  </p>
+                    {/* Insight en viñetas */}
+                    {insightText && (
+                      <>
+                        <div className="border-t border-apple-gray-200 dark:border-apple-gray-800" />
+                        <div className="p-4 bg-brand-green/5 dark:bg-brand-green/10 rounded-xl border border-brand-green/20">
+                          <p className="text-[10px] font-semibold text-brand-green uppercase tracking-widest mb-2">Insight</p>
+                          <ul className="space-y-1.5">
+                            {(Array.isArray(insightText) ? insightText : [insightText]).filter(Boolean).map((point, i) => (
+                              <li key={i} className="flex items-start gap-2">
+                                <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-brand-green flex-shrink-0" />
+                                <span className="text-sm text-apple-gray-700 dark:text-apple-gray-300 leading-relaxed">
+                                  {String(point).endsWith('.') ? point : `${point}.`}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  /* ── INTERNAL: métricas existentes ── */
+                  <div>
+                    <div className="mb-5">
+                      <h3 className="text-sm font-semibold text-apple-gray-700 dark:text-apple-gray-300">
+                        Métricas Detalladas — {posKey || 'General'}
+                      </h3>
+                      <p className="text-xs text-apple-gray-400 mt-0.5">
+                        Comparado vs jugadores de su posición con +300 minutos
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
+                      {displayMetrics.map(metric => {
+                        const isBasicStat = metric === 'Partidos jugados' || metric === 'Minutos jugados'
+                        const percentile = metricPercentiles[metric]
+                        if (isBasicStat) {
+                          const val = player[metric]
+                          const num = typeof val === 'number' ? val : parseFloat(String(val ?? '').replace(',', '.'))
+                          return (
+                            <div key={metric} className="flex justify-between py-3 border-b border-apple-gray-200 dark:border-apple-gray-800/50">
+                              <span className="text-sm text-apple-gray-500 dark:text-apple-gray-400">{metric}</span>
+                              <span className="text-sm font-semibold text-apple-gray-800 dark:text-white tabular-nums">
+                                {isNaN(num) ? '—' : num.toFixed(0)}
+                              </span>
+                            </div>
+                          )
+                        }
+                        return (
+                          <MetricRowWithPercentile
+                            key={metric}
+                            label={metric}
+                            value={player[metric]}
+                            percentile={percentile}
+                            avgPercentile={avgPercentiles[metric]}
+                          />
+                        )
+                      })}
+                    </div>
+                    {!posKey && (
+                      <p className="mt-4 text-xs text-apple-gray-400">
+                        Posición no reconocida para mostrar métricas específicas.
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
             )}

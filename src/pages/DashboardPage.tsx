@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useData } from '@/context/DataContext'
+import { POSITION_MAP } from '@/constants/scoring'
 import { useAuth } from '@/context/AuthContext'
 import { fetchLanusCalendar, FotmobMatch } from '@/services/fotmobService'
 import { fetchUltimoOnce, LineupData } from '@/services/ultimoOnceService'
@@ -79,11 +80,13 @@ function MatchCard({
   label,
   accent = 'brand',
   isTravel = false,
+  to,
 }: {
   match: FotmobMatch | undefined
   label: string
   accent?: 'brand' | 'blue' | 'neutral'
   isTravel?: boolean
+  to?: string
 }) {
   const accentCls = {
     brand: 'from-brand-green to-brand-greenHover text-white',
@@ -91,17 +94,20 @@ function MatchCard({
     neutral: 'from-apple-gray-700 to-apple-gray-800 text-white',
   }[accent]
 
+  const hoverCls = to ? 'cursor-pointer hover:scale-[1.02] active:scale-[0.99] transition-transform duration-200' : ''
+
   if (!match) {
-    return (
-      <div className="rounded-2xl bg-apple-gray-100 dark:bg-apple-gray-800 p-5 flex flex-col gap-3 min-h-[160px] justify-center items-center">
+    const inner = (
+      <div className={`rounded-2xl bg-apple-gray-100 dark:bg-apple-gray-800 p-5 flex flex-col gap-3 min-h-[160px] justify-center items-center ${hoverCls}`}>
         <span className="text-xs font-semibold text-apple-gray-400 uppercase tracking-widest">{label}</span>
         <span className="text-sm text-apple-gray-400">Sin datos disponibles</span>
       </div>
     )
+    return to ? <Link to={to} className="block">{inner}</Link> : inner
   }
 
-  return (
-    <div className={`rounded-2xl bg-gradient-to-br ${accentCls} p-5 flex flex-col gap-3 min-h-[160px] shadow-sm`}>
+  const inner = (
+    <div className={`rounded-2xl bg-gradient-to-br ${accentCls} p-5 flex flex-col gap-3 min-h-[160px] shadow-sm ${hoverCls}`}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold uppercase tracking-widest opacity-80">{label}</span>
@@ -136,6 +142,7 @@ function MatchCard({
       </div>
     </div>
   )
+  return to ? <Link to={to} className="block">{inner}</Link> : inner
 }
 
 function ContractRow({ player, urgency }: { player: EnrichedPlayer; urgency: 'critical' | 'warning' | 'watch' }) {
@@ -405,129 +412,107 @@ function RivalSection({
   }
 
   const formDots = rivalData?.recentForm ?? []
-  const hasLineup = rivalData && rivalData.lastLineup.length > 0
 
   return (
     <div className="bg-white dark:bg-apple-gray-900 rounded-2xl border border-apple-gray-200 dark:border-apple-gray-800 overflow-hidden">
-      {/* Header */}
-      <div className="px-5 py-4 border-b border-apple-gray-200 dark:border-apple-gray-800 flex items-center gap-3">
-        <ShieldImg team={oppName} size={32} className="flex-shrink-0" />
-        <div>
-          <h2 className="font-semibold text-apple-gray-800 dark:text-white">{oppName}</h2>
+      {/* Header with big shield */}
+      <div className="px-5 py-5 border-b border-apple-gray-200 dark:border-apple-gray-800 flex items-center gap-4">
+        <ShieldImg team={oppName} size={56} className="flex-shrink-0" />
+        <div className="flex-1 min-w-0">
+          <h2 className="text-lg font-bold text-apple-gray-800 dark:text-white">{oppName}</h2>
           <p className="text-xs text-apple-gray-500 mt-0.5">
-            Datos del próximo rival · {nextMatch.isHome ? 'Visitante' : 'Local'}
+            {nextMatch.isHome ? 'Local' : 'Visitante'}
             {rivalData?.recentForm[0]?.competicion ? ` · ${rivalData.recentForm[0].competicion}` : ''}
           </p>
         </div>
+        <Link
+          to="/analisis?tab=rival"
+          className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-blue-400/40 text-xs font-medium text-blue-400 hover:bg-blue-400/10 transition-colors group"
+        >
+          <span>Ver análisis</span>
+          <svg className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </Link>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-apple-gray-100 dark:divide-apple-gray-800">
+      <div className="p-5 space-y-5">
+        {/* Key metrics from CSV */}
+        {rivalData && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {rivalData.avgXG !== undefined && (
+              <div className="bg-apple-gray-50 dark:bg-apple-gray-800/50 rounded-xl p-3 text-center">
+                <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">{rivalData.avgXG.toFixed(2)}</p>
+                <p className="text-2xs text-apple-gray-400 uppercase tracking-wide mt-0.5">xG/partido</p>
+              </div>
+            )}
+            {rivalData.avgGoles !== undefined && (
+              <div className="bg-apple-gray-50 dark:bg-apple-gray-800/50 rounded-xl p-3 text-center">
+                <p className="text-xl font-bold text-apple-gray-800 dark:text-white">{rivalData.avgGoles.toFixed(1)}</p>
+                <p className="text-2xs text-apple-gray-400 uppercase tracking-wide mt-0.5">Goles/partido</p>
+              </div>
+            )}
+            {rivalData.avgGolesEnContra !== undefined && (
+              <div className="bg-apple-gray-50 dark:bg-apple-gray-800/50 rounded-xl p-3 text-center">
+                <p className="text-xl font-bold text-red-600 dark:text-red-400">{rivalData.avgGolesEnContra.toFixed(1)}</p>
+                <p className="text-2xs text-apple-gray-400 uppercase tracking-wide mt-0.5">G. recibidos</p>
+              </div>
+            )}
+            {rivalData.avgPPDA !== undefined && (
+              <div className="bg-apple-gray-50 dark:bg-apple-gray-800/50 rounded-xl p-3 text-center">
+                <p className="text-xl font-bold text-apple-gray-800 dark:text-white">{rivalData.avgPPDA.toFixed(1)}</p>
+                <p className="text-2xs text-apple-gray-400 uppercase tracking-wide mt-0.5">PPDA</p>
+              </div>
+            )}
+          </div>
+        )}
 
-        {/* Left: Stats & Form */}
-        <div className="p-5 space-y-5">
-          {/* Key metrics from CSV */}
-          {rivalData && (
-            <div className="grid grid-cols-3 gap-3">
-              {rivalData.avgXG !== undefined && (
-                <div className="bg-apple-gray-50 dark:bg-apple-gray-800/50 rounded-xl p-3 text-center">
-                  <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">{rivalData.avgXG.toFixed(2)}</p>
-                  <p className="text-2xs text-apple-gray-400 uppercase tracking-wide mt-0.5">xG/partido</p>
-                </div>
-              )}
-              {rivalData.avgGoles !== undefined && (
-                <div className="bg-apple-gray-50 dark:bg-apple-gray-800/50 rounded-xl p-3 text-center">
-                  <p className="text-xl font-bold text-apple-gray-800 dark:text-white">{rivalData.avgGoles.toFixed(1)}</p>
-                  <p className="text-2xs text-apple-gray-400 uppercase tracking-wide mt-0.5">Goles/partido</p>
-                </div>
-              )}
-              {rivalData.avgPosesion !== undefined && (
-                <div className="bg-apple-gray-50 dark:bg-apple-gray-800/50 rounded-xl p-3 text-center">
-                  <p className="text-xl font-bold text-apple-gray-800 dark:text-white">{rivalData.avgPosesion.toFixed(0)}%</p>
-                  <p className="text-2xs text-apple-gray-400 uppercase tracking-wide mt-0.5">Posesión</p>
-                </div>
-              )}
-              {rivalData.avgGolesEnContra !== undefined && (
-                <div className="bg-apple-gray-50 dark:bg-apple-gray-800/50 rounded-xl p-3 text-center">
-                  <p className="text-xl font-bold text-red-600 dark:text-red-400">{rivalData.avgGolesEnContra.toFixed(1)}</p>
-                  <p className="text-2xs text-apple-gray-400 uppercase tracking-wide mt-0.5">Goles recibidos</p>
-                </div>
-              )}
-              {rivalData.avgPPDA !== undefined && (
-                <div className="bg-apple-gray-50 dark:bg-apple-gray-800/50 rounded-xl p-3 text-center">
-                  <p className="text-xl font-bold text-apple-gray-800 dark:text-white">{rivalData.avgPPDA.toFixed(1)}</p>
-                  <p className="text-2xs text-apple-gray-400 uppercase tracking-wide mt-0.5">PPDA</p>
-                </div>
-              )}
-              {rivalData.recentForm.length > 0 && (() => {
+        {/* Recent form */}
+        {formDots.length > 0 && (
+          <div>
+            <p className="text-xs font-semibold text-apple-gray-400 uppercase tracking-widest mb-2">
+              Forma reciente
+            </p>
+            <div className="flex items-center gap-2 flex-wrap">
+              {[...formDots].reverse().map((m, i) => {
+                const dot = m.result === 'W'
+                  ? 'bg-emerald-500 text-white'
+                  : m.result === 'L'
+                    ? 'bg-red-500 text-white'
+                    : 'bg-amber-400 text-white'
+                return (
+                  <div key={i} className="relative group">
+                    <div className={`w-8 h-8 rounded-full ${dot} flex items-center justify-center text-xs font-bold shadow-sm`}>
+                      {m.result === 'W' ? 'G' : m.result === 'D' ? 'E' : 'P'}
+                    </div>
+                    <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 hidden group-hover:block z-10 pointer-events-none">
+                      <div className="bg-apple-gray-900 dark:bg-black text-white text-[10px] rounded-lg px-2.5 py-1.5 whitespace-nowrap text-center shadow-xl">
+                        <p className="font-semibold">{m.goalsFor}-{m.goalsAgainst}</p>
+                        <p className="opacity-70">{m.isHome ? 'Local' : 'Visitante'} · {m.partido}</p>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+              {rivalData && rivalData.recentForm.length > 0 && (() => {
                 const w = rivalData.recentForm.filter(m => m.result === 'W').length
                 const d = rivalData.recentForm.filter(m => m.result === 'D').length
                 const l = rivalData.recentForm.filter(m => m.result === 'L').length
                 return (
-                  <div className="bg-apple-gray-50 dark:bg-apple-gray-800/50 rounded-xl p-3 text-center">
-                    <p className="text-sm font-bold text-apple-gray-800 dark:text-white">{w}G·{d}E·{l}P</p>
-                    <p className="text-2xs text-apple-gray-400 uppercase tracking-wide mt-0.5">Últ. {rivalData.recentForm.length}</p>
-                  </div>
+                  <span className="ml-2 text-xs text-apple-gray-500 font-medium">
+                    {w}G · {d}E · {l}P
+                  </span>
                 )
               })()}
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Recent form */}
-          {formDots.length > 0 && (
-            <div>
-              <p className="text-xs font-semibold text-apple-gray-400 uppercase tracking-widest mb-2">
-                Forma reciente
-              </p>
-              <div className="flex items-center gap-2">
-                {[...formDots].reverse().map((m, i) => {
-                  const dot = m.result === 'W'
-                    ? 'bg-emerald-500 text-white'
-                    : m.result === 'L'
-                      ? 'bg-red-500 text-white'
-                      : 'bg-amber-400 text-white'
-                  return (
-                    <div key={i} className="relative group">
-                      <div className={`w-8 h-8 rounded-full ${dot} flex items-center justify-center text-xs font-bold shadow-sm`}>
-                        {m.result === 'W' ? 'G' : m.result === 'D' ? 'E' : 'P'}
-                      </div>
-                      <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 hidden group-hover:block z-10 pointer-events-none">
-                        <div className="bg-apple-gray-900 dark:bg-black text-white text-[10px] rounded-lg px-2.5 py-1.5 whitespace-nowrap text-center shadow-xl">
-                          <p className="font-semibold">{m.goalsFor}-{m.goalsAgainst}</p>
-                          <p className="opacity-70">{m.isHome ? 'Local' : 'Visitante'} · {m.partido}</p>
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-
-          {!rivalData && !loading && (
-            <p className="text-sm text-apple-gray-400 text-center py-4">
-              No se pudieron cargar los datos del rival
-            </p>
-          )}
-        </div>
-
-        {/* Right: Last lineup */}
-        <div className="p-5">
-          <p className="text-xs font-semibold text-apple-gray-400 uppercase tracking-widest mb-3">
-            {hasLineup ? `Último 11 · vs ${rivalData!.lastOpponent ?? '—'} · ${rivalData!.lastResult ?? ''}` : 'Último 11 inicial'}
+        {!rivalData && !loading && (
+          <p className="text-sm text-apple-gray-400 text-center py-4">
+            No se pudieron cargar los datos del rival
           </p>
-          {hasLineup ? (
-            <div className="max-w-[260px] mx-auto">
-              <RivalPitchVisualization
-                players={rivalData!.lastLineup}
-                formation={rivalData!.lastFormation}
-              />
-            </div>
-          ) : (
-            <div className="flex items-center justify-center h-40 rounded-xl bg-apple-gray-50 dark:bg-apple-gray-800/50">
-              <p className="text-sm text-apple-gray-400">Sin datos de formación</p>
-            </div>
-          )}
-        </div>
+        )}
       </div>
     </div>
   )
@@ -709,7 +694,7 @@ function WyscoutDropZone() {
       complete: ({ data }) => {
         const result = parseWyscoutCSV(data as AnyRow[], file.name)
         if (result) setSummary(result)
-        else setError('No se reconoció el formato Wyscout.')
+        else setError('No se reconoció el formato del archivo.')
       },
       error: () => setError('Error al leer el CSV.'),
     })
@@ -725,7 +710,7 @@ function WyscoutDropZone() {
   return (
     <section>
       <h2 className="text-xs font-semibold text-apple-gray-400 uppercase tracking-widest mb-3">
-        Análisis Wyscout
+        Análisis estadístico
       </h2>
 
       {!summary ? (
@@ -756,7 +741,7 @@ function WyscoutDropZone() {
           </div>
           <div className="text-center">
             <p className="text-sm font-semibold text-apple-gray-700 dark:text-apple-gray-200">
-              {dragging ? 'Soltar para analizar' : 'Arrastrá un export de Wyscout'}
+              {dragging ? 'Soltar para analizar' : 'Arrastrá un export estadístico'}
             </p>
             <p className="text-xs text-apple-gray-400 mt-1">CSV o JSON · stats de jugadores del rival</p>
           </div>
@@ -825,6 +810,164 @@ function WyscoutDropZone() {
               ))}
             </div>
           </div>
+        </div>
+      )}
+    </section>
+  )
+}
+
+// ─── Smart Signings ──────────────────────────────────────────────────────────
+
+const SIGNING_POSITIONS = [
+  { key: 'Delantero',       label: 'Delantero' },
+  { key: 'Extremo',         label: 'Extremo' },
+  { key: 'Volante interno', label: 'Vol. Interno' },
+  { key: 'Volante central', label: 'Vol. Central' },
+  { key: 'Lateral',         label: 'Lateral' },
+  { key: 'Defensor Central',label: 'Def. Central' },
+  { key: 'Arquero',         label: 'Arquero' },
+]
+
+function opportunityScore(p: EnrichedPlayer): number {
+  if (!p.ggScore) return 0
+  let s = p.ggScore
+  if (p.contractStatus === 'critical') s += 18
+  else if (p.contractStatus === 'warning') s += 9
+  const mv = p.marketValueRaw ?? 0
+  if (mv === 0) s += 14
+  else if (mv < 1_000_000) s += 10
+  else if (mv < 3_000_000) s += 6
+  else if (mv < 6_000_000) s += 3
+  return s
+}
+
+function SmartSignings({ players, loading }: { players: EnrichedPlayer[]; loading: boolean }) {
+  const [activePos, setActivePos] = useState('Delantero')
+
+  const byPosition = useMemo(() => {
+    const out: Record<string, EnrichedPlayer[]> = {}
+    for (const grp of SIGNING_POSITIONS) {
+      out[grp.key] = players
+        .filter(p => {
+          const norm = POSITION_MAP[p['Posición']] ?? p['Posición']
+          const nationality = String(p['Nacionalidad'] ?? p['País de nacimiento'] ?? '').toLowerCase()
+          const isBrazilian = nationality === 'brasil' || nationality === 'brazil' || nationality === 'brasileño' || nationality === 'brasileña'
+          return norm === grp.key && p.ggScore !== null && p.minutesPlayed >= 300 && !isBrazilian
+        })
+        .sort((a, b) => opportunityScore(b) - opportunityScore(a))
+        .slice(0, 5)
+    }
+    return out
+  }, [players])
+
+  const picks = byPosition[activePos] ?? []
+
+  return (
+    <section>
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <h2 className="text-xs font-semibold text-apple-gray-400 uppercase tracking-widest">Contrataciones inteligentes</h2>
+          <p className="text-[11px] text-apple-gray-400 mt-0.5">Top 5 por puesto · Score + contrato + valor de mercado · <span className="italic">excluye brasileros</span></p>
+        </div>
+        <Link
+          to="/scouting"
+          className="flex items-center gap-1 text-xs font-medium text-brand-green hover:text-brand-greenHover transition-colors"
+        >
+          Ver base completa
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </Link>
+      </div>
+
+      {/* Position tabs */}
+      <div className="flex gap-2 flex-wrap mb-4">
+        {SIGNING_POSITIONS.map(grp => (
+          <button
+            key={grp.key}
+            onClick={() => setActivePos(grp.key)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              activePos === grp.key
+                ? 'bg-brand-green text-white'
+                : 'bg-apple-gray-100 dark:bg-apple-gray-800 text-apple-gray-600 dark:text-apple-gray-300 hover:bg-apple-gray-200 dark:hover:bg-apple-gray-700'
+            }`}
+          >
+            {grp.label}
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          {[0,1,2,3,4].map(i => (
+            <div key={i} className="h-28 rounded-2xl bg-apple-gray-100 dark:bg-apple-gray-800 animate-pulse" />
+          ))}
+        </div>
+      ) : picks.length === 0 ? (
+        <div className="text-center py-10 text-xs text-apple-gray-400 bg-white dark:bg-apple-gray-900 rounded-2xl border border-apple-gray-200 dark:border-apple-gray-800">
+          Sin datos suficientes para {activePos.toLowerCase()}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          {picks.map((p, i) => {
+            const contractClr =
+              p.contractStatus === 'critical' ? 'text-red-500 bg-red-50 dark:bg-red-900/20' :
+              p.contractStatus === 'warning'  ? 'text-amber-500 bg-amber-50 dark:bg-amber-900/20' :
+                                                'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20'
+            const contractTxt =
+              p.monthsRemaining === null ? '—' :
+              p.monthsRemaining < 1     ? 'Libre' :
+                                          `${p.monthsRemaining}m`
+
+            const scoreColor =
+              (p.ggScore ?? 0) >= 70 ? 'text-brand-green' :
+              (p.ggScore ?? 0) >= 50 ? 'text-amber-500' :
+                                       'text-apple-gray-400'
+
+            return (
+              <Link
+                key={p.Jugador + p.Equipo}
+                to={`/jugador/${encodeURIComponent(p.Jugador)}?source=externo&equipo=${encodeURIComponent(p.Equipo)}`}
+                className="bg-white dark:bg-apple-gray-900 rounded-2xl border border-apple-gray-200 dark:border-apple-gray-800 p-4 hover:border-brand-green/60 hover:shadow-sm transition-all group relative flex flex-col gap-2"
+              >
+                {/* Rank badge */}
+                <span className="absolute top-3 right-3 text-[10px] font-bold text-apple-gray-300 dark:text-apple-gray-700">#{i + 1}</span>
+
+                {/* Score + name */}
+                <div className="flex items-center gap-2.5">
+                  <div className="w-11 h-11 flex-shrink-0 relative">
+                    <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
+                      <circle cx="18" cy="18" r="15.9" fill="none" strokeWidth="2.8"
+                        className="stroke-apple-gray-100 dark:stroke-apple-gray-800" />
+                      <circle cx="18" cy="18" r="15.9" fill="none" strokeWidth="2.8"
+                        strokeDasharray={`${p.ggScore ?? 0} 100`}
+                        strokeLinecap="round"
+                        className="stroke-brand-green" />
+                    </svg>
+                    <span className={`absolute inset-0 flex items-center justify-center text-[11px] font-bold ${scoreColor}`}>
+                      {Math.round(p.ggScore ?? 0)}
+                    </span>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-apple-gray-800 dark:text-white truncate group-hover:text-brand-green transition-colors leading-tight">
+                      {p.Jugador.split(' ').pop()}
+                    </p>
+                    <p className="text-[10px] text-apple-gray-500 truncate">{p.Equipo}</p>
+                    <p className="text-[10px] text-apple-gray-400">{p.Liga}</p>
+                  </div>
+                </div>
+
+                {/* Metrics */}
+                <div className="flex items-center gap-1.5 flex-wrap mt-auto">
+                  <span className="text-[10px] font-medium">{p.Edad}a</span>
+                  <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-md ${contractClr}`}>
+                    {contractTxt}
+                  </span>
+                  <span className="text-[10px] text-apple-gray-400 ml-auto truncate">{p.marketValueFormatted}</span>
+                </div>
+              </Link>
+            )
+          })}
         </div>
       )}
     </section>
@@ -999,8 +1142,6 @@ export default function DashboardPage() {
   const [loadingMatches, setLoadingMatches] = useState(true)
   const [lineup, setLineup] = useState<LineupData | null>(null)
   const [loadingLineup, setLoadingLineup] = useState(true)
-  const [updatingLineup, setUpdatingLineup] = useState(false)
-  const [updateError, setUpdateError] = useState<string | null>(null)
   const [seguimientoCount, setSeguimientoCount] = useState<number | null>(null)
   const [rivalData, setRivalData] = useState<RivalData | null>(null)
   const [loadingRival, setLoadingRival] = useState(false)
@@ -1090,22 +1231,6 @@ export default function DashboardPage() {
     })
   }, [matches, loadingMatches])
 
-  const handleUpdateLineup = useCallback(async () => {
-    setUpdatingLineup(true)
-    setUpdateError(null)
-    try {
-      const res = await fetch('/.netlify/functions/update-lineup', { method: 'POST' })
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        throw new Error(body.error || `HTTP ${res.status}`)
-      }
-      await loadLineup()
-    } catch (err) {
-      setUpdateError(err instanceof Error ? err.message : 'Error al actualizar')
-    }
-    setUpdatingLineup(false)
-  }, [loadLineup])
-
   const now = new Date()
 
   const lastMatch = useMemo(() => {
@@ -1169,8 +1294,8 @@ export default function DashboardPage() {
             </div>
           ) : (
             <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
-              <MatchCard match={lastMatch} label="Último partido" accent="neutral" />
-              <MatchCard match={nextMatch} label="Próximo partido" accent="brand" />
+              <MatchCard match={lastMatch} label="Último partido" accent="neutral" to="/analisis?tab=ultimo-partido" />
+              <MatchCard match={nextMatch} label="Próximo partido" accent="brand" to="/analisis?tab=rival" />
               <MatchCard match={nextNextMatch} label="A continuación" accent="brand" />
               <MatchCard match={nextAway} label="Próximo viaje" accent="blue" isTravel />
             </div>
@@ -1259,9 +1384,6 @@ export default function DashboardPage() {
             <RivalSection rivalData={rivalData} loading={loadingRival} nextMatch={nextMatch} />
           </section>
         )}
-
-        {/* ── Wyscout ── */}
-        <WyscoutDropZone />
 
         {/* ── Main grid ── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -1380,45 +1502,30 @@ export default function DashboardPage() {
         {/* ── Bottom grid: Último 11 + Mensajes ── */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-          {/* Último 11 */}
+          {/* Último Partido */}
           <div className="bg-white dark:bg-apple-gray-900 rounded-2xl border border-apple-gray-200 dark:border-apple-gray-800 overflow-hidden">
             <div className="px-5 py-4 border-b border-apple-gray-200 dark:border-apple-gray-800 flex items-center justify-between">
               <div>
-                <h2 className="font-semibold text-apple-gray-800 dark:text-white">Último 11 inicial</h2>
+                <h2 className="font-semibold text-apple-gray-800 dark:text-white">Último Partido</h2>
                 {lineup ? (
                   <p className="text-xs text-apple-gray-500 mt-0.5">
-                    {lineup.formation} · vs {lineup.opponent} · {lineup.result}
+                    {lineup.formation} · vs {lineup.opponent} · <span className="font-medium text-apple-gray-700 dark:text-apple-gray-300">{lineup.result}</span>
                   </p>
                 ) : (
-                  <p className="text-xs text-apple-gray-500 mt-0.5">Formación del último partido oficial</p>
+                  <p className="text-xs text-apple-gray-500 mt-0.5">11 inicial del último partido oficial</p>
                 )}
               </div>
-              <button
-                onClick={handleUpdateLineup}
-                disabled={updatingLineup}
-                className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-brand-green hover:bg-brand-greenHover text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              <Link
+                to="/analisis?tab=ultimo-partido"
+                className="flex items-center gap-1 text-xs font-medium text-brand-green hover:text-brand-greenHover transition-colors"
               >
-                {updatingLineup ? (
-                  <>
-                    <span className="w-3 h-3 border border-white/50 border-t-white rounded-full animate-spin" />
-                    Actualizando…
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                    Actualizar 11
-                  </>
-                )}
-              </button>
+                Ver más
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </Link>
             </div>
-            {updateError && (
-              <div className="px-5 py-2 bg-red-50 dark:bg-red-900/20 border-b border-red-100 dark:border-red-900/30">
-                <p className="text-xs text-red-600 dark:text-red-400">{updateError}</p>
-              </div>
-            )}
-            <div className="p-3 sm:p-4 max-w-[420px] mx-auto">
+            <div className="p-4 sm:p-6 max-w-[480px] mx-auto">
               {loadingLineup ? (
                 <div className="relative w-full" style={{ paddingBottom: '148%' }}>
                   <div className="absolute inset-0 flex items-center justify-center bg-[#1e7a35] rounded-lg">
@@ -1429,7 +1536,7 @@ export default function DashboardPage() {
                 <PitchVisualization
                   players={lineup ? lineup.players.map(p => ({ number: p.number, name: p.name, x: p.x, y: p.y })) : PLACEHOLDER_11}
                   isPlaceholder={!lineup}
-                  formation={lineup?.formation ?? '4-3-3'}
+                  formation={lineup?.formation ?? '4-2-3-1'}
                 />
               )}
             </div>
@@ -1489,6 +1596,9 @@ export default function DashboardPage() {
             />
           </div>
         </section>
+
+        {/* ── Contrataciones inteligentes ── */}
+        <SmartSignings players={external} loading={loading} />
 
         {/* ── Goleadores · Asistidores ── */}
         {(loadingTopStats || topScorers.length > 0 || topAssisters.length > 0) && (

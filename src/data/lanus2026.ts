@@ -55,6 +55,13 @@ export interface MatchData {
   pasesProgresivos_pct: number
   ppda: number
   intensidadPaso: number
+  // Goleadores y asistidores del partido (completar para ranking correcto)
+  scorers?: string[]     // ej: ['Briasco', 'Valois', 'Briasco']  (repetir si marcó 2)
+  assisters?: string[]   // ej: ['Marcelino', 'Esquivel']
+  posesion_rival?: number  // posesión del rival en %, si se necesita independiente del cálculo
+  amarillas_rival?: number
+  faltas_rival?: number
+  corners_rival?: number
 }
 
 export const LANUS_2026: MatchData[] = [
@@ -297,6 +304,22 @@ export const LANUS_2026: MatchData[] = [
     pasesUltimoTercio: 47, pasesUltimoTercioLogrados: 32, pasesUltimoTercio_pct: 68.09,
     pasesProgresivos: 71, pasesProgresivosLogrados: 55, pasesProgresivos_pct: 77.46,
     ppda: 11.2, intensidadPaso: 16.42,
+  },
+  {
+    id: 16, date: '2026-04-09', rival: 'Mirassol', isHome: false, competition: 'internacional',
+    result: 'L', golesAFavor: 0, golesEnContra: 1, duration: 101, formation: '4-2-3-1',
+    xG: 0.3, tiros: 6, tirosPorteria: 2, tirosPorteria_pct: 33.33,
+    posesion: 49.6, pases: 394, pasesLogrados: 318, pases_pct: 80.71,
+    duelos: 207, duelosGanados: 92, duelos_pct: 44.44,
+    ataquesPositionales: 21, ataquesPositionalesRemate: 1, contraataques: 0, contraataquesRemate: 0,
+    balonParado: 35, balonParadoRemate: 4, corners: 8, centros: 17, centrosPrecisos: 4, pasesEnProfundidad: 2,
+    golesRecibidos: 1, tirosContra: 10, tirosContraPorteria: 3,
+    duelosDefensivos: 74, duelosDefensivosGanados: 48, duelosDefensivos_pct: 64.86,
+    duelosAereos: 52, duelosAereosGanados: 18, duelosAereos_pct: 34.62,
+    interceptaciones: 22, despejes: 10, faltas: 7, amarillas: 1, rojas: 1,
+    pasesUltimoTercio: 47, pasesUltimoTercioLogrados: 34, pasesUltimoTercio_pct: 72.34,
+    pasesProgresivos: 69, pasesProgresivosLogrados: 44, pasesProgresivos_pct: 63.77,
+    ppda: 11.33, intensidadPaso: 17.8,
   },
 ]
 

@@ -571,6 +571,160 @@ function AddPlayerModal({ positionKey, positionLabel, teamCategory, plantelPlaye
   )
 }
 
+// ─── SquadRosterList ─────────────────────────────────────────────────────────
+// Lista del plantel completa — muestra todos los jugadores del equipo activo
+
+function SquadRosterList({
+  allStates,
+  activeTeam,
+  onSetActiveTeam,
+  currentPositions,
+  onRemove,
+}: {
+  allStates: AllTeamStates
+  activeTeam: TeamCategory
+  onSetActiveTeam: (t: TeamCategory) => void
+  currentPositions: { key: string; label: string; x: number; y: number }[]
+  onRemove: (posKey: string, playerId: string) => void
+}) {
+  // Build flat list of players for the active team, ordered by position
+  const positions = allStates[activeTeam].positions
+  const allPlayers = currentPositions.flatMap(pos =>
+    (positions[pos.key] ?? []).map(p => ({ ...p, posKey: pos.key, posLabel: pos.label }))
+  )
+
+  // Total across all teams for the header tabs
+  function teamCount(tk: TeamCategory) {
+    return Object.values(allStates[tk].positions).flat().length
+  }
+
+  if (TEAM_CATEGORIES.every(tc => teamCount(tc.key) === 0)) return null
+
+  return (
+    <div className="mt-6 bg-white dark:bg-apple-gray-900 rounded-2xl border border-apple-gray-200 dark:border-apple-gray-800 overflow-hidden">
+      {/* Header */}
+      <div className="px-5 py-4 border-b border-apple-gray-200 dark:border-apple-gray-800 flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <p className="text-sm font-bold text-apple-gray-800 dark:text-white">Lista de plantel</p>
+          <p className="text-[10px] text-apple-gray-500 mt-0.5">
+            {allPlayers.length} jugador{allPlayers.length !== 1 ? 'es' : ''} · {TEAM_CATEGORIES.find(t => t.key === activeTeam)?.label}
+          </p>
+        </div>
+        {/* Category tabs */}
+        <div className="flex gap-1 flex-wrap">
+          {TEAM_CATEGORIES.filter(tc => teamCount(tc.key) > 0).map(tc => (
+            <button
+              key={tc.key}
+              onClick={() => onSetActiveTeam(tc.key)}
+              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-colors ${
+                activeTeam === tc.key
+                  ? 'bg-brand-green/15 text-brand-green border border-brand-green/40'
+                  : 'text-apple-gray-500 border border-transparent hover:bg-apple-gray-100 dark:hover:bg-apple-gray-800'
+              }`}
+            >
+              {tc.label} <span className="opacity-60">({teamCount(tc.key)})</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {allPlayers.length === 0 ? (
+        <div className="px-5 py-6 text-center text-sm text-apple-gray-400">
+          Agregá jugadores al plantel desde el campo arriba
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-apple-gray-100 dark:border-apple-gray-800">
+                <th className="px-4 py-2.5 text-left text-[10px] font-semibold text-apple-gray-400 uppercase tracking-wider w-8">#</th>
+                <th className="px-4 py-2.5 text-left text-[10px] font-semibold text-apple-gray-400 uppercase tracking-wider">Nombre</th>
+                <th className="px-4 py-2.5 text-left text-[10px] font-semibold text-apple-gray-400 uppercase tracking-wider">Posición</th>
+                <th className="px-4 py-2.5 text-left text-[10px] font-semibold text-apple-gray-400 uppercase tracking-wider">Rol</th>
+                <th className="px-4 py-2.5 text-left text-[10px] font-semibold text-apple-gray-400 uppercase tracking-wider">Estado</th>
+                <th className="px-4 py-2.5 text-left text-[10px] font-semibold text-apple-gray-400 uppercase tracking-wider">Contrato</th>
+                <th className="px-4 py-2.5 text-left text-[10px] font-semibold text-apple-gray-400 uppercase tracking-wider">Cat.</th>
+                <th className="px-4 py-2.5 text-left text-[10px] font-semibold text-apple-gray-400 uppercase tracking-wider">Notas</th>
+                <th className="w-8" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-apple-gray-100 dark:divide-apple-gray-800">
+              {allPlayers.map((p, i) => {
+                const catCfg = CATEGORY_CONFIG[p.category]
+                const contractCfg = p.contractStatus ? CONTRACT_STATUS_CONFIG[p.contractStatus] : null
+                return (
+                  <tr key={p.id} className="hover:bg-apple-gray-50 dark:hover:bg-apple-gray-800/50 transition-colors">
+                    <td className="px-4 py-2.5 text-xs text-apple-gray-400 tabular-nums">{i + 1}</td>
+                    <td className="px-4 py-2.5">
+                      <div className="flex items-center gap-2">
+                        {p.plantelImagen && (
+                          <img src={p.plantelImagen} alt="" className="w-7 h-7 rounded-full object-cover flex-shrink-0" />
+                        )}
+                        <div>
+                          <p className="text-sm font-semibold text-apple-gray-900 dark:text-white">{p.name}</p>
+                          {p.birthDate && (
+                            <p className="text-[10px] text-apple-gray-400">{p.birthDate}</p>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <span className="inline-flex items-center gap-1 text-xs font-medium text-apple-gray-700 dark:text-apple-gray-300">
+                        <span className="text-[9px] font-bold text-apple-gray-400 bg-apple-gray-100 dark:bg-apple-gray-800 px-1.5 py-0.5 rounded">{p.posLabel}</span>
+                        <span className="text-[10px] text-apple-gray-400">{p.posKey}</span>
+                      </span>
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${catCfg.color} ${catCfg.bg}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${catCfg.dot}`} />
+                        {catCfg.label}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2.5">
+                      {contractCfg ? (
+                        <span className={`text-xs font-medium ${contractCfg.textColor} flex items-center gap-1`}>
+                          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: contractCfg.dot }} />
+                          {contractCfg.label}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-apple-gray-400">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      {p.contractType ? (
+                        <span className={`text-[10px] font-medium ${p.contractType === 'primer_contrato' ? 'text-emerald-600 dark:text-emerald-400' : 'text-blue-600 dark:text-blue-400'}`}>
+                          {p.contractType === 'primer_contrato' ? 'Primer ctto.' : 'Renovación'}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-apple-gray-400">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5 text-[10px] text-apple-gray-500">
+                      {p.categoryYear || '—'}
+                    </td>
+                    <td className="px-4 py-2.5 text-[10px] text-apple-gray-500 max-w-[160px] truncate">
+                      {p.notes || ''}
+                    </td>
+                    <td className="px-2 py-2.5">
+                      <button
+                        onClick={() => onRemove(p.posKey, p.id)}
+                        className="text-apple-gray-300 hover:text-red-500 transition-colors text-base leading-none px-1"
+                        title="Quitar jugador"
+                      >
+                        ×
+                      </button>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function ArmadoEquiposPage() {
@@ -1006,6 +1160,17 @@ export default function ArmadoEquiposPage() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* ── Lista del plantel — todos los equipos ── */}
+        {activeTab === 'editor' && (
+          <SquadRosterList
+            allStates={allStates}
+            activeTeam={activeTeam}
+            onSetActiveTeam={setActiveTeam}
+            currentPositions={currentPositions}
+            onRemove={removePlayer}
+          />
         )}
       </div>
 

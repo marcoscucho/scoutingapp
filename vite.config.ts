@@ -1,9 +1,54 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
+import type { IncomingMessage, ServerResponse } from 'node:http'
 
-export default defineConfig({
-  plugins: [react()],
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '')
+  return {
+  plugins: [
+    react(),
+    // Proxy Anthropic API server-side — la key nunca queda expuesta en el browser
+    {
+      name: 'anthropic-proxy',
+      configureServer(server) {
+        server.middlewares.use('/anthropic-proxy', (req: IncomingMessage, res: ServerResponse) => {
+          if (req.method !== 'POST') { res.statusCode = 405; res.end(); return }
+          const chunks: Buffer[] = []
+          req.on('data', (c: Buffer) => chunks.push(c))
+          req.on('end', async () => {
+            try {
+              const body = Buffer.concat(chunks).toString()
+              const apiKey = env.ANTHROPIC_API_KEY
+              if (!apiKey) {
+                res.statusCode = 500
+                res.setHeader('Content-Type', 'application/json')
+                res.end(JSON.stringify({ error: 'Falta ANTHROPIC_API_KEY en .env.local' }))
+                return
+              }
+              const upstream = await fetch('https://api.anthropic.com/v1/messages', {
+                method: 'POST',
+                headers: {
+                  'x-api-key': apiKey,
+                  'anthropic-version': '2023-06-01',
+                  'content-type': 'application/json',
+                },
+                body,
+              })
+              const data = await upstream.text()
+              res.statusCode = upstream.status
+              res.setHeader('Content-Type', 'application/json')
+              res.end(data)
+            } catch (err) {
+              res.statusCode = 500
+              res.setHeader('Content-Type', 'application/json')
+              res.end(JSON.stringify({ error: String(err) }))
+            }
+          })
+        })
+      },
+    },
+  ],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
@@ -65,7 +110,6 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          // Vendor chunks - separate large dependencies
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
           'vendor-charts': ['recharts'],
           'vendor-pdf': ['jspdf', 'html2canvas'],
@@ -74,4 +118,5 @@ export default defineConfig({
       },
     },
   },
+  }
 })

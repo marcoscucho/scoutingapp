@@ -20,50 +20,33 @@ export interface LineupData {
   result: string
 }
 
-// ─── Último 11 hardcodeado (vs Platense, J15 · 2026-04-05) ────────────────────
-// Actualizar partido a partido. Formación: 4-4-2
+// ─── Último 11 hardcodeado (vs Mirassol, Copa Libertadores · 2026-04-08) ─────
+// Actualizar partido a partido. Formación: 4-2-3-1
+// Orden para PitchVisualization: GK, RB, CB, CB, LB, DM, DM, RAM, CAM, LAM, ST
 const HARDCODED_LINEUP: LineupData = {
-  formation: '4-4-2',
-  matchDate: '2026-04-05',
-  opponent:  'Platense',
-  result:    '0-0',
+  formation: '4-2-3-1',
+  matchDate: '2026-04-08',
+  opponent:  'Mirassol',
+  result:    '0-1', // Copa Libertadores – derrota ante Mirassol
   players: [
-    // GK
-    { number: 26, name: 'Losada',     position: 'GK', x: 50,  y: 126, formation: '4-4-2', match_date: '2026-04-05', opponent: 'Platense', result: '0-0' },
-    // DEF (L→R: Marcich LB, DeJesús CB, Izquierdoz CB, Guidara RB)
-    { number:  6, name: 'Marcich',    position: 'LB', x: 18,  y: 107, formation: '4-4-2', match_date: '2026-04-05', opponent: 'Platense', result: '0-0' },
-    { number: 35, name: 'DeJesús',    position: 'CB', x: 37,  y: 107, formation: '4-4-2', match_date: '2026-04-05', opponent: 'Platense', result: '0-0' },
-    { number: 24, name: 'Izquierdoz', position: 'CB', x: 63,  y: 107, formation: '4-4-2', match_date: '2026-04-05', opponent: 'Platense', result: '0-0' },
-    { number: 33, name: 'Guidara',    position: 'RB', x: 82,  y: 107, formation: '4-4-2', match_date: '2026-04-05', opponent: 'Platense', result: '0-0' },
-    // MID (L→R: Watson, Sepúlveda, Cardozo, Sánchez)
-    { number:  8, name: 'Watson',     position: 'LM', x: 18,  y: 75,  formation: '4-4-2', match_date: '2026-04-05', opponent: 'Platense', result: '0-0' },
-    { number: 16, name: 'Sepúlveda',  position: 'CM', x: 39,  y: 75,  formation: '4-4-2', match_date: '2026-04-05', opponent: 'Platense', result: '0-0' },
-    { number: 30, name: 'Cardozo',    position: 'CM', x: 61,  y: 75,  formation: '4-4-2', match_date: '2026-04-05', opponent: 'Platense', result: '0-0' },
-    { number: 27, name: 'Sánchez',    position: 'RM', x: 82,  y: 75,  formation: '4-4-2', match_date: '2026-04-05', opponent: 'Platense', result: '0-0' },
-    // FWD
-    { number: 19, name: 'Valois',     position: 'ST', x: 33,  y: 35,  formation: '4-4-2', match_date: '2026-04-05', opponent: 'Platense', result: '0-0' },
-    { number: 11, name: 'Salvio',     position: 'ST', x: 67,  y: 35,  formation: '4-4-2', match_date: '2026-04-05', opponent: 'Platense', result: '0-0' },
+    { number: 26, name: 'Losada',     position: 'GK',  x: 50,  y: 131, formation: '4-2-3-1', match_date: '2026-04-08', opponent: 'Mirassol', result: '0-1' },
+    { number: 33, name: 'Guidara',    position: 'RB',  x: 82,  y: 113, formation: '4-2-3-1', match_date: '2026-04-08', opponent: 'Mirassol', result: '0-1' },
+    { number: 24, name: 'Izquierdoz', position: 'CB',  x: 62,  y: 114, formation: '4-2-3-1', match_date: '2026-04-08', opponent: 'Mirassol', result: '0-1' },
+    { number: 13, name: 'Canale',     position: 'CB',  x: 38,  y: 114, formation: '4-2-3-1', match_date: '2026-04-08', opponent: 'Mirassol', result: '0-1' },
+    { number:  6, name: 'Marcich',    position: 'LB',  x: 18,  y: 113, formation: '4-2-3-1', match_date: '2026-04-08', opponent: 'Mirassol', result: '0-1' },
+    { number:  8, name: 'Watson',     position: 'DM',  x: 65,  y: 92,  formation: '4-2-3-1', match_date: '2026-04-08', opponent: 'Mirassol', result: '0-1' },
+    { number: 30, name: 'Cardozo',    position: 'DM',  x: 35,  y: 92,  formation: '4-2-3-1', match_date: '2026-04-08', opponent: 'Mirassol', result: '0-1' },
+    { number: 23, name: 'Carrera',    position: 'RAM', x: 76,  y: 68,  formation: '4-2-3-1', match_date: '2026-04-08', opponent: 'Mirassol', result: '0-1' },
+    { number: 17, name: 'Medina',     position: 'CAM', x: 50,  y: 65,  formation: '4-2-3-1', match_date: '2026-04-08', opponent: 'Mirassol', result: '0-1' },
+    { number: 11, name: 'Salvio',     position: 'LAM', x: 24,  y: 68,  formation: '4-2-3-1', match_date: '2026-04-08', opponent: 'Mirassol', result: '0-1' },
+    { number: 16, name: 'Sepúlveda',  position: 'ST',  x: 50,  y: 35,  formation: '4-2-3-1', match_date: '2026-04-08', opponent: 'Mirassol', result: '0-1' },
   ],
 }
 
+// Usa el hardcoded directamente — la fuente de verdad es este archivo.
+// Actualizar HARDCODED_LINEUP partido a partido.
 export async function fetchUltimoOnce(): Promise<LineupData | null> {
-  const { data, error } = await supabase
-    .from('ultimo_once')
-    .select('*')
-    .order('id', { ascending: true })
-
-  if (error || !data || data.length === 0) {
-    console.warn('ultimo_once fetch failed, using hardcoded lineup:', error?.message)
-    return HARDCODED_LINEUP
-  }
-
-  return {
-    players: data,
-    formation: data[0].formation,
-    matchDate: data[0].match_date,
-    opponent: data[0].opponent,
-    result: data[0].result,
-  }
+  return HARDCODED_LINEUP
 }
 
 /** Maps FotMob position string to x/y pitch coordinates.

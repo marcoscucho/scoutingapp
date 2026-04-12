@@ -1,5 +1,11 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { parseWyscoutPdf, type WyscoutData } from '@/services/wyscoutParser'
+import { processFile, mergeRivalData, analyzePdfPages, fetchRivalSheetData, fetchUltimoPartidoData, type RivalData, type PartialRivalData, type FileSource, type PdfPageInsight, type UltimoPartidoStats } from '@/services/rivalAnalysisService'
+import { extractPdfPages, type PdfPage } from '@/services/pdfImageService'
+import FormationPitchCard, { FormationsGrid } from '@/components/rival/FormationPitchCard'
+import { RivalComprehensiveReport } from '@/components/rival/RivalComprehensiveReport'
+import { PdfPagesViewer } from '@/components/rival/PdfPagesViewer'
 import {
   RadarChart, PolarGrid, PolarAngleAxis, Radar, ResponsiveContainer,
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -98,20 +104,64 @@ function TabResumen({ matches }: { matches: MatchData[] }) {
     { metric: 'Def. terrestre', value: Math.round((avgDuelDef / 80) * 100) },
   ]
 
-  // Top scorers from internal players
+  // Top scorers: fuente primaria = scorers/assisters por partido en LANUS_2026.
+  // Si no hay datos aún, fallback a internalPlayers SOLO para jugadores cuyos
+  // Partidos jugados ≤ total de partidos que Lanús jugó en 2026 (constante, no filtrado).
+  // Esto evita tomar goles de fichajes recientes en sus clubes anteriores (ej: Valois = 26 > 25).
+  const maxLanusMatches = LANUS_2026.length  // total real, no varía con el filtro de competición
+
   const topScorers = useMemo(() => {
+    // Fuente primaria: datos de partidos en lanus2026.ts
+    const tally: Record<string, number> = {}
+    for (const m of matches) {
+      for (const name of m.scorers ?? []) {
+        tally[name] = (tally[name] ?? 0) + 1
+      }
+    }
+    const fromMatches = Object.entries(tally)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([name, goals]) => ({ name, goals }))
+    if (fromMatches.length > 0) return fromMatches
+
+    // Fallback: internalPlayers, pero solo si sus partidos ≤ lo que Lanús jugó
+    // (más partidos = stats son del club anterior, no de Lanús)
     return [...internalPlayers]
-      .filter(p => parseFloat(p.Goles) > 0)
+      .filter(p => {
+        const goals = parseFloat(p.Goles)
+        const partidos = parseInt(p['Partidos jugados'] ?? p.Partidos ?? '0')
+        return goals > 0 && partidos <= maxLanusMatches
+      })
       .sort((a, b) => parseFloat(b.Goles) - parseFloat(a.Goles))
       .slice(0, 5)
-  }, [internalPlayers])
+      .map(p => ({ name: p.Jugador, goals: parseFloat(p.Goles) }))
+  }, [matches, internalPlayers, maxLanusMatches])
 
   const topAssisters = useMemo(() => {
+    // Fuente primaria: datos de partidos en lanus2026.ts
+    const tally: Record<string, number> = {}
+    for (const m of matches) {
+      for (const name of m.assisters ?? []) {
+        tally[name] = (tally[name] ?? 0) + 1
+      }
+    }
+    const fromMatches = Object.entries(tally)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([name, assists]) => ({ name, assists }))
+    if (fromMatches.length > 0) return fromMatches
+
+    // Fallback: internalPlayers con el mismo filtro de partidos
     return [...internalPlayers]
-      .filter(p => parseFloat(p.Asistencias) > 0)
+      .filter(p => {
+        const asists = parseFloat(p.Asistencias)
+        const partidos = parseInt(p['Partidos jugados'] ?? p.Partidos ?? '0')
+        return asists > 0 && partidos <= maxLanusMatches
+      })
       .sort((a, b) => parseFloat(b.Asistencias) - parseFloat(a.Asistencias))
       .slice(0, 5)
-  }, [internalPlayers])
+      .map(p => ({ name: p.Jugador, assists: parseFloat(p.Asistencias) }))
+  }, [matches, internalPlayers, maxLanusMatches])
 
   return (
     <div className="space-y-6">
@@ -163,22 +213,9 @@ function TabResumen({ matches }: { matches: MatchData[] }) {
         <StatCard label="Precisión pase" value={fmtPct(avgPases)} sub={`${Math.round(avg(matches, 'pases'))} pases/partido`} />
       </div>
 
-      {/* Radar + Goleadores */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Team style radar */}
-        <div className="bg-white dark:bg-apple-gray-900 border border-apple-gray-200 dark:border-apple-gray-800 rounded-xl shadow-sm dark:shadow-none p-4">
-          <p className="text-xs text-apple-gray-400 uppercase tracking-wider mb-2">Identidad de juego</p>
-          <ResponsiveContainer width="100%" height={280}>
-            <RadarChart data={radarData}>
-              <PolarGrid stroke="#374151" />
-              <PolarAngleAxis dataKey="metric" tick={{ fill: '#9ca3af', fontSize: 11 }} />
-              <Radar name="Lanús" dataKey="value" stroke="#16a34a" fill="#16a34a" fillOpacity={0.25} strokeWidth={2} />
-            </RadarChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* Top scorers / assisters */}
-        <div className="bg-white dark:bg-apple-gray-900 border border-apple-gray-200 dark:border-apple-gray-800 rounded-xl shadow-sm dark:shadow-none p-4 space-y-4">
+      {/* Goleadores + Asistidores — fuente: partidos de lanus2026.ts */}
+      <div className="bg-white dark:bg-apple-gray-900 border border-apple-gray-200 dark:border-apple-gray-800 rounded-xl shadow-sm dark:shadow-none p-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           <div>
             <p className="text-xs text-apple-gray-400 uppercase tracking-wider mb-2">Goleadores</p>
             {topScorers.length > 0 ? (
@@ -188,13 +225,13 @@ function TabResumen({ matches }: { matches: MatchData[] }) {
                     <span className="text-xs text-apple-gray-500 w-4">{i + 1}</span>
                     <div className="flex-1">
                       <div className="flex justify-between text-sm">
-                        <span className="text-apple-gray-900 dark:text-white font-medium truncate">{p.Jugador}</span>
-                        <span className="text-brand-green font-bold ml-2">{p.Goles}</span>
+                        <span className="text-apple-gray-900 dark:text-white font-medium truncate">{p.name}</span>
+                        <span className="text-brand-green font-bold ml-2">{p.goals}</span>
                       </div>
                       <div className="h-1.5 bg-apple-gray-200 dark:bg-apple-gray-800 rounded-full mt-1">
                         <div
                           className="h-full bg-brand-green rounded-full"
-                          style={{ width: `${Math.min(100, (parseFloat(p.Goles) / parseFloat(topScorers[0]?.Goles ?? '1')) * 100)}%` }}
+                          style={{ width: `${Math.min(100, (p.goals / (topScorers[0]?.goals || 1)) * 100)}%` }}
                         />
                       </div>
                     </div>
@@ -202,7 +239,9 @@ function TabResumen({ matches }: { matches: MatchData[] }) {
                 ))}
               </div>
             ) : (
-              <p className="text-apple-gray-500 text-sm">Sin datos del plantel</p>
+              <p className="text-xs text-apple-gray-500 italic leading-relaxed">
+                Sin datos. Completar <code className="text-[10px] bg-apple-gray-100 dark:bg-apple-gray-800 px-1 rounded">scorers</code> por partido en <code className="text-[10px] bg-apple-gray-100 dark:bg-apple-gray-800 px-1 rounded">lanus2026.ts</code>.
+              </p>
             )}
           </div>
           <div>
@@ -214,13 +253,13 @@ function TabResumen({ matches }: { matches: MatchData[] }) {
                     <span className="text-xs text-apple-gray-500 w-4">{i + 1}</span>
                     <div className="flex-1">
                       <div className="flex justify-between text-sm">
-                        <span className="text-apple-gray-900 dark:text-white font-medium truncate">{p.Jugador}</span>
-                        <span className="text-blue-600 dark:text-blue-400 font-bold ml-2">{p.Asistencias}</span>
+                        <span className="text-apple-gray-900 dark:text-white font-medium truncate">{p.name}</span>
+                        <span className="text-blue-600 dark:text-blue-400 font-bold ml-2">{p.assists}</span>
                       </div>
                       <div className="h-1.5 bg-apple-gray-200 dark:bg-apple-gray-800 rounded-full mt-1">
                         <div
                           className="h-full bg-blue-500 rounded-full"
-                          style={{ width: `${Math.min(100, (parseFloat(p.Asistencias) / parseFloat(topAssisters[0]?.Asistencias ?? '1')) * 100)}%` }}
+                          style={{ width: `${Math.min(100, (p.assists / (topAssisters[0]?.assists || 1)) * 100)}%` }}
                         />
                       </div>
                     </div>
@@ -228,11 +267,24 @@ function TabResumen({ matches }: { matches: MatchData[] }) {
                 ))}
               </div>
             ) : (
-              <p className="text-apple-gray-500 text-sm">Sin datos del plantel</p>
+              <p className="text-xs text-apple-gray-500 italic leading-relaxed">
+                Sin datos. Completar <code className="text-[10px] bg-apple-gray-100 dark:bg-apple-gray-800 px-1 rounded">assisters</code> por partido en <code className="text-[10px] bg-apple-gray-100 dark:bg-apple-gray-800 px-1 rounded">lanus2026.ts</code>.
+              </p>
             )}
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+// ─── TabAnalisisPropio ─────────────────────────────────────────────────────────
+function TabAnalisisPropio({ matches }: { matches: MatchData[] }) {
+  return (
+    <div className="space-y-10">
+      <TabResumen matches={matches} />
+      <div className="border-t border-apple-gray-200 dark:border-apple-gray-800" />
+      <TabAnalisis matches={matches} />
     </div>
   )
 }
@@ -449,7 +501,7 @@ function TabProximoPartido({ matches }: { matches: MatchData[] }) {
               inputMode === mode ? 'bg-brand-green text-white' : 'text-apple-gray-500 dark:text-apple-gray-400 hover:text-apple-gray-900 dark:hover:text-white'
             }`}
           >
-            {mode === 'form' ? '📋 Formulario' : mode === 'csv' ? '📂 CSV Wyscout' : '✍️ Texto libre'}
+            {mode === 'form' ? '📋 Formulario' : mode === 'csv' ? '📂 CSV estadístico' : '✍️ Texto libre'}
           </button>
         ))}
       </div>
@@ -536,14 +588,14 @@ function TabProximoPartido({ matches }: { matches: MatchData[] }) {
 
       {inputMode === 'csv' && (
         <div className="bg-white dark:bg-apple-gray-900 border border-apple-gray-200 dark:border-apple-gray-800 rounded-xl shadow-sm dark:shadow-none p-5 space-y-4">
-          <p className="text-sm text-apple-gray-400">Subí el archivo Excel/CSV exportado de Wyscout del rival (mismo formato que Team Stats Lanús.xlsx).</p>
+          <p className="text-sm text-apple-gray-400">Subí el archivo Excel/CSV de estadísticas del rival (mismo formato que Team Stats Lanús.xlsx).</p>
           <div
             onClick={() => fileRef.current?.click()}
             className="border-2 border-dashed border-apple-gray-200 dark:border-apple-gray-700 hover:border-brand-green rounded-xl p-8 text-center cursor-pointer transition-colors group"
           >
             <div className="text-4xl mb-2">📂</div>
             <p className="text-apple-gray-300 group-hover:text-white text-sm font-medium">Click para subir CSV / Excel</p>
-            <p className="text-apple-gray-500 text-xs mt-1">Formato Wyscout Team Stats · .xlsx, .csv</p>
+            <p className="text-apple-gray-500 text-xs mt-1">Formato Team Stats · .xlsx, .csv</p>
             <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleCSVFile} />
           </div>
           {csvText && (
@@ -672,6 +724,7 @@ function TabProximoPartido({ matches }: { matches: MatchData[] }) {
 // ─── TabAnalisis (merged: charts + stats + detailed wyscout sections) ──────────
 function TabAnalisis({ matches }: { matches: MatchData[] }) {
   const [wyscoutData, setWyscoutData] = useState<WyscoutData | null>(null)
+  const [showUpload, setShowUpload] = useState(false)
   const sorted = [...matches].sort((a, b) => a.date.localeCompare(b.date))
   const n = matches.length || 1
 
@@ -827,7 +880,7 @@ function TabAnalisis({ matches }: { matches: MatchData[] }) {
                 </div>
               ))}
               <p className="text-[10px] text-apple-gray-400 dark:text-apple-gray-600 mt-2 italic">
-                Datos disponibles al cargar Wyscout PDF actualizado
+                Datos disponibles al cargar informe PDF actualizado
               </p>
             </div>
           </div>
@@ -1047,8 +1100,33 @@ function TabAnalisis({ matches }: { matches: MatchData[] }) {
         )
       })()}
 
-      {/* ── Wyscout Upload ── */}
-      <WyscoutUploadZone current={wyscoutData} onData={setWyscoutData} />
+      {/* ── Actualizar datos con informe PDF ── */}
+      <div>
+        {!showUpload ? (
+          <button
+            onClick={() => setShowUpload(true)}
+            className="flex items-center gap-2 text-xs text-apple-gray-400 hover:text-white border border-apple-gray-200 dark:border-apple-gray-700 rounded-xl px-4 py-2.5 transition-colors hover:border-apple-gray-500"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            </svg>
+            Actualizar datos con informe PDF
+          </button>
+        ) : (
+          <div className="space-y-2">
+            <WyscoutUploadZone
+              current={wyscoutData}
+              onData={(d) => { setWyscoutData(d); setShowUpload(false) }}
+            />
+            <button
+              onClick={() => setShowUpload(false)}
+              className="text-xs text-apple-gray-500 hover:text-apple-gray-300 transition-colors px-2"
+            >
+              ← Cancelar y seguir con los datos actuales
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -1458,17 +1536,18 @@ function CornerHalfPitch({ side, total }: { side: 'left' | 'right'; total: numbe
 interface WyscoutUploadProps {
   current?: WyscoutData | null
   onData: (d: WyscoutData) => void
+  mode?: 'propio' | 'rival'
 }
 
-function WyscoutUploadZone({ current, onData }: WyscoutUploadProps) {
+function WyscoutUploadZone({ current, onData, mode = 'propio' }: WyscoutUploadProps) {
   const [status, setStatus]   = useState<'idle' | 'loading' | 'ok' | 'err'>('idle')
   const [errMsg, setErrMsg]   = useState('')
   const [dragging, setDragging] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const processFile = useCallback(async (file: File) => {
+  const processPdfFile = useCallback(async (file: File) => {
     if (!file.name.toLowerCase().endsWith('.pdf')) {
-      setStatus('err'); setErrMsg('Solo se aceptan archivos PDF de Wyscout.'); return
+      setStatus('err'); setErrMsg('Solo se aceptan archivos PDF.'); return
     }
     setStatus('loading')
     try {
@@ -1477,19 +1556,19 @@ function WyscoutUploadZone({ current, onData }: WyscoutUploadProps) {
       setStatus('ok')
     } catch {
       setStatus('err')
-      setErrMsg('No se pudo leer el PDF. Verificá que sea un informe de equipo de Wyscout.')
+      setErrMsg('No se pudo leer el PDF. Verificá que sea un informe de equipo válido.')
     }
   }, [onData])
 
   function onDrop(e: React.DragEvent) {
     e.preventDefault(); setDragging(false)
     const file = e.dataTransfer.files[0]
-    if (file) processFile(file)
+    if (file) processPdfFile(file)
   }
 
   function onChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
-    if (file) processFile(file)
+    if (file) processPdfFile(file)
     e.target.value = ''
   }
 
@@ -1499,7 +1578,9 @@ function WyscoutUploadZone({ current, onData }: WyscoutUploadProps) {
     <div className="bg-white dark:bg-apple-gray-900 border border-apple-gray-200 dark:border-apple-gray-800 rounded-2xl p-5 shadow-sm dark:shadow-none">
       <div className="flex items-center gap-3 mb-4">
         <div className="w-1 h-5 bg-brand-green rounded-full" />
-        <h3 className="text-xs font-bold tracking-widest uppercase text-apple-gray-600 dark:text-apple-gray-300">Actualizar con Wyscout</h3>
+        <h3 className="text-xs font-bold tracking-widest uppercase text-apple-gray-600 dark:text-apple-gray-300">
+          {mode === 'rival' ? 'Informe PDF del rival' : 'Actualizar con informe PDF'}
+        </h3>
         {current && (
           <span className="ml-auto flex items-center gap-1.5 text-[10px] text-brand-green bg-brand-green/10 border border-brand-green/20 rounded-full px-2.5 py-1 font-semibold">
             <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
@@ -1533,7 +1614,7 @@ function WyscoutUploadZone({ current, onData }: WyscoutUploadProps) {
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
             </svg>
-            <p className="text-sm font-medium">Procesando PDF de Wyscout…</p>
+            <p className="text-sm font-medium">Procesando PDF…</p>
             <p className="text-xs text-apple-gray-500">Extrayendo zonas, córneres y transiciones</p>
           </div>
         ) : status === 'ok' ? (
@@ -1553,7 +1634,9 @@ function WyscoutUploadZone({ current, onData }: WyscoutUploadProps) {
           <div className="flex flex-col items-center gap-3 text-apple-gray-400">
             <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
             <div>
-              <p className="text-sm font-semibold text-white">Arrastrá el PDF de Wyscout aquí</p>
+              <p className="text-sm font-semibold text-white">
+                {mode === 'rival' ? 'Arrastrá el informe PDF del rival aquí' : 'Arrastrá el informe PDF del equipo aquí'}
+              </p>
               <p className="text-xs text-apple-gray-500 mt-1">o hacé click para seleccionarlo</p>
             </div>
             <div className="flex gap-4 text-[10px] text-apple-gray-600 mt-1">
@@ -1566,19 +1649,1603 @@ function WyscoutUploadZone({ current, onData }: WyscoutUploadProps) {
       </div>
 
       <p className="text-[10px] text-apple-gray-600 mt-3 text-center">
-        Subí el <strong className="text-apple-gray-500">Informe de equipo</strong> de Wyscout (PDF). Se actualizan automáticamente las zonas de calor, córneres y transiciones. Alimentalo partido a partido.
+        {mode === 'rival'
+          ? 'Subí el informe PDF del rival. Se actualizan automáticamente las zonas de calor y córneres.'
+          : 'Subí el informe de equipo (PDF). Se actualizan automáticamente las zonas de calor, córneres y transiciones. Alimentalo partido a partido.'}
       </p>
     </div>
   )
 }
 
+const RIVAL_STORAGE_KEY = 'lanus_rival_analysis_v5'
+const ULTIMO_PARTIDO_STORAGE_KEY = 'lanus_ultimo_partido_v1'
+
+// ─── summarizeExtraction ──────────────────────────────────────────────────────
+// Devuelve una lista de strings legibles sobre qué datos se extrajeron de un archivo.
+function summarizeExtraction(partial: PartialRivalData): string[] {
+  const tags: string[] = []
+
+  if (partial.teamName) tags.push(`Equipo: ${partial.teamName}`)
+
+  const formations = partial.recentFormations ?? []
+  if (formations.length > 0) {
+    tags.push(`${formations.length} formación${formations.length > 1 ? 'es' : ''}`)
+    const totalPlayers = formations.reduce((sum, f) => sum + (f.players?.length ?? 0), 0)
+    if (totalPlayers > 0) tags.push(`${totalPlayers} jugadores`)
+  }
+
+  if (partial.players && partial.players.length > 0) {
+    tags.push(`${partial.players.length} jugadores con stats`)
+  }
+
+  const ts = partial.teamStats
+  if (ts) {
+    if (ts.avgXG && ts.avgXG > 0) tags.push(`xG: ${ts.avgXG.toFixed(2)}`)
+    if (ts.avgPosesion && ts.avgPosesion > 0) tags.push(`Posesión: ${ts.avgPosesion.toFixed(0)}%`)
+    if (ts.avgTiros && ts.avgTiros > 0) tags.push(`Remates: ${ts.avgTiros.toFixed(1)}`)
+    if (ts.avgPases && ts.avgPases > 0) tags.push(`Pases: ${ts.avgPases.toFixed(0)}`)
+    if (ts.avgPPDA && ts.avgPPDA > 0) tags.push(`PPDA: ${ts.avgPPDA.toFixed(2)}`)
+  }
+
+  if (partial.recentMatches && partial.recentMatches.length > 0) {
+    tags.push(`${partial.recentMatches.length} partidos`)
+  }
+
+  if (partial.recoveries) tags.push('Mapa recuperaciones')
+  if (partial.losses) tags.push('Mapa pérdidas')
+
+  const corners = (partial.cornersLeft ?? 0) + (partial.cornersRight ?? 0)
+  if (corners > 0) tags.push(`${corners} córneres`)
+
+  if (partial.tacticalNotes && partial.tacticalNotes.length > 0) tags.push('Notas tácticas')
+  if (partial.fullAnalysis) tags.push('Análisis IA completo')
+
+  if (tags.length === 0) tags.push('Sin datos reconocidos')
+  return tags
+}
+
+// ─── MultiFileUploadZone ──────────────────────────────────────────────────────
+interface UploadedFileState {
+  file: File
+  status: 'pending' | 'processing' | 'ok' | 'err'
+  error?: string
+  extracted?: string[]
+}
+
+interface MultiFileUploadZoneProps {
+  current: RivalData | null
+  onData: (d: RivalData) => void
+  /** Llamado cuando se extraen páginas del PDF (imágenes session-only) */
+  onPdfPages?: (pages: PdfPage[]) => void
+  /** Llamado cuando Claude termina de analizar las páginas */
+  onPdfInsights?: (insights: PdfPageInsight[]) => void
+  /** true mientras hay insights analizándose */
+  onLoadingInsights?: (loading: boolean) => void
+  /** Label del título */
+  label?: string
+}
+
+function MultiFileUploadZone({ current, onData, onPdfPages, onPdfInsights, onLoadingInsights, label }: MultiFileUploadZoneProps) {
+  const [files, setFiles] = useState<UploadedFileState[]>([])
+  const [dragging, setDragging] = useState(false)
+  const [globalErr, setGlobalErr] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const ACCEPT = '.pdf,.jpg,.jpeg,.png,.webp,.csv'
+  const TYPES_LABEL = 'PDF · Imágenes · CSV'
+
+  const addFiles = useCallback(async (newFiles: File[]) => {
+    if (!newFiles.length) return
+    setGlobalErr('')
+
+    const states: UploadedFileState[] = newFiles.map(f => ({ file: f, status: 'pending' }))
+    setFiles(prev => {
+      const existing = new Set(prev.map(p => p.file.name))
+      return [...prev, ...states.filter(s => !existing.has(s.file.name))]
+    })
+
+    // Arrancar con los datos ya existentes como base para el merge
+    const partials: PartialRivalData[] = []
+    if (current) {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { parsedAt: _ignored, ...existingPartial } = current
+      partials.push(existingPartial)
+    }
+
+    const pdfFiles: File[] = []
+
+    for (const state of states) {
+      setFiles(prev => prev.map(p =>
+        p.file.name === state.file.name ? { ...p, status: 'processing' } : p
+      ))
+      try {
+        const partial = await processFile(state.file)
+        partials.push(partial)
+        const extracted = summarizeExtraction(partial)
+        setFiles(prev => prev.map(p =>
+          p.file.name === state.file.name ? { ...p, status: 'ok', extracted } : p
+        ))
+        if (state.file.name.toLowerCase().endsWith('.pdf')) {
+          pdfFiles.push(state.file)
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'Error desconocido'
+        setFiles(prev => prev.map(p =>
+          p.file.name === state.file.name ? { ...p, status: 'err', error: msg } : p
+        ))
+      }
+    }
+
+    // Fusionar datos estructurados (nuevos archivos + datos existentes)
+    const newPartials = partials.slice(current ? 1 : 0) // solo los nuevos
+    if (newPartials.length === 0) return
+    try {
+      const merged = mergeRivalData(partials)
+      onData(merged)
+    } catch (e) {
+      setGlobalErr(e instanceof Error ? e.message : 'Error al fusionar archivos')
+    }
+
+    // Extracción de imágenes + análisis visual en background (solo PDFs)
+    if (pdfFiles.length > 0 && (onPdfPages || onPdfInsights)) {
+      ;(async () => {
+        const allPages: PdfPage[] = []
+        for (const pdf of pdfFiles) {
+          try {
+            const pages = await extractPdfPages(pdf)
+            allPages.push(...pages)
+          } catch (e) {
+            console.warn('Error extrayendo páginas del PDF:', e)
+          }
+        }
+        if (allPages.length > 0) {
+          onPdfPages?.(allPages)  // imágenes disponibles de inmediato
+          onLoadingInsights?.(true)
+          try {
+            const insights = await analyzePdfPages(allPages)
+            onPdfInsights?.(insights)
+          } catch (e) {
+            console.warn('Error analizando páginas con IA:', e)
+          } finally {
+            onLoadingInsights?.(false)
+          }
+        }
+      })()
+    }
+  }, [current, onData, onPdfPages, onPdfInsights, onLoadingInsights])
+
+  function onDrop(e: React.DragEvent) {
+    e.preventDefault(); setDragging(false)
+    addFiles(Array.from(e.dataTransfer.files))
+  }
+
+  function onChange(e: React.ChangeEvent<HTMLInputElement>) {
+    addFiles(Array.from(e.target.files ?? []))
+    e.target.value = ''
+  }
+
+  const sourceIcon = (src: FileSource) => {
+    if (src.type === 'pdf') return '📄'
+    if (src.type === 'image') return '🖼️'
+    if (src.type === 'csv') return '📊'
+    return '📎'
+  }
+
+  return (
+    <div className="bg-white dark:bg-apple-gray-900 border border-apple-gray-200 dark:border-apple-gray-800 rounded-2xl p-5 shadow-sm dark:shadow-none space-y-4">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <div className="w-1 h-5 bg-blue-500 rounded-full" />
+        <h3 className="text-xs font-bold tracking-widest uppercase text-apple-gray-600 dark:text-apple-gray-300">
+          {label ?? 'Informe del rival'}
+        </h3>
+        {current && (
+          <span className="ml-auto flex items-center gap-1.5 text-[10px] text-blue-400 bg-blue-500/10 border border-blue-500/20 rounded-full px-2.5 py-1 font-semibold">
+            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+            {current.sources.length} archivo{current.sources.length !== 1 ? 's' : ''} cargado{current.sources.length !== 1 ? 's' : ''}
+          </span>
+        )}
+      </div>
+
+      {/* Archivos cargados actualmente (desde localStorage) */}
+      {current && current.sources.length > 0 && (
+        <div className="space-y-1.5">
+          <p className="text-[9px] font-bold tracking-widest uppercase text-apple-gray-500">
+            Archivos cargados
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {current.sources.map((src, i) => (
+              <span
+                key={i}
+                className="flex items-center gap-1.5 text-[10px] bg-blue-500/10 text-blue-300 border border-blue-500/25 rounded-full px-2.5 py-1 font-medium"
+              >
+                {sourceIcon(src)}
+                <span className="max-w-[200px] truncate">{src.name}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Drop zone */}
+      <div
+        className={`relative border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all duration-200 ${
+          dragging
+            ? 'border-blue-500 bg-blue-500/10'
+            : 'border-apple-gray-700 hover:border-apple-gray-500 hover:bg-apple-gray-800/40'
+        }`}
+        onDragOver={e => { e.preventDefault(); setDragging(true) }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={onDrop}
+        onClick={() => inputRef.current?.click()}
+      >
+        <input
+          ref={inputRef}
+          type="file"
+          accept={ACCEPT}
+          multiple
+          className="hidden"
+          onChange={onChange}
+        />
+        <svg className="w-8 h-8 mx-auto mb-2 text-apple-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+        </svg>
+        <p className="text-sm font-semibold text-white">
+          {current ? 'Agregar más archivos al análisis' : 'Arrastrá archivos aquí'}
+        </p>
+        <p className="text-xs text-apple-gray-500 mt-1">{TYPES_LABEL} · Podés tirar varios a la vez</p>
+        <p className="text-[10px] text-apple-gray-600 mt-2">
+          PDF: extrae formaciones, tarjetas, cambios y estadísticas con IA · Imágenes y CSV también soportados
+        </p>
+      </div>
+
+      {/* Lista de archivos con estado y datos extraídos */}
+      {files.length > 0 && (
+        <div className="space-y-2.5">
+          {files.map((f, i) => (
+            <div key={i} className="space-y-1.5">
+              <div className="flex items-center gap-3 text-xs">
+                <span className="text-apple-gray-400 flex-1 truncate">{f.file.name}</span>
+                {f.status === 'pending' && <span className="text-apple-gray-600">En cola…</span>}
+                {f.status === 'processing' && (
+                  <span className="flex items-center gap-1.5 text-blue-400">
+                    <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    Analizando…
+                  </span>
+                )}
+                {f.status === 'ok' && <span className="text-emerald-400 font-semibold">✓ Listo</span>}
+                {f.status === 'err' && (
+                  <span className="text-red-400 truncate max-w-[200px]" title={f.error}>✗ {f.error}</span>
+                )}
+              </div>
+              {/* Tags de datos extraídos */}
+              {f.status === 'ok' && f.extracted && f.extracted.length > 0 && (
+                <div className="flex flex-wrap gap-1 pl-0">
+                  {f.extracted.map((tag, ti) => (
+                    <span
+                      key={ti}
+                      className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full px-2 py-0.5"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {globalErr && <p className="text-xs text-red-400">{globalErr}</p>}
+    </div>
+  )
+}
+
+// ─── TabAnalisisRival ─────────────────────────────────────────────────────────
+function TabAnalisisRival({ matches }: { matches: MatchData[] }) {
+  const [rivalName, setRivalName] = useState('')
+  const [nextMatch, setNextMatch] = useState<{ date: Date } | null>(null)
+
+  // ── Datos de archivos arrastrados (PDF / imagen / CSV Wyscout) ──
+  const [rivalData, setRivalDataState] = useState<RivalData | null>(() => {
+    try { return JSON.parse(localStorage.getItem(RIVAL_STORAGE_KEY) ?? 'null') } catch { return null }
+  })
+  const setRivalData = (data: RivalData | null) => {
+    setRivalDataState(data)
+    if (data) localStorage.setItem(RIVAL_STORAGE_KEY, JSON.stringify(data))
+    else localStorage.removeItem(RIVAL_STORAGE_KEY)
+  }
+
+  // ── Datos desde Google Sheets (estado separado, auto-carga) ──
+  const [sheetsData, setSheetsData] = useState<PartialRivalData | null>(null)
+  const [sheetsLoading, setSheetsLoading] = useState(false)
+  const [sheetsError, setSheetsError] = useState('')
+
+  const loadFromSheets = useCallback(async () => {
+    setSheetsLoading(true)
+    setSheetsError('')
+    try {
+      const data = await fetchRivalSheetData()
+      setSheetsData(data)
+    } catch (e) {
+      setSheetsError(e instanceof Error ? e.message : 'Error al cargar Google Sheets')
+    } finally {
+      setSheetsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { loadFromSheets() }, [loadFromSheets])
+
+  // ── Rival desde calendario ──
+  useEffect(() => {
+    fetchLanusCalendar().then(calendar => {
+      const now = new Date()
+      const next = calendar.find(m => m.date >= now)
+      if (next) {
+        setRivalName(next.isHome ? next.awayTeam : next.homeTeam)
+        setNextMatch({ date: next.date })
+      }
+    }).catch(() => {})
+  }, [])
+
+  // ── PDF pages (solo session) ──
+  const [pdfPages, setPdfPages] = useState<PdfPage[]>([])
+  const [loadingInsights, setLoadingInsights] = useState(false)
+
+  // ── Promedios Lanús para comparación ──
+  const lanusAvg = useMemo(() => ({
+    posesion:         avg(matches, 'posesion'),
+    xG:               avg(matches, 'xG'),
+    ppda:             avg(matches, 'ppda'),
+    pases_pct:        avg(matches, 'pases_pct'),
+    tiros:            avg(matches, 'tiros'),
+    tirosPorteria_pct: avg(matches, 'tirosPorteria_pct'),
+    duelos_pct:       avg(matches, 'duelos_pct'),
+    interceptaciones: avg(matches, 'interceptaciones'),
+    faltas:           avg(matches, 'faltas'),
+  }), [matches])
+
+  // ── Derivados del Sheets ──
+  const sheetMatches = sheetsData?.recentMatches ?? []
+  const ts = sheetsData?.teamStats
+
+  const derivedRecord = useMemo(() => {
+    if (!sheetMatches.length) return null
+    const w = sheetMatches.filter(m => m.result === 'W').length
+    const d = sheetMatches.filter(m => m.result === 'D').length
+    const l = sheetMatches.filter(m => m.result === 'L').length
+    const gf = sheetMatches.reduce((s, m) => s + (m.isHome ? m.homeScore : m.awayScore), 0)
+    const gc = sheetMatches.reduce((s, m) => s + (m.isHome ? m.awayScore : m.homeScore), 0)
+    return { w, d, l, gf, gc, partidos: sheetMatches.length }
+  }, [sheetMatches])
+
+  const autoInsights = useMemo(() => {
+    const ins: string[] = []
+    if (!ts) return ins
+    if (ts.avgPosesion !== undefined) {
+      if (ts.avgPosesion < 43) ins.push('Bloque bajo — el rival cede la pelota y defiende con orden. Buscar espacios con cambios de ritmo.')
+      else if (ts.avgPosesion > 55) ins.push('Equipo posesionista — presión alta y robo en campo rival son clave para quitarles el control.')
+    }
+    if (ts.avgPPDA !== undefined) {
+      if (ts.avgPPDA < 8) ins.push('Pressing muy intenso (PPDA bajo). Salidas rápidas por banda y pases largos para evitar la trampa.')
+      else if (ts.avgPPDA > 14) ins.push('Bajo nivel de pressing (PPDA alto). Espacio entre líneas disponible para mediapunta y enganches.')
+    }
+    if (ts.avgXG !== undefined && lanusAvg.xG > 0) {
+      if (ts.avgXG > lanusAvg.xG + 0.4) ins.push(`El rival genera más xG que Lanús (${ts.avgXG.toFixed(2)} vs ${lanusAvg.xG.toFixed(2)}). Atención defensiva en el area.`)
+      else if (ts.avgXG < lanusAvg.xG - 0.4) ins.push(`Lanús genera más xG que el rival (${lanusAvg.xG.toFixed(2)} vs ${ts.avgXG.toFixed(2)}). Ventaja ofensiva esperada.`)
+    }
+    if (ts.contraataques !== undefined && ts.contraataques > 2.5) ins.push('El rival es peligroso al contragolpe. Cuidar la transición defensiva.')
+    if (ts.ataquesPositionales !== undefined && ts.balonParado !== undefined && ts.balonParado > ts.ataquesPositionales * 0.4) ins.push('Alta proporción de jugadas de balón parado — prestar especial atención a esquinas y tiros libres.')
+    if (ts.avgAmarillas !== undefined && ts.avgAmarillas > 2.5) ins.push('Rival con alta cantidad de amarillas — pueden perder marca en algún momento del partido.')
+    if (derivedRecord) {
+      const diff = derivedRecord.gf - derivedRecord.gc
+      if (diff > 4) ins.push('Diferencia de gol muy positiva en 2026 — equipo en gran momento.')
+      else if (diff < -3) ins.push('Diferencia de gol negativa — equipo con dificultades ofensivas o defensivas en este período.')
+    }
+    return ins
+  }, [ts, lanusAvg, derivedRecord])
+
+  // ── Archivos arrastrables ──
+  const rivalRecoveries: ZoneCell[][] = rivalData?.recoveries?.map(row =>
+    row.map(c => ({ value: parseFloat(c.value as string) || c.value, count: c.count ?? undefined }))
+  ) ?? []
+  const rivalLosses: ZoneCell[][] = rivalData?.losses?.map(row =>
+    row.map(c => ({ value: parseFloat(c.value as string) || c.value, count: c.count ?? undefined }))
+  ) ?? []
+  const hasCorners = rivalData && (rivalData.cornersLeft > 0 || rivalData.cornersRight > 0 || rivalData.cornersKickers.length > 0)
+
+  const displayName = sheetsData?.teamName || rivalData?.teamName || rivalName
+
+  const card = 'bg-white dark:bg-apple-gray-900 border border-apple-gray-200 dark:border-apple-gray-800 rounded-2xl p-5 shadow-sm dark:shadow-none'
+
+  function SH({ title, right }: { title: string; right?: React.ReactNode }) {
+    return (
+      <div className="flex items-center gap-3 mb-4">
+        <div className="w-1 h-5 bg-[#6F1929] rounded-full" />
+        <h3 className="text-xs font-bold tracking-widest uppercase text-apple-gray-600 dark:text-apple-gray-300 flex-1">{title}</h3>
+        {right}
+      </div>
+    )
+  }
+
+  function KpiBox({ label, value, accent, sub }: { label: string; value: string | number; accent?: string; sub?: string }) {
+    return (
+      <div className="bg-apple-gray-50 dark:bg-[#0f1923] border border-apple-gray-200 dark:border-apple-gray-800 rounded-xl p-3 text-center">
+        <p className={`text-xl font-black tabular-nums leading-none ${accent ?? 'text-apple-gray-900 dark:text-white'}`}>{value}</p>
+        {sub && <p className="text-[9px] text-apple-gray-500 mt-0.5">{sub}</p>}
+        <p className="text-[10px] text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider leading-tight mt-1">{label}</p>
+      </div>
+    )
+  }
+
+  const resColor = (r: 'W' | 'D' | 'L') =>
+    r === 'W' ? 'bg-emerald-500' : r === 'D' ? 'bg-amber-400' : 'bg-red-500'
+
+  return (
+    <div className="space-y-6">
+
+      {/* ─── Header ──────────────────────────────────────────────────── */}
+      <div className="bg-gradient-to-r from-[#6F1929]/15 to-transparent border border-[#6F1929]/25 rounded-2xl p-4 flex flex-wrap items-center gap-4">
+        <div className="flex items-center gap-3 flex-shrink-0">
+          <img src="/lanus-escudo.png" alt="Lanús" className="w-10 h-10 object-contain" />
+          <span className="text-apple-gray-400 font-bold text-xl">vs</span>
+          <ShieldImg team={displayName} size={40} fallbackInitials={false} />
+        </div>
+        <div>
+          <p className="text-[10px] text-[#6F1929] dark:text-red-400 uppercase tracking-widest font-semibold">Análisis de rival</p>
+          <p className="text-apple-gray-900 dark:text-white text-lg font-bold leading-tight">
+            Lanús vs {displayName || '—'}
+          </p>
+          {nextMatch && (
+            <p className="text-apple-gray-400 text-xs mt-0.5">
+              {nextMatch.date.toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' })}
+            </p>
+          )}
+        </div>
+        <div className="flex-1" />
+        {rivalData && (
+          <button
+            onClick={() => setRivalData(null)}
+            className="text-xs text-apple-gray-500 hover:text-red-400 border border-apple-gray-200 dark:border-apple-gray-700 rounded-lg px-3 py-1.5 transition-colors"
+          >
+            Limpiar archivos
+          </button>
+        )}
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════════════
+          SECCIÓN 1 — ARCHIVOS (formaciones, mapas, análisis IA)
+      ══════════════════════════════════════════════════════════════ */}
+      <div className="border border-blue-500/20 rounded-2xl overflow-hidden">
+        <div className="px-5 py-3 bg-blue-500/5 border-b border-blue-500/20 flex items-center gap-2">
+          <svg className="w-4 h-4 text-blue-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+          </svg>
+          <span className="text-xs font-bold text-blue-400 uppercase tracking-wider">Informes de partido</span>
+          <span className="text-[10px] text-apple-gray-500 ml-1">PDF · imágenes · CSV</span>
+        </div>
+        <div className="p-5 space-y-5">
+          <MultiFileUploadZone
+            current={rivalData}
+            onData={merged => {
+              setRivalDataState(prev => {
+                const d = { ...merged }
+                localStorage.setItem(RIVAL_STORAGE_KEY, JSON.stringify(d))
+                return d
+              })
+            }}
+            onPdfPages={setPdfPages}
+            onPdfInsights={ins => {
+              setRivalDataState(prev => {
+                if (!prev) return null
+                const d = { ...prev, pdfPageInsights: ins }
+                localStorage.setItem(RIVAL_STORAGE_KEY, JSON.stringify(d))
+                return d
+              })
+            }}
+            onLoadingInsights={setLoadingInsights}
+          />
+
+          {rivalData && (<>
+            {/* 1. Formaciones — primero (solo si no hay fullAnalysis, que ya las incluye) */}
+            {!rivalData.fullAnalysis && rivalData.recentFormations && rivalData.recentFormations.length > 0 && (
+              <div>
+                <SH title={`Formaciones · ${rivalData.recentFormations.length} partido${rivalData.recentFormations.length !== 1 ? 's' : ''}`} />
+                <FormationsGrid formations={rivalData.recentFormations} />
+              </div>
+            )}
+
+            {/* 2. Informe completo (Claude) — incluye formaciones + análisis por sección */}
+            {rivalData.fullAnalysis && (
+              <RivalComprehensiveReport fa={rivalData.fullAnalysis} pdfPages={pdfPages} pdfInsights={rivalData.pdfPageInsights ?? []} />
+            )}
+
+            {/* 3. Análisis IA por páginas PDF — después del informe */}
+            {(loadingInsights || (rivalData.pdfPageInsights && rivalData.pdfPageInsights.length > 0)) && (
+              <PdfPagesViewer
+                insights={rivalData.pdfPageInsights ?? []}
+                loadingInsights={loadingInsights}
+              />
+            )}
+
+            {/* 4. Mapas de calor */}
+            {rivalRecoveries.length > 0 && (
+              <div>
+                <SH title="Recuperaciones de balón" />
+                <div className="flex items-center gap-4 mb-3">
+                  <span className="flex items-center gap-1.5 text-[10px] text-apple-gray-400"><span className="w-3 h-3 rounded-sm bg-emerald-500/60 inline-block" />Alta concentración</span>
+                  <span className="flex items-center gap-1.5 text-[10px] text-apple-gray-400"><span className="w-3 h-3 rounded-sm bg-emerald-900/40 inline-block" />Baja</span>
+                </div>
+                <ZoneHeatmap colorMode="green" compact data={rivalRecoveries} />
+              </div>
+            )}
+            {rivalLosses.length > 0 && (
+              <div>
+                <SH title="Pérdidas de balón" />
+                <div className="flex items-center gap-4 mb-3">
+                  <span className="flex items-center gap-1.5 text-[10px] text-apple-gray-400"><span className="w-3 h-3 rounded-sm bg-red-500/60 inline-block" />Alta concentración</span>
+                  <span className="flex items-center gap-1.5 text-[10px] text-apple-gray-400"><span className="w-3 h-3 rounded-sm bg-red-900/40 inline-block" />Baja</span>
+                </div>
+                <ZoneHeatmap colorMode="red" compact data={rivalLosses} />
+              </div>
+            )}
+
+            {/* 5. Córneres */}
+            {hasCorners && (() => {
+              const total = rivalData.cornersLeft + rivalData.cornersRight
+              const pctL = total > 0 ? Math.round((rivalData.cornersLeft / total) * 100) : 50
+              const pctR = 100 - pctL
+              return (
+                <div>
+                  <SH title="Córneres" />
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                      <KpiBox label="Total" value={total} />
+                      <KpiBox label="Izquierda" value={rivalData.cornersLeft} accent="text-blue-400" />
+                      <KpiBox label="Derecha" value={rivalData.cornersRight} accent="text-purple-400" />
+                      {rivalData.cornersGoals > 0 && <KpiBox label="Goles" value={rivalData.cornersGoals} accent="text-emerald-400" />}
+                    </div>
+                    {total > 0 && (
+                      <div className="flex rounded-full overflow-hidden h-5">
+                        <div className="bg-blue-500/80 flex items-center justify-center text-[10px] font-bold text-white" style={{ width: `${pctL}%` }}>
+                          {pctL > 15 ? `${pctL}% izq` : ''}
+                        </div>
+                        <div className="bg-purple-500/80 flex items-center justify-center text-[10px] font-bold text-white" style={{ width: `${pctR}%` }}>
+                          {pctR > 15 ? `${pctR}% der` : ''}
+                        </div>
+                      </div>
+                    )}
+                    {rivalData.cornersKickers.length > 0 && (
+                      <div className="space-y-2 pt-2 border-t border-apple-gray-100 dark:border-apple-gray-800">
+                        <p className="text-[10px] text-apple-gray-500 uppercase tracking-wider">Tiradores</p>
+                        {rivalData.cornersKickers.map((k, i) => {
+                          const maxT = rivalData.cornersKickers[0]?.total || 1
+                          return (
+                            <div key={i} className="flex items-center gap-3">
+                              <span className="text-xs text-apple-gray-500 w-4">{i + 1}</span>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex justify-between items-center mb-1">
+                                  <span className="text-sm text-apple-gray-900 dark:text-white truncate">{k.name}</span>
+                                  <span className="text-sm font-bold text-white ml-2">{k.total}</span>
+                                </div>
+                                <div className="h-1.5 bg-apple-gray-800 rounded-full overflow-hidden flex">
+                                  <div className="h-full bg-blue-500/70" style={{ width: `${(k.left / maxT) * 100}%` }} />
+                                  <div className="h-full bg-purple-500/70" style={{ width: `${(k.right / maxT) * 100}%` }} />
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* 6. Fortalezas / debilidades / notas (IA — solo si no hay fullAnalysis) */}
+            {!rivalData.fullAnalysis && (rivalData.strengths?.length > 0 || rivalData.weaknesses?.length > 0) && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {rivalData.strengths?.length > 0 && (
+                  <div className="bg-emerald-950/30 border border-emerald-500/20 rounded-xl p-4">
+                    <p className="text-xs text-emerald-400 uppercase tracking-wider mb-3 font-bold">Fortalezas</p>
+                    <ul className="space-y-2">
+                      {rivalData.strengths.map((s, i) => (
+                        <li key={i} className="text-sm text-apple-gray-200 leading-relaxed flex gap-2">
+                          <span className="text-emerald-400 flex-shrink-0">+</span>{s}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {rivalData.weaknesses?.length > 0 && (
+                  <div className="bg-red-950/30 border border-red-500/20 rounded-xl p-4">
+                    <p className="text-xs text-red-400 uppercase tracking-wider mb-3 font-bold">Debilidades</p>
+                    <ul className="space-y-2">
+                      {rivalData.weaknesses.map((s, i) => (
+                        <li key={i} className="text-sm text-apple-gray-200 leading-relaxed flex gap-2">
+                          <span className="text-red-400 flex-shrink-0">−</span>{s}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+            {!rivalData.fullAnalysis && rivalData.tacticalNotes?.length > 0 && (
+              <div className="bg-amber-950/20 border border-amber-500/20 rounded-xl p-4">
+                <p className="text-xs text-amber-400 uppercase tracking-wider mb-3 font-bold">Notas tácticas</p>
+                <ul className="space-y-2">
+                  {rivalData.tacticalNotes.map((n, i) => (
+                    <li key={i} className="text-sm text-apple-gray-200 leading-relaxed flex gap-2">
+                      <span className="text-amber-400 flex-shrink-0">▸</span>{n}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </>)}
+        </div>
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════════════
+          SECCIÓN 2 — DATOS COLECTIVOS 2026 (Google Sheets)
+      ══════════════════════════════════════════════════════════════ */}
+      <div className="border border-emerald-500/20 rounded-2xl overflow-hidden">
+        {/* Header de sección */}
+        <div className="px-5 py-3 bg-emerald-500/5 border-b border-emerald-500/20 flex items-center gap-3">
+          <svg className="w-4 h-4 text-emerald-400 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zm-1 7H7v-1h6v1zm0 2H7v-1h6v1zm-2 2H7v-1h4v1zm3-9.5V3.5L18.5 8H14z"/>
+          </svg>
+          <div className="flex-1">
+            <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">Datos colectivos 2026</span>
+            {sheetsData?.teamName && (
+              <span className="text-[10px] text-apple-gray-400 ml-2">· {sheetsData.teamName} · {sheetMatches.length} partidos</span>
+            )}
+          </div>
+          <button
+            onClick={loadFromSheets}
+            disabled={sheetsLoading}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-semibold transition-all ${
+              sheetsLoading
+                ? 'text-apple-gray-500 cursor-not-allowed'
+                : 'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10'
+            }`}
+          >
+            {sheetsLoading ? (
+              <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+            ) : (
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            )}
+            {sheetsLoading ? 'Cargando…' : 'Actualizar'}
+          </button>
+        </div>
+
+        {/* Loading */}
+        {sheetsLoading && !sheetsData && (
+          <div className="p-10 flex flex-col items-center gap-3">
+            <svg className="w-7 h-7 text-emerald-400 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+            <p className="text-xs text-apple-gray-500">Cargando datos del rival desde Google Sheets…</p>
+          </div>
+        )}
+
+        {/* Error */}
+        {sheetsError && !sheetsData && (
+          <div className="p-6">
+            {sheetsError === 'NEEDS_PUBLISH' ? (
+              <div className="space-y-3">
+                <p className="text-sm font-semibold text-amber-400">El sheet no está publicado en la web</p>
+                <p className="text-xs text-apple-gray-400 leading-relaxed">
+                  Para que la app pueda leer los datos, necesitás publicar la hoja como CSV:
+                </p>
+                <ol className="text-xs text-apple-gray-300 space-y-1.5 list-decimal list-inside leading-relaxed">
+                  <li>Abrí el spreadsheet del rival en Google Sheets</li>
+                  <li>Menú <span className="text-white font-semibold">Archivo → Compartir → Publicar en la web</span></li>
+                  <li>Seleccioná la hoja <span className="text-white font-semibold">Rival 1</span></li>
+                  <li>Formato: <span className="text-white font-semibold">Valores separados por comas (.csv)</span></li>
+                  <li>Hacé click en <span className="text-white font-semibold">Publicar</span> y confirmá</li>
+                </ol>
+                <p className="text-[10px] text-apple-gray-500">Después de publicar, el botón Actualizar debería funcionar correctamente.</p>
+                <button onClick={loadFromSheets} className="mt-1 text-xs text-blue-400 hover:text-blue-300 underline">Reintentar ahora</button>
+              </div>
+            ) : (
+              <div className="text-center">
+                <p className="text-xs text-red-400">{sheetsError}</p>
+                <button onClick={loadFromSheets} className="mt-3 text-xs text-blue-400 hover:text-blue-300 underline">Reintentar</button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Contenido */}
+        {sheetsData && (
+          <div className="p-5 space-y-6">
+
+            {/* ── Record + Form strip ── */}
+            {derivedRecord && (
+              <div>
+                {/* Record */}
+                <div className="flex flex-wrap items-center gap-4 mb-5 pb-5 border-b border-apple-gray-100 dark:border-apple-gray-800">
+                  <div className="flex items-center gap-5">
+                    <div className="text-center">
+                      <p className="text-4xl font-black text-emerald-400 tabular-nums leading-none">{derivedRecord.w}</p>
+                      <p className="text-[10px] text-emerald-600 dark:text-emerald-500 uppercase tracking-wider mt-1">V</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-4xl font-black text-amber-400 tabular-nums leading-none">{derivedRecord.d}</p>
+                      <p className="text-[10px] text-amber-600 dark:text-amber-500 uppercase tracking-wider mt-1">E</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-4xl font-black text-red-400 tabular-nums leading-none">{derivedRecord.l}</p>
+                      <p className="text-[10px] text-red-600 dark:text-red-500 uppercase tracking-wider mt-1">D</p>
+                    </div>
+                  </div>
+                  <div className="w-px h-10 bg-apple-gray-200 dark:bg-apple-gray-700 hidden sm:block" />
+                  <div className="flex items-center gap-4">
+                    <div className="text-center">
+                      <p className="text-2xl font-black text-apple-gray-900 dark:text-white tabular-nums">{derivedRecord.gf}</p>
+                      <p className="text-[10px] text-apple-gray-500 uppercase tracking-wider mt-1">GF</p>
+                    </div>
+                    <div className="text-[10px] text-apple-gray-500 font-bold">:</div>
+                    <div className="text-center">
+                      <p className="text-2xl font-black text-apple-gray-900 dark:text-white tabular-nums">{derivedRecord.gc}</p>
+                      <p className="text-[10px] text-apple-gray-500 uppercase tracking-wider mt-1">GC</p>
+                    </div>
+                  </div>
+                  <div className="flex-1" />
+                  <p className="text-[10px] text-apple-gray-500">{derivedRecord.partidos} partidos en 2026</p>
+                </div>
+
+                {/* Form strip */}
+                <div>
+                  <p className="text-[10px] text-apple-gray-500 uppercase tracking-wider mb-2">Últimos resultados</p>
+                  <div className="flex gap-2 flex-wrap">
+                    {sheetMatches.slice(0, 10).map((m, i) => {
+                      const rival = m.isHome ? m.awayTeam : m.homeTeam
+                      const shortRival = rival.split(' ')[0]
+                      const score = `${m.homeScore}–${m.awayScore}`
+                      return (
+                        <div key={i} className="group relative flex flex-col items-center gap-1">
+                          <div className={`w-8 h-8 rounded-full ${resColor(m.result)} flex items-center justify-center text-[10px] font-bold text-white`}>
+                            {m.result === 'W' ? 'G' : m.result === 'D' ? 'E' : 'P'}
+                          </div>
+                          <p className="text-[8px] text-apple-gray-500 max-w-[36px] text-center truncate">{shortRival}</p>
+                          <div className="absolute bottom-full mb-2 hidden group-hover:flex bg-apple-gray-900 border border-apple-gray-700 text-white text-[10px] rounded-xl px-3 py-2 whitespace-nowrap z-10 flex-col items-center gap-1 shadow-xl pointer-events-none">
+                            <span className="font-semibold">{m.isHome ? `vs ${m.awayTeam}` : `en ${m.homeTeam}`}</span>
+                            <span className="text-apple-gray-300">{score} · {m.date}</span>
+                            <span className="text-apple-gray-500 text-[9px]">{m.competition}</span>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── KPIs clave ── */}
+            {ts && (
+              <div>
+                <SH title="Estadísticas promedio por partido" />
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {ts.avgXG           !== undefined && <KpiBox label="xG / partido"         value={fmt1(ts.avgXG)}           accent="text-blue-400" />}
+                  {ts.avgPosesion     !== undefined && <KpiBox label="Posesión %"            value={fmtPct(ts.avgPosesion)}   />}
+                  {ts.avgPPDA         !== undefined && <KpiBox label="PPDA"                  value={fmt1(ts.avgPPDA)}          sub="↓ = más presión" />}
+                  {ts.avgPases        !== undefined && <KpiBox label="Precisión pase"        value={fmtPct(ts.avgPases)}      />}
+                  {ts.avgTiros        !== undefined && <KpiBox label="Tiros / partido"       value={fmt1(ts.avgTiros)}        />}
+                  {ts.avgTirosPorteria_pct !== undefined && <KpiBox label="Tiros a portería %" value={fmtPct(ts.avgTirosPorteria_pct)} />}
+                  {ts.avgDuelos_pct   !== undefined && <KpiBox label="Duelos ganados %"     value={fmtPct(ts.avgDuelos_pct)} />}
+                  {ts.interceptaciones !== undefined && <KpiBox label="Interceptaciones"    value={fmt1(ts.interceptaciones)} />}
+                  {ts.avgBalonesRecuperados !== undefined && <KpiBox label="Balones recup."  value={fmt1(ts.avgBalonesRecuperados)} accent="text-emerald-400" />}
+                  {ts.avgBalonesPerdidos    !== undefined && <KpiBox label="Balones perdidos" value={fmt1(ts.avgBalonesPerdidos)}   accent="text-red-400" />}
+                  {ts.avgFaltas       !== undefined && <KpiBox label="Faltas / partido"     value={fmt1(ts.avgFaltas)}       />}
+                  {ts.avgAmarillas    !== undefined && <KpiBox label="Amarillas / partido"  value={fmt1(ts.avgAmarillas)}    accent="text-amber-400" />}
+                </div>
+              </div>
+            )}
+
+            {/* ── Perfil de ataque ── */}
+            {ts && (ts.ataquesPositionales !== undefined || ts.contraataques !== undefined || ts.balonParado !== undefined) && (
+              <div>
+                <SH title="Perfil ofensivo" />
+                <div className="space-y-3">
+                  {[
+                    { label: 'Ataques posicionales', value: ts.ataquesPositionales, remate: ts.ataquesPositionalesRemate, color: 'bg-blue-500' },
+                    { label: 'Contraataques',         value: ts.contraataques,       remate: ts.contraataquesRemate,       color: 'bg-orange-500' },
+                    { label: 'Balón parado',          value: ts.balonParado,         remate: undefined,                   color: 'bg-purple-500' },
+                  ].filter(r => r.value !== undefined).map(row => {
+                    const maxVal = Math.max(ts.ataquesPositionales ?? 0, ts.contraataques ?? 0, ts.balonParado ?? 0, 1)
+                    const pct = Math.round(((row.value ?? 0) / maxVal) * 100)
+                    return (
+                      <div key={row.label} className="flex items-center gap-3">
+                        <p className="text-xs text-apple-gray-400 w-40 flex-shrink-0">{row.label}</p>
+                        <div className="flex-1 h-2.5 bg-apple-gray-200 dark:bg-apple-gray-800 rounded-full overflow-hidden">
+                          <div className={`h-full ${row.color} rounded-full transition-all`} style={{ width: `${pct}%` }} />
+                        </div>
+                        <span className="text-sm font-bold text-apple-gray-900 dark:text-white w-8 text-right tabular-nums">{fmt1(row.value ?? 0)}</span>
+                        {row.remate !== undefined && (
+                          <span className="text-[10px] text-apple-gray-500 w-16">({fmt1(row.remate)} rem.)</span>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* ── Comparación vs Lanús ── */}
+            {ts && (
+              <div>
+                <SH title="Comparación vs Lanús" />
+                <div className="space-y-2.5">
+                  {[
+                    { label: 'Posesión %',        lan: lanusAvg.posesion,          riv: ts.avgPosesion,          fmt: fmtPct, high: true },
+                    { label: 'xG / partido',       lan: lanusAvg.xG,                riv: ts.avgXG,                fmt: fmt1,   high: true },
+                    { label: 'PPDA',               lan: lanusAvg.ppda,              riv: ts.avgPPDA,              fmt: fmt1,   high: false },
+                    { label: 'Precisión pase %',   lan: lanusAvg.pases_pct,         riv: ts.avgPases,             fmt: fmtPct, high: true },
+                    { label: 'Tiros a portería %', lan: lanusAvg.tirosPorteria_pct, riv: ts.avgTirosPorteria_pct, fmt: fmtPct, high: true },
+                    { label: 'Duelos ganados %',   lan: lanusAvg.duelos_pct,        riv: ts.avgDuelos_pct,        fmt: fmtPct, high: true },
+                  ].filter(r => r.riv !== undefined && r.lan > 0).map(row => {
+                    const lv = row.lan
+                    const rv = row.riv as number
+                    const total = lv + rv || 1
+                    const lanPct = Math.round((lv / total) * 100)
+                    const rivPct = 100 - lanPct
+                    const lanWins = row.high ? lv >= rv : lv <= rv
+                    return (
+                      <div key={row.label} className="flex items-center gap-2">
+                        <p className="text-[10px] text-apple-gray-400 w-36 flex-shrink-0 truncate">{row.label}</p>
+                        <span className={`text-xs font-bold w-12 text-right tabular-nums ${lanWins ? 'text-emerald-400' : 'text-apple-gray-300 dark:text-apple-gray-500'}`}>
+                          {row.fmt(lv)}
+                        </span>
+                        <div className="flex-1 flex h-2.5 rounded-full overflow-hidden gap-px bg-apple-gray-200 dark:bg-apple-gray-800">
+                          <div className={`h-full ${lanWins ? 'bg-[#6F1929]' : 'bg-apple-gray-400 dark:bg-apple-gray-600'} rounded-l-full`} style={{ width: `${lanPct}%` }} />
+                          <div className={`h-full ${!lanWins ? 'bg-blue-500' : 'bg-apple-gray-400 dark:bg-apple-gray-600'} rounded-r-full`} style={{ width: `${rivPct}%` }} />
+                        </div>
+                        <span className={`text-xs font-bold w-12 tabular-nums ${!lanWins ? 'text-blue-400' : 'text-apple-gray-300 dark:text-apple-gray-500'}`}>
+                          {row.fmt(rv)}
+                        </span>
+                        <div className="flex gap-1.5 flex-shrink-0 text-[9px] text-apple-gray-600">
+                          <span>LAN</span><span>RIV</span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* ── Lista de partidos ── */}
+            {sheetMatches.length > 0 && (
+              <div>
+                <SH title={`Todos los partidos 2026 · ${sheetMatches.length}`} />
+                <div className="space-y-1.5">
+                  {sheetMatches.map((m, i) => {
+                    const rival = m.isHome ? m.awayTeam : m.homeTeam
+                    return (
+                      <div key={i} className="flex items-center gap-3 py-1.5 border-b border-apple-gray-100 dark:border-apple-gray-800 last:border-0">
+                        <div className={`w-7 h-7 rounded-full ${resColor(m.result)} flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0`}>
+                          {m.result === 'W' ? 'G' : m.result === 'D' ? 'E' : 'P'}
+                        </div>
+                        <ShieldImg team={rival} size={22} className="flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <span className="text-xs text-apple-gray-900 dark:text-white">{m.isHome ? 'vs' : 'en'} {rival}</span>
+                          <span className="text-[10px] text-apple-gray-500 ml-2">{m.date}</span>
+                        </div>
+                        <span className={`text-xs font-bold ${m.result === 'W' ? 'text-emerald-400' : m.result === 'D' ? 'text-amber-400' : 'text-red-400'}`}>
+                          {m.homeScore}–{m.awayScore}
+                        </span>
+                        <span className="text-[10px] text-apple-gray-500 hidden sm:block max-w-[140px] truncate">{m.competition}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* ── Insights tácticos automáticos ── */}
+            {autoInsights.length > 0 && (
+              <div className="bg-blue-950/30 border border-blue-500/20 rounded-xl p-4">
+                <p className="text-[10px] text-blue-400 uppercase tracking-wider mb-3 font-bold">Insights automáticos</p>
+                <ul className="space-y-2">
+                  {autoInsights.map((ins, i) => (
+                    <li key={i} className="text-sm text-apple-gray-200 leading-relaxed flex gap-2">
+                      <span className="text-blue-400 flex-shrink-0 mt-0.5">▸</span>{ins}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {sheetsError && <p className="text-xs text-red-400">{sheetsError}</p>}
+          </div>
+        )}
+      </div>
+
+    </div>
+  )
+}
+
+// ─── SmartDataHint ────────────────────────────────────────────────────────────
+// Muestra qué datos están disponibles y qué falta en el análisis del partido.
+function SmartDataHint({ data, hasLanusRecord }: { data: RivalData | null; hasLanusRecord: boolean }) {
+  if (!data) return null
+
+  interface DataField {
+    label: string
+    present: boolean
+    hint?: string   // qué arrastrar si falta
+  }
+
+  const ts = data.teamStats
+  const fields: DataField[] = [
+    { label: 'Formación', present: (data.recentFormations?.length ?? 0) > 0, hint: 'PDF del partido' },
+    { label: 'Jugadores', present: (data.recentFormations?.[0]?.players?.length ?? 0) > 0, hint: 'PDF del partido' },
+    { label: 'xG rival', present: !!(ts?.avgXG && ts.avgXG > 0), hint: 'Datos estadísticos del rival' },
+    { label: 'Posesión rival', present: !!(ts?.avgPosesion && ts.avgPosesion > 0), hint: 'Datos estadísticos del rival' },
+    { label: 'Remates rival', present: !!(ts?.avgTiros && ts.avgTiros > 0), hint: 'Datos estadísticos del rival' },
+    { label: 'Datos Lanús', present: hasLanusRecord, hint: 'Cargar resultados de Lanús en base de datos' },
+    { label: 'Notas tácticas', present: data.tacticalNotes.length > 0, hint: 'PDF o texto del partido' },
+    { label: 'Análisis IA', present: !!data.fullAnalysis, hint: 'PDF completo del partido' },
+  ]
+
+  const present = fields.filter(f => f.present).length
+  const total = fields.length
+  const pct = Math.round((present / total) * 100)
+
+  const missing = fields.filter(f => !f.present)
+  // Agrupar hints únicos de los campos faltantes
+  const uniqueHints = [...new Set(missing.map(f => f.hint).filter(Boolean))]
+
+  const barColor = pct >= 75 ? 'bg-emerald-500' : pct >= 40 ? 'bg-amber-400' : 'bg-red-500'
+
+  return (
+    <div className="bg-white dark:bg-apple-gray-900 border border-apple-gray-200 dark:border-apple-gray-800 rounded-2xl p-5 shadow-sm dark:shadow-none space-y-3">
+      {/* Header + barra */}
+      <div className="flex items-center gap-3">
+        <div className="w-1 h-5 bg-purple-500 rounded-full" />
+        <h3 className="text-xs font-bold tracking-widest uppercase text-apple-gray-600 dark:text-apple-gray-300 flex-1">
+          Datos disponibles
+        </h3>
+        <span className={`text-xs font-black tabular-nums ${pct >= 75 ? 'text-emerald-400' : pct >= 40 ? 'text-amber-400' : 'text-red-400'}`}>
+          {present}/{total}
+        </span>
+      </div>
+
+      {/* Barra de progreso */}
+      <div className="h-1.5 w-full bg-apple-gray-100 dark:bg-apple-gray-800 rounded-full overflow-hidden">
+        <div className={`h-full ${barColor} rounded-full transition-all duration-500`} style={{ width: `${pct}%` }} />
+      </div>
+
+      {/* Chips de campos */}
+      <div className="flex flex-wrap gap-1.5">
+        {fields.map((f, i) => (
+          <span
+            key={i}
+            className={`text-[10px] rounded-full px-2 py-0.5 border font-medium ${
+              f.present
+                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                : 'bg-apple-gray-100 dark:bg-apple-gray-800 text-apple-gray-500 dark:text-apple-gray-500 border-apple-gray-200 dark:border-apple-gray-700'
+            }`}
+          >
+            {f.present ? '✓ ' : '○ '}{f.label}
+          </span>
+        ))}
+      </div>
+
+      {/* Sugerencias de qué arrastrar */}
+      {uniqueHints.length > 0 && (
+        <div className="pt-1 border-t border-apple-gray-100 dark:border-apple-gray-800/60">
+          <p className="text-[10px] text-apple-gray-500 mb-1.5 font-semibold uppercase tracking-wider">Para completar:</p>
+          <div className="flex flex-wrap gap-1.5">
+            {uniqueHints.map((hint, i) => (
+              <span key={i} className="text-[10px] bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-full px-2.5 py-0.5">
+                + {hint}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── MatchStatsComparison ─────────────────────────────────────────────────────
+// Tabla estilo SofaScore: Lanús vs Rival, con barra de dominio por métrica.
+
+function MatchStatsComparison({
+  lanusMatch,
+  rivalName,
+  rivalStats,
+}: {
+  lanusMatch: MatchData | null
+  rivalName: string
+  rivalStats: { avgXG?: number; avgPosesion?: number; avgTiros?: number; avgPPDA?: number; avgPases?: number } | null
+}) {
+  if (!lanusMatch) return null
+
+  const lan = lanusMatch
+  const lanusPoss = Math.round(lan.posesion)
+  const rivalPoss = 100 - lanusPoss
+  const rivalXG = rivalStats?.avgXG != null && rivalStats.avgXG > 0 ? rivalStats.avgXG : null
+
+  type StatRow = {
+    label: string
+    lanus: number | null
+    rival: number | null
+    unit?: string
+    decimals?: number
+    higherBetter?: boolean
+    lowerBetter?: boolean
+    category?: string
+  }
+
+  const groups: { title: string; rows: StatRow[] }[] = [
+    {
+      title: 'Ataque',
+      rows: [
+        { label: 'Goles',      lanus: lan.golesAFavor,   rival: lan.golesEnContra,       higherBetter: true },
+        { label: 'Remates',    lanus: lan.tiros,          rival: lan.tirosContra,          higherBetter: true },
+        { label: 'Al arco',    lanus: lan.tirosPorteria,  rival: lan.tirosContraPorteria,  higherBetter: true },
+        { label: 'xG',         lanus: lan.xG,             rival: rivalXG,                 higherBetter: true, decimals: 2 },
+        { label: 'Córneres',   lanus: lan.corners,        rival: lan.corners_rival ?? null, higherBetter: true },
+      ],
+    },
+    {
+      title: 'Posesión',
+      rows: [
+        { label: 'Posesión',       lanus: lanusPoss,      rival: rivalPoss,        unit: '%' },
+        { label: 'Precisión pase', lanus: lan.pases_pct,  rival: null,             higherBetter: true, unit: '%', decimals: 1 },
+      ],
+    },
+    {
+      title: 'Disciplina',
+      rows: [
+        { label: 'Faltas',     lanus: lan.faltas,    rival: lan.faltas_rival ?? null,    lowerBetter: true },
+        { label: 'Amarillas',  lanus: lan.amarillas, rival: lan.amarillas_rival ?? null,  lowerBetter: true },
+        { label: 'Rojas',      lanus: lan.rojas,     rival: null,                        lowerBetter: true },
+      ],
+    },
+  ]
+
+  const fmt = (v: number | null, decimals = 0, unit = '') =>
+    v === null ? '—' : `${v.toFixed(decimals)}${unit}`
+
+  // Colores de equipo
+  const LANUS_COLOR = '#6F1929'
+  const RIVAL_COLOR = '#4B5563'  // gris oscuro
+
+  return (
+    <div className="bg-white dark:bg-apple-gray-900 border border-apple-gray-200 dark:border-apple-gray-800 rounded-2xl overflow-hidden shadow-sm dark:shadow-none">
+
+      {/* Header */}
+      <div className="px-5 py-3 border-b border-apple-gray-200 dark:border-apple-gray-800 flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className="w-1 h-4 bg-[#6F1929] rounded-full" />
+          <h3 className="text-xs font-bold tracking-widest uppercase text-apple-gray-600 dark:text-apple-gray-300">
+            Estadísticas del partido
+          </h3>
+        </div>
+        <span className="text-[10px] text-apple-gray-400">{lan.date}</span>
+      </div>
+
+      {/* Team headers — bien anchos y centrados */}
+      <div className="grid grid-cols-[1fr_140px_1fr] px-5 py-3.5 bg-apple-gray-50 dark:bg-apple-gray-800/30 border-b border-apple-gray-200 dark:border-apple-gray-800">
+        <div className="flex items-center gap-2.5">
+          <div className="w-5 h-5 rounded-full flex-shrink-0" style={{ background: LANUS_COLOR }} />
+          <span className="text-sm font-bold text-apple-gray-900 dark:text-white">Lanús</span>
+        </div>
+        <div />
+        <div className="flex items-center gap-2.5 justify-end">
+          <span className="text-sm font-bold text-apple-gray-900 dark:text-white truncate text-right">{rivalName || 'Rival'}</span>
+          <div className="w-5 h-5 rounded-full flex-shrink-0" style={{ background: RIVAL_COLOR }} />
+        </div>
+      </div>
+
+      {/* Groups */}
+      {groups.map((group, gi) => {
+        const visibleRows = group.rows.filter(r => r.lanus !== null || r.rival !== null)
+        if (visibleRows.length === 0) return null
+
+        return (
+          <div key={gi}>
+            {/* Category label */}
+            <div className="px-5 pt-3 pb-1">
+              <span className="text-[9px] font-bold tracking-widest uppercase text-apple-gray-400">
+                {group.title}
+              </span>
+            </div>
+
+            <div className="divide-y divide-apple-gray-100 dark:divide-apple-gray-800/30">
+              {visibleRows.map((row, ri) => {
+                const lv = row.lanus
+                const rv = row.rival
+                const dec = row.decimals ?? 0
+                const unit = row.unit ?? ''
+                const hasBoth = lv !== null && rv !== null
+
+                let lanusPct = 50
+                if (hasBoth && (lv + rv) > 0) {
+                  lanusPct = Math.round((lv / (lv + rv)) * 100)
+                }
+
+                // Quién domina el stat
+                const lanusWins = hasBoth
+                  ? (row.lowerBetter ? lv < rv : lv > rv)
+                  : null
+                const isDraw = hasBoth && lv === rv
+
+                return (
+                  <div key={ri} className="grid grid-cols-[1fr_140px_1fr] items-center px-5 py-3">
+
+                    {/* Valor Lanús */}
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xl font-black tabular-nums leading-none transition-colors ${
+                        isDraw ? 'text-apple-gray-700 dark:text-apple-gray-200' :
+                        lanusWins === true  ? 'text-apple-gray-900 dark:text-white' :
+                        lanusWins === false ? 'text-apple-gray-400 dark:text-apple-gray-500' :
+                        'text-apple-gray-700 dark:text-apple-gray-300'
+                      }`}>
+                        {fmt(lv, dec, unit)}
+                      </span>
+                      {lanusWins === true && !isDraw && (
+                        <svg className="w-3 h-3 text-emerald-500 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                          <circle cx="12" cy="12" r="12" />
+                        </svg>
+                      )}
+                    </div>
+
+                    {/* Centro: label + barra */}
+                    <div className="flex flex-col items-center gap-1.5 px-1">
+                      <span className="text-[9px] font-semibold uppercase tracking-widest text-apple-gray-400 whitespace-nowrap">
+                        {row.label}
+                      </span>
+                      {/* Barra de dominio */}
+                      {hasBoth ? (
+                        <div className="w-full h-2 rounded-full overflow-hidden flex" style={{ background: '#E5E7EB' }}>
+                          <div
+                            className="h-full transition-all duration-500"
+                            style={{
+                              width: `${lanusPct}%`,
+                              background: lanusWins === true && !isDraw
+                                ? LANUS_COLOR
+                                : isDraw
+                                ? '#9CA3AF'
+                                : '#9CA3AF',
+                            }}
+                          />
+                          <div
+                            className="h-full transition-all duration-500"
+                            style={{
+                              width: `${100 - lanusPct}%`,
+                              background: lanusWins === false && !isDraw
+                                ? RIVAL_COLOR
+                                : isDraw
+                                ? '#6B7280'
+                                : '#6B7280',
+                            }}
+                          />
+                        </div>
+                      ) : (
+                        /* Solo un equipo tiene dato: barra simple del que tiene */
+                        <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: '#E5E7EB' }}>
+                          <div
+                            className="h-full rounded-full"
+                            style={{
+                              width: '50%',
+                              background: lv !== null ? LANUS_COLOR : RIVAL_COLOR,
+                              margin: lv !== null ? '0' : 'auto 0 auto auto',
+                            }}
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Valor Rival */}
+                    <div className="flex items-center gap-2 justify-end">
+                      {lanusWins === false && !isDraw && (
+                        <svg className="w-3 h-3 text-emerald-500 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                          <circle cx="12" cy="12" r="12" />
+                        </svg>
+                      )}
+                      <span className={`text-xl font-black tabular-nums leading-none transition-colors ${
+                        isDraw ? 'text-apple-gray-700 dark:text-apple-gray-200' :
+                        lanusWins === false ? 'text-apple-gray-900 dark:text-white' :
+                        lanusWins === true  ? 'text-apple-gray-400 dark:text-apple-gray-500' :
+                        'text-apple-gray-700 dark:text-apple-gray-300'
+                      }`}>
+                        {fmt(rv, dec, unit)}
+                      </span>
+                    </div>
+
+                  </div>
+                )
+              })}
+            </div>
+
+            {gi < groups.length - 1 && (
+              <div className="mx-5 border-t border-apple-gray-100 dark:border-apple-gray-800/60 mt-1" />
+            )}
+          </div>
+        )
+      })}
+
+      <p className="px-5 py-2.5 text-[9px] text-apple-gray-400 border-t border-apple-gray-100 dark:border-apple-gray-800/40 mt-1">
+        Datos de Lanús: base de datos 2026 · Rival: informe cargado (— = sin dato disponible)
+      </p>
+    </div>
+  )
+}
+
+// ─── TabUltimoPartido ─────────────────────────────────────────────────────────
+function TabUltimoPartido() {
+  // ── Datos desde Google Sheets (primario, auto-carga) ──
+  const [sheetData, setSheetData] = useState<UltimoPartidoStats | null>(null)
+  const [sheetLoading, setSheetLoading] = useState(false)
+  const [sheetError, setSheetError] = useState('')
+
+  const loadSheet = useCallback(async () => {
+    setSheetLoading(true)
+    setSheetError('')
+    try {
+      const data = await fetchUltimoPartidoData()
+      setSheetData(data)
+    } catch (e) {
+      setSheetError(e instanceof Error ? e.message : 'Error al cargar')
+    } finally {
+      setSheetLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { loadSheet() }, [loadSheet])
+
+  // ── Datos desde archivos arrastrados (PDF / imagen) ──
+  const [matchData, setMatchDataState] = useState<RivalData | null>(() => {
+    try { return JSON.parse(localStorage.getItem(ULTIMO_PARTIDO_STORAGE_KEY) ?? 'null') } catch { return null }
+  })
+  const setMatchData = (data: RivalData | null) => {
+    setMatchDataState(data)
+    if (data) localStorage.setItem(ULTIMO_PARTIDO_STORAGE_KEY, JSON.stringify(data))
+    else localStorage.removeItem(ULTIMO_PARTIDO_STORAGE_KEY)
+  }
+
+  const [pdfPages, setPdfPages] = useState<PdfPage[]>([])
+  const [loadingInsights, setLoadingInsights] = useState(false)
+
+  const card = 'bg-white dark:bg-apple-gray-900 border border-apple-gray-200 dark:border-apple-gray-800 rounded-2xl shadow-sm dark:shadow-none'
+
+  // Resultado del sheet para colorear
+  const sheetResult: 'W' | 'D' | 'L' | null = sheetData
+    ? sheetData.lanus.goals > sheetData.rival.goals ? 'W'
+      : sheetData.lanus.goals === sheetData.rival.goals ? 'D' : 'L'
+    : null
+  const resColor = (r: 'W' | 'D' | 'L') =>
+    r === 'W' ? 'text-emerald-400' : r === 'D' ? 'text-amber-400' : 'text-red-400'
+
+  // ¿Lanús fue local? El partido en el sheet está como "Local - Visitante N:N"
+  // Si el partido empieza con "Lanús" o "Lanus", Lanús fue local
+  const lanusIsHome = sheetData
+    ? /^lan[uú]s/i.test(sheetData.match.trim())
+    : true
+  // Orden de escudos: siempre local a la izquierda
+  const leftTeam  = lanusIsHome ? 'Lanus' : sheetData?.rival.team ?? ''
+  const rightTeam = lanusIsHome ? (sheetData?.rival.team ?? '') : 'Lanus'
+  const leftGoals  = lanusIsHome ? (sheetData?.lanus.goals ?? 0) : (sheetData?.rival.goals ?? 0)
+  const rightGoals = lanusIsHome ? (sheetData?.rival.goals ?? 0) : (sheetData?.lanus.goals ?? 0)
+
+  // Formaciones del PDF (si se arrastró)
+  const topFormation = matchData?.recentFormations?.[0]
+  const topPlayers = topFormation?.players ?? []
+
+  // lanOnRight=true → Lanús en la derecha (cuando juega de visitante)
+  function StatRow({ label, lan, riv, higherBetter = true, fmt = (v: number) => v.toFixed(1), lanOnRight = false }: {
+    label: string; lan: number; riv: number; higherBetter?: boolean; fmt?: (v: number) => string; lanOnRight?: boolean
+  }) {
+    if (lan === 0 && riv === 0) return null
+    const total = lan + riv || 1
+    const lanWins = higherBetter ? lan >= riv : lan <= riv
+    // Valores visuales izquierda/derecha según perspectiva
+    const leftVal  = lanOnRight ? riv : lan
+    const rightVal = lanOnRight ? lan : riv
+    const leftPct  = Math.round((leftVal / total) * 100)
+    const rightPct = 100 - leftPct
+    // Lanús siempre en granate, rival en azul
+    const leftIsLanus  = !lanOnRight
+    const leftWins     = leftIsLanus ? lanWins : !lanWins
+    return (
+      <div className="flex items-center gap-2 py-1.5 border-b border-apple-gray-100 dark:border-apple-gray-800 last:border-0">
+        <span className={`text-xs font-bold tabular-nums w-10 text-right ${leftIsLanus ? (lanWins ? 'text-[#6F1929] dark:text-red-400' : 'text-apple-gray-400') : (!lanWins ? 'text-blue-400' : 'text-apple-gray-400')}`}>{fmt(leftVal)}</span>
+        <div className="flex-1 flex h-2 rounded-full overflow-hidden gap-px bg-apple-gray-200 dark:bg-apple-gray-800">
+          <div className={`h-full ${leftWins ? (leftIsLanus ? 'bg-[#6F1929]' : 'bg-blue-500') : 'bg-apple-gray-500 dark:bg-apple-gray-700'} rounded-l-full transition-all`} style={{ width: `${leftPct}%` }} />
+          <div className={`h-full ${!leftWins ? (!leftIsLanus ? 'bg-[#6F1929]' : 'bg-blue-500') : 'bg-apple-gray-500 dark:bg-apple-gray-700'} rounded-r-full transition-all`} style={{ width: `${rightPct}%` }} />
+        </div>
+        <span className={`text-xs font-bold tabular-nums w-10 ${!leftIsLanus ? (lanWins ? 'text-[#6F1929] dark:text-red-400' : 'text-apple-gray-400') : (!lanWins ? 'text-blue-400' : 'text-apple-gray-400')}`}>{fmt(rightVal)}</span>
+        <span className="text-[10px] text-apple-gray-500 w-36 truncate">{label}</span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-5">
+
+      {/* ══ SECCIÓN PRINCIPAL: datos del partido desde Sheets ══ */}
+      <div className="border border-[#6F1929]/25 rounded-2xl overflow-hidden">
+        {/* Header sección */}
+        <div className="px-5 py-3 bg-[#6F1929]/10 border-b border-[#6F1929]/20 flex items-center gap-3">
+          <svg className="w-4 h-4 text-[#6F1929] dark:text-red-400 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zm-1 7H7v-1h6v1zm0 2H7v-1h6v1zm-2 2H7v-1h4v1zm3-9.5V3.5L18.5 8H14z"/>
+          </svg>
+          <span className="text-xs font-bold text-[#6F1929] dark:text-red-400 uppercase tracking-wider flex-1">Último partido</span>
+          {sheetData && (
+            <span className="text-[10px] text-apple-gray-400">{sheetData.date} · {sheetData.competition}</span>
+          )}
+          <button
+            onClick={loadSheet}
+            disabled={sheetLoading}
+            className="flex items-center gap-1 text-[10px] text-apple-gray-400 hover:text-white transition-colors disabled:opacity-40"
+          >
+            <svg className={`w-3 h-3 ${sheetLoading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Actualizar
+          </button>
+        </div>
+
+        {sheetLoading && !sheetData && (
+          <div className="p-8 flex items-center justify-center gap-3">
+            <svg className="w-5 h-5 text-[#6F1929] dark:text-red-400 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+            <span className="text-xs text-apple-gray-500">Cargando datos del partido…</span>
+          </div>
+        )}
+
+        {sheetError && !sheetData && (
+          <div className="p-5 text-center">
+            <p className="text-xs text-red-400 mb-2">{sheetError === 'NEEDS_PUBLISH' ? 'La hoja "Ultimo partido" no está publicada en la web.' : sheetError}</p>
+            <button onClick={loadSheet} className="text-xs text-blue-400 underline">Reintentar</button>
+          </div>
+        )}
+
+        {sheetData && (
+          <div className="p-5 space-y-5">
+            {/* Header partido — centrado, local a la izquierda */}
+            <div className="flex flex-col items-center gap-2">
+              <div className="flex items-center gap-5">
+                <div className="flex flex-col items-center gap-1">
+                  <ShieldImg team={leftTeam} size={52} />
+                  <span className="text-[9px] text-apple-gray-400 uppercase tracking-wide">{lanusIsHome ? 'Lanús' : sheetData.rival.team} · Local</span>
+                </div>
+                <div className="text-center">
+                  <p className={`text-4xl font-black tracking-tight tabular-nums leading-none ${sheetResult ? resColor(sheetResult) : 'text-white'}`}>
+                    {leftGoals}–{rightGoals}
+                  </p>
+                  <p className="text-[10px] text-apple-gray-500 mt-1">{sheetData.duration}'</p>
+                </div>
+                <div className="flex flex-col items-center gap-1">
+                  <ShieldImg team={rightTeam} size={52} />
+                  <span className="text-[9px] text-apple-gray-400 uppercase tracking-wide">{lanusIsHome ? sheetData.rival.team : 'Lanús'} · Visitante</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 text-[10px] text-apple-gray-500">
+                <span>{sheetData.date}</span>
+                <span>·</span>
+                <span>{sheetData.competition}</span>
+              </div>
+            </div>
+
+            {/* Formaciones — centradas, Lanús destacado */}
+            <div className="flex items-center justify-center gap-4">
+              <div className="text-center">
+                <p className="text-[9px] text-apple-gray-500 uppercase tracking-wider mb-1">Lanús</p>
+                <span className="inline-block px-4 py-1.5 rounded-full bg-[#6F1929]/15 dark:bg-[#6F1929]/25 text-sm font-bold text-[#6F1929] dark:text-red-400 tracking-wide">
+                  {sheetData.lanus.formation || '—'}
+                </span>
+              </div>
+              <span className="text-apple-gray-300 dark:text-apple-gray-700 font-light">vs</span>
+              <div className="text-center">
+                <p className="text-[9px] text-apple-gray-500 uppercase tracking-wider mb-1">{sheetData.rival.team}</p>
+                <span className="inline-block px-4 py-1.5 rounded-full bg-apple-gray-100 dark:bg-apple-gray-800 text-sm font-bold text-apple-gray-600 dark:text-apple-gray-300 tracking-wide">
+                  {sheetData.rival.formation || '—'}
+                </span>
+              </div>
+            </div>
+
+            {/* Estadísticas comparadas — Lanús siempre del lado de su escudo */}
+            <div>
+              <div className="flex items-center justify-between text-[10px] text-apple-gray-500 mb-2 px-0.5">
+                <span className={`font-semibold ${lanusIsHome ? 'text-[#6F1929] dark:text-red-400' : 'text-blue-400'}`}>{lanusIsHome ? 'Lanús' : sheetData.rival.team}</span>
+                <span className="uppercase tracking-wider">Estadísticas del partido</span>
+                <span className={`font-semibold ${lanusIsHome ? 'text-blue-400' : 'text-[#6F1929] dark:text-red-400'}`}>{lanusIsHome ? sheetData.rival.team : 'Lanús'}</span>
+              </div>
+              <StatRow label="Posesión %" lan={sheetData.lanus.posesion} riv={sheetData.rival.posesion} fmt={v => v.toFixed(1) + '%'} lanOnRight={!lanusIsHome} />
+              <StatRow label="xG" lan={sheetData.lanus.xG} riv={sheetData.rival.xG} fmt={v => v.toFixed(2)} lanOnRight={!lanusIsHome} />
+              <StatRow label="Tiros" lan={sheetData.lanus.tiros} riv={sheetData.rival.tiros} lanOnRight={!lanusIsHome} />
+              <StatRow label="Tiros a portería" lan={sheetData.lanus.tirosPorteria} riv={sheetData.rival.tirosPorteria} lanOnRight={!lanusIsHome} />
+              <StatRow label="Precisión pase %" lan={sheetData.lanus.pasesPct} riv={sheetData.rival.pasesPct} fmt={v => v.toFixed(0) + '%'} lanOnRight={!lanusIsHome} />
+              <StatRow label="Duelos ganados %" lan={sheetData.lanus.duelos_pct} riv={sheetData.rival.duelos_pct} fmt={v => v.toFixed(0) + '%'} lanOnRight={!lanusIsHome} />
+              <StatRow label="Duelos aéreos %" lan={sheetData.lanus.duelosAereos_pct} riv={sheetData.rival.duelosAereos_pct} fmt={v => v.toFixed(0) + '%'} lanOnRight={!lanusIsHome} />
+              <StatRow label="Corners" lan={sheetData.lanus.corners} riv={sheetData.rival.corners} fmt={v => String(Math.round(v))} lanOnRight={!lanusIsHome} />
+              <StatRow label="Interceptaciones" lan={sheetData.lanus.interceptaciones} riv={sheetData.rival.interceptaciones} fmt={v => String(Math.round(v))} lanOnRight={!lanusIsHome} />
+              <StatRow label="Faltas" lan={sheetData.lanus.faltas} riv={sheetData.rival.faltas} higherBetter={false} fmt={v => String(Math.round(v))} lanOnRight={!lanusIsHome} />
+              <StatRow label="PPDA" lan={sheetData.lanus.ppda} riv={sheetData.rival.ppda} higherBetter={false} fmt={v => v.toFixed(1)} lanOnRight={!lanusIsHome} />
+            </div>
+
+            {/* KPIs adicionales de Lanús */}
+            <div>
+              <p className="text-[10px] text-apple-gray-500 uppercase tracking-wider mb-2">Lanús — detalle</p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {[
+                  { label: 'Ataques pos.', value: sheetData.lanus.ataquesPos, sub: `${sheetData.lanus.ataquePosRemate} con remate` },
+                  { label: 'Contraataques', value: sheetData.lanus.contras, sub: `${sheetData.lanus.contrasRemate} con remate` },
+                  { label: 'Balón parado', value: sheetData.lanus.balonParado, sub: undefined },
+                  { label: 'Centros', value: sheetData.lanus.centros, sub: `${sheetData.lanus.centrosPrecisos} precisos` },
+                  { label: 'Balones recup.', value: sheetData.lanus.balonesRecuperados, sub: undefined },
+                  { label: 'Balones perd.', value: sheetData.lanus.balonesPerdidos, sub: undefined },
+                  { label: 'Pases prog.', value: sheetData.lanus.pasesProgresivos, sub: undefined },
+                  { label: 'Últ. tercio %', value: sheetData.lanus.pasesUltimoTercio_pct, sub: undefined, fmt: (v: number) => v.toFixed(0) + '%' },
+                ].map(({ label, value, sub, fmt }) => (
+                  <div key={label} className="bg-apple-gray-50 dark:bg-[#0f1923] border border-apple-gray-200 dark:border-apple-gray-800 rounded-xl p-2.5">
+                    <p className="text-sm font-bold tabular-nums text-apple-gray-900 dark:text-white">{fmt ? fmt(value) : Math.round(value)}</p>
+                    {sub && <p className="text-[9px] text-apple-gray-500 mt-0.5">{sub}</p>}
+                    <p className="text-[9px] text-apple-gray-500 uppercase tracking-wide mt-0.5">{label}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ══ SECCIÓN ARCHIVOS: PDF / imagen arrastrada ══ */}
+      <div className="border border-blue-500/20 rounded-2xl overflow-hidden">
+        <div className="px-5 py-3 bg-blue-500/5 border-b border-blue-500/20 flex items-center gap-2">
+          <svg className="w-4 h-4 text-blue-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+          </svg>
+          <span className="text-xs font-bold text-blue-400 uppercase tracking-wider">Informe del partido</span>
+          <span className="text-[10px] text-apple-gray-500">PDF · imagen</span>
+          {matchData && (
+            <button onClick={() => setMatchData(null)} className="ml-auto text-[10px] text-apple-gray-500 hover:text-red-400 transition-colors">
+              Limpiar
+            </button>
+          )}
+        </div>
+        <div className="p-5 space-y-5">
+          <MultiFileUploadZone
+            current={matchData}
+            onData={setMatchData}
+            onPdfPages={setPdfPages}
+            onPdfInsights={insights => {
+              setMatchDataState(prev => {
+                if (!prev) return null
+                const d = { ...prev, pdfPageInsights: insights }
+                localStorage.setItem(ULTIMO_PARTIDO_STORAGE_KEY, JSON.stringify(d))
+                return d
+              })
+            }}
+            onLoadingInsights={setLoadingInsights}
+            label="Informe del último partido"
+          />
+
+          {matchData && (<>
+            {/* Formación (canchita) — solo si no hay análisis IA (que ya incluye formaciones) */}
+            {topFormation && topPlayers.length > 0 && !matchData.fullAnalysis && (
+              <div>
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-1 h-5 bg-[#6F1929] rounded-full" />
+                  <p className="text-xs font-bold tracking-widest uppercase text-apple-gray-500">Formación · {topFormation.formation}</p>
+                </div>
+                <div className="flex justify-center">
+                  <div className="w-full max-w-[360px]">
+                    <FormationPitchCard match={topFormation} />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Análisis IA completo */}
+            {matchData.fullAnalysis && (
+              <RivalComprehensiveReport fa={matchData.fullAnalysis} pdfPages={pdfPages} pdfInsights={matchData.pdfPageInsights ?? []} />
+            )}
+
+            {/* Páginas PDF */}
+            {(loadingInsights || (matchData.pdfPageInsights && matchData.pdfPageInsights.length > 0)) && (
+              <PdfPagesViewer
+                insights={matchData.pdfPageInsights ?? []}
+                loadingInsights={loadingInsights}
+                sectionLabel="Análisis por sección"
+              />
+            )}
+
+            {/* Notas tácticas / fortalezas / debilidades */}
+            {(matchData.tacticalNotes.length > 0 || matchData.strengths.length > 0 || matchData.weaknesses.length > 0) && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {matchData.tacticalNotes.length > 0 && (
+                  <div className={`${card} p-4`}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-1 h-4 bg-blue-500 rounded-full" />
+                      <p className="text-[10px] font-bold tracking-widest uppercase text-apple-gray-500">Notas tácticas</p>
+                    </div>
+                    <ul className="space-y-1.5">
+                      {matchData.tacticalNotes.map((n, i) => (
+                        <li key={i} className="text-xs text-apple-gray-700 dark:text-apple-gray-300 leading-relaxed flex gap-2">
+                          <span className="text-blue-400 flex-shrink-0">•</span>{n}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {matchData.strengths.length > 0 && (
+                  <div className={`${card} p-4`}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-1 h-4 bg-emerald-500 rounded-full" />
+                      <p className="text-[10px] font-bold tracking-widest uppercase text-apple-gray-500">Lo que funcionó</p>
+                    </div>
+                    <ul className="space-y-1.5">
+                      {matchData.strengths.map((s, i) => (
+                        <li key={i} className="text-xs text-apple-gray-700 dark:text-apple-gray-300 leading-relaxed flex gap-2">
+                          <span className="text-emerald-400 flex-shrink-0">✓</span>{s}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {matchData.weaknesses.length > 0 && (
+                  <div className={`${card} p-4`}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-1 h-4 bg-red-500 rounded-full" />
+                      <p className="text-[10px] font-bold tracking-widest uppercase text-apple-gray-500">A mejorar</p>
+                    </div>
+                    <ul className="space-y-1.5">
+                      {matchData.weaknesses.map((w, i) => (
+                        <li key={i} className="text-xs text-apple-gray-700 dark:text-apple-gray-300 leading-relaxed flex gap-2">
+                          <span className="text-red-400 flex-shrink-0">↓</span>{w}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+          </>)}
+        </div>
+      </div>
+
+    </div>
+  )
+}
+
+// ─── HARDCODED DATA (kept for reference — now replaced by upload system) ────────
+// (old hardcoded match data removed — replaced by upload system)
+
+
 // ─── Main Page ─────────────────────────────────────────────────────────────────
-const TABS = ['Resumen', 'Partidos', 'Próximo Partido', 'Análisis', 'Video & Notas'] as const
+const TABS = ['Análisis Propio', 'Último Partido', 'Análisis de Rival', 'Partidos'] as const
 type Tab = typeof TABS[number]
 
 export default function EquipoPage() {
+  const [searchParams] = useSearchParams()
+  const initialTab: Tab = (() => {
+    const t = searchParams.get('tab')
+    if (t === 'rival') return 'Análisis de Rival'
+    if (t === 'ultimo-partido') return 'Último Partido'
+    return 'Análisis Propio'
+  })()
   const [division, setDivision] = useState('primera')
-  const [tab, setTab] = useState<Tab>('Resumen')
+  const [tab, setTab] = useState<Tab>(initialTab)
   const [compFilter, setCompFilter] = useState<'all' | 'liga' | 'copa' | 'internacional'>('all')
 
   const matches = useMemo(() => {
@@ -1597,7 +3264,7 @@ export default function EquipoPage() {
           {DIVISIONS.map(d => (
             <button
               key={d.id}
-              onClick={() => { setDivision(d.id); setTab('Resumen') }}
+              onClick={() => { setDivision(d.id); setTab('Análisis Propio') }}
               className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                 division === d.id
                   ? 'bg-brand-green text-white shadow'
@@ -1618,7 +3285,7 @@ export default function EquipoPage() {
             <div className="text-5xl mb-4">📊</div>
             <h2 className="text-xl font-bold text-white mb-2">{selectedDivision?.label} — Sin datos cargados</h2>
             <p className="text-apple-gray-400 text-sm max-w-md mx-auto">
-              Exportá los datos de Wyscout de la {selectedDivision?.label} en formato Excel y cargarlos desde la sección de Próximo Partido o agregá los datos manualmente.
+              Exportá los datos estadísticos de la {selectedDivision?.label} en formato Excel y cargarlos desde la sección de Próximo Partido o agregá los datos manualmente.
             </p>
           </div>
         ) : (
@@ -1642,12 +3309,10 @@ export default function EquipoPage() {
 
             {/* Tab content */}
             <div>
-              {tab === 'Resumen' && <TabResumen matches={LANUS_2026} />}
+              {tab === 'Análisis Propio' && <TabAnalisisPropio matches={matches.length ? matches : LANUS_2026} />}
               {tab === 'Partidos' && <TabPartidos matches={LANUS_2026} />}
-              {tab === 'Próximo Partido' && <TabProximoPartido matches={LANUS_2026} />}
-              {tab === 'Análisis' && <TabAnalisis matches={matches.length ? matches : LANUS_2026} />}
-              
-              {tab === 'Video & Notas' && <TabVideo matches={LANUS_2026} />}
+              {tab === 'Último Partido' && <TabUltimoPartido />}
+              {tab === 'Análisis de Rival' && <TabAnalisisRival matches={LANUS_2026} />}
             </div>
           </>
         )}
