@@ -15,6 +15,10 @@ import { useData } from '@/context/DataContext'
 import { LANUS_2026, DIVISIONS, avg, type MatchData, type Competition } from '@/data/lanus2026'
 import { fetchLanusCalendar } from '@/services/fotmobService'
 import { ShieldImg, CompBadge } from '@/components/ui/ShieldImg'
+import {
+  loadSharedAnalysis, saveSharedAnalysis, getCachedSharedAnalysis,
+  KEY_RIVAL, KEY_ULTIMO_PARTIDO,
+} from '@/services/sharedAnalysisService'
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 const COMP_LABELS: Record<Competition, string> = {
@@ -1958,13 +1962,19 @@ function TabAnalisisRival({ matches }: { matches: MatchData[] }) {
   const [nextMatch, setNextMatch] = useState<{ date: Date } | null>(null)
 
   // ── Datos de archivos arrastrados (PDF / imagen / CSV Wyscout) ──
-  const [rivalData, setRivalDataState] = useState<RivalData | null>(() => {
-    try { return JSON.parse(localStorage.getItem(RIVAL_STORAGE_KEY) ?? 'null') } catch { return null }
-  })
+  // Persistidos en Supabase: todos los usuarios comparten el último análisis
+  // cargado. Cache local para respuesta inmediata al cargar la página.
+  const [rivalData, setRivalDataState] = useState<RivalData | null>(() =>
+    getCachedSharedAnalysis(KEY_RIVAL)
+  )
+  useEffect(() => {
+    loadSharedAnalysis(KEY_RIVAL).then(remote => {
+      if (remote) setRivalDataState(remote)
+    })
+  }, [])
   const setRivalData = (data: RivalData | null) => {
     setRivalDataState(data)
-    if (data) localStorage.setItem(RIVAL_STORAGE_KEY, JSON.stringify(data))
-    else localStorage.removeItem(RIVAL_STORAGE_KEY)
+    saveSharedAnalysis(KEY_RIVAL, data)
   }
 
   // ── Datos desde Google Sheets (estado separado, auto-carga) ──
@@ -2139,18 +2149,16 @@ function TabAnalisisRival({ matches }: { matches: MatchData[] }) {
           <MultiFileUploadZone
             current={rivalData}
             onData={merged => {
-              setRivalDataState(prev => {
-                const d = { ...merged }
-                localStorage.setItem(RIVAL_STORAGE_KEY, JSON.stringify(d))
-                return d
-              })
+              const d = { ...merged }
+              setRivalDataState(d)
+              saveSharedAnalysis(KEY_RIVAL, d)
             }}
             onPdfPages={setPdfPages}
             onPdfInsights={ins => {
               setRivalDataState(prev => {
                 if (!prev) return null
                 const d = { ...prev, pdfPageInsights: ins }
-                localStorage.setItem(RIVAL_STORAGE_KEY, JSON.stringify(d))
+                saveSharedAnalysis(KEY_RIVAL, d)
                 return d
               })
             }}
@@ -2928,13 +2936,18 @@ function TabUltimoPartido() {
   useEffect(() => { loadSheet() }, [loadSheet])
 
   // ── Datos desde archivos arrastrados (PDF / imagen) ──
-  const [matchData, setMatchDataState] = useState<RivalData | null>(() => {
-    try { return JSON.parse(localStorage.getItem(ULTIMO_PARTIDO_STORAGE_KEY) ?? 'null') } catch { return null }
-  })
+  // Persistidos en Supabase (compartido entre usuarios).
+  const [matchData, setMatchDataState] = useState<RivalData | null>(() =>
+    getCachedSharedAnalysis(KEY_ULTIMO_PARTIDO)
+  )
+  useEffect(() => {
+    loadSharedAnalysis(KEY_ULTIMO_PARTIDO).then(remote => {
+      if (remote) setMatchDataState(remote)
+    })
+  }, [])
   const setMatchData = (data: RivalData | null) => {
     setMatchDataState(data)
-    if (data) localStorage.setItem(ULTIMO_PARTIDO_STORAGE_KEY, JSON.stringify(data))
-    else localStorage.removeItem(ULTIMO_PARTIDO_STORAGE_KEY)
+    saveSharedAnalysis(KEY_ULTIMO_PARTIDO, data)
   }
 
   const [pdfPages, setPdfPages] = useState<PdfPage[]>([])
@@ -3149,7 +3162,7 @@ function TabUltimoPartido() {
               setMatchDataState(prev => {
                 if (!prev) return null
                 const d = { ...prev, pdfPageInsights: insights }
-                localStorage.setItem(ULTIMO_PARTIDO_STORAGE_KEY, JSON.stringify(d))
+                saveSharedAnalysis(KEY_ULTIMO_PARTIDO, d)
                 return d
               })
             }}
