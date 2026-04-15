@@ -12,7 +12,8 @@
   to = "https://pub.fotmob.com/:splat"
   status = 200
   force = true
-  headers = {User-Agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+  [redirects.headers]
+    "User-Agent" = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
 
 # FotMob API proxy (team/match data)
 [[redirects]]
@@ -20,7 +21,9 @@
   to = "https://www.fotmob.com/:splat"
   status = 200
   force = true
-  headers = {User-Agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", Referer = "https://www.fotmob.com"}
+  [redirects.headers]
+    "User-Agent" = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+    "Referer" = "https://www.fotmob.com"
 
 # FotMob image proxy (avoids hotlink blocking)
 [[redirects]]
@@ -28,7 +31,9 @@
   to = "https://images.fotmob.com/:splat"
   status = 200
   force = true
-  headers = {User-Agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", Referer = "https://www.fotmob.com"}
+  [redirects.headers]
+    "User-Agent" = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+    "Referer" = "https://www.fotmob.com"
 
 # ESPN public API proxy (Liga Argentina + Copa Libertadores standings)
 [[redirects]]
@@ -36,7 +41,9 @@
   to = "https://site.api.espn.com/:splat"
   status = 200
   force = true
-  headers = {User-Agent = "Mozilla/5.0", Accept = "application/json"}
+  [redirects.headers]
+    "User-Agent" = "Mozilla/5.0"
+    "Accept" = "application/json"
 
 # Promiedos proxy (annual standings)
 [[redirects]]
@@ -44,7 +51,9 @@
   to = "https://www.promiedos.com.ar/:splat"
   status = 200
   force = true
-  headers = {User-Agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", Accept = "text/html,*/*"}
+  [redirects.headers]
+    "User-Agent" = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+    "Accept" = "text/html,*/*"
 
 # API redirects
 [[redirects]]
