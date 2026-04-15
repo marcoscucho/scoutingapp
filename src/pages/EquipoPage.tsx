@@ -213,7 +213,8 @@ function TabResumen({ matches }: { matches: MatchData[] }) {
         <StatCard label="Precisión pase" value={fmtPct(avgPases)} sub={`${Math.round(avg(matches, 'pases'))} pases/partido`} />
       </div>
 
-      {/* Goleadores + Asistidores — fuente: partidos de lanus2026.ts */}
+      {/* Goleadores + Asistidores — oculto por pedido del usuario (pre-entrevista) */}
+      {false && (
       <div className="bg-white dark:bg-apple-gray-900 border border-apple-gray-200 dark:border-apple-gray-800 rounded-xl shadow-sm dark:shadow-none p-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           <div>
@@ -274,6 +275,7 @@ function TabResumen({ matches }: { matches: MatchData[] }) {
           </div>
         </div>
       </div>
+      )}
     </div>
   )
 }
@@ -356,6 +358,11 @@ function TabPartidos({ matches }: { matches: MatchData[] }) {
 
             {/* Expanded stats */}
             {expanded === m.id && (
+              m.xG === 0 && m.tiros === 0 && m.pases === 0 ? (
+                <div className="border-t border-apple-gray-200 dark:border-apple-gray-800 p-4 bg-apple-gray-50 dark:bg-apple-gray-800/60">
+                  <p className="text-xs text-apple-gray-500 italic">Stats Wyscout del partido en carga — disponibles próximamente.</p>
+                </div>
+              ) : (
               <div className="border-t border-apple-gray-200 dark:border-apple-gray-800 p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 bg-apple-gray-50 dark:bg-apple-gray-800/60">
                 {[
                   ['xG', m.xG.toString()],
@@ -383,6 +390,7 @@ function TabPartidos({ matches }: { matches: MatchData[] }) {
                   </div>
                 ))}
               </div>
+              )
             )}
           </div>
         ))}
@@ -2328,6 +2336,15 @@ function TabAnalisisRival({ matches }: { matches: MatchData[] }) {
             {sheetsLoading ? 'Cargando…' : 'Actualizar'}
           </button>
         </div>
+
+        {/* Aviso temporal: Always Ready tiene pocos partidos 2026 */}
+        {sheetsData?.teamName && /always\s*ready/i.test(sheetsData.teamName) && (
+          <div className="px-5 py-2.5 bg-amber-500/10 border-b border-amber-500/20">
+            <p className="text-[11px] text-amber-300 leading-relaxed">
+              <span className="font-semibold">Nota:</span> por falta de datos, solamente se muestran partidos de Liga Bolivia 2025 y Copa Libertadores 2026.
+            </p>
+          </div>
+        )}
 
         {/* Loading */}
         {sheetsLoading && !sheetsData && (

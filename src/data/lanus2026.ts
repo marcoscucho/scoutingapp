@@ -321,6 +321,23 @@ export const LANUS_2026: MatchData[] = [
     pasesProgresivos: 69, pasesProgresivosLogrados: 44, pasesProgresivos_pct: 63.77,
     ppda: 11.33, intensidadPaso: 17.8,
   },
+  {
+    id: 17, date: '2026-04-14', rival: 'Banfield', isHome: true, competition: 'liga',
+    result: 'W', golesAFavor: 1, golesEnContra: 0, duration: 100, formation: '4-2-3-1',
+    xG: 1.66, tiros: 16, tirosPorteria: 3, tirosPorteria_pct: 18.75,
+    posesion: 63.12, pases: 545, pasesLogrados: 478, pases_pct: 87.71,
+    duelos: 204, duelosGanados: 98, duelos_pct: 48.04,
+    ataquesPositionales: 34, ataquesPositionalesRemate: 11, contraataques: 1, contraataquesRemate: 1,
+    balonParado: 23, balonParadoRemate: 3, corners: 5, centros: 20, centrosPrecisos: 9, pasesEnProfundidad: 9,
+    golesRecibidos: 0, tirosContra: 11, tirosContraPorteria: 3,
+    duelosDefensivos: 76, duelosDefensivosGanados: 47, duelosDefensivos_pct: 61.84,
+    duelosAereos: 35, duelosAereosGanados: 17, duelosAereos_pct: 48.57,
+    interceptaciones: 32, despejes: 17, faltas: 19, amarillas: 4, rojas: 0,
+    pasesUltimoTercio: 68, pasesUltimoTercioLogrados: 54, pasesUltimoTercio_pct: 79.41,
+    pasesProgresivos: 72, pasesProgresivosLogrados: 58, pasesProgresivos_pct: 80.56,
+    ppda: 5.88, intensidadPaso: 17.47,
+    scorers: ['Valois'],
+  },
 ]
 
 export const DIVISIONS = [

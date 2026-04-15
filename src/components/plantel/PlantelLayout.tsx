@@ -432,7 +432,7 @@ interface PlayerComment {
   createdAt: string
 }
 
-function CoachSection({ playerKey, evaluations }: { playerKey: string; evaluations: ScoutEvaluation[] }) {
+function CoachSection({ playerKey }: { playerKey: string }) {
   const storageKey = `plantel_comments_v1`
 
   const loadComments = (): PlayerComment[] => {
@@ -477,14 +477,6 @@ function CoachSection({ playerKey, evaluations }: { playerKey: string; evaluatio
     const updated = all.filter((c: { id: string }) => c.id !== id)
     localStorage.setItem(storageKey, JSON.stringify(updated))
     setComments(updated.filter((c: { playerKey: string }) => c.playerKey === playerKey))
-  }
-
-  const getScoreColor = (s?: number | null) => {
-    if (!s) return 'text-apple-gray-400'
-    if (s >= 8) return 'text-[#8C1430] dark:text-[#D45A72]'
-    if (s >= 6) return 'text-yellow-500'
-    if (s >= 4) return 'text-amber-500'
-    return 'text-red-500'
   }
 
   return (
@@ -544,43 +536,151 @@ function CoachSection({ playerKey, evaluations }: { playerKey: string; evaluatio
         </div>
       )}
 
-      {/* Scout evaluations */}
-      {evaluations.length > 0 && (
-        <div>
-          <h3 className="text-xs font-semibold text-apple-gray-500 dark:text-apple-gray-400 uppercase tracking-wider mb-3">Evaluaciones Scout</h3>
-          <div className="space-y-2">
-            {evaluations.slice(0, 5).map(ev => {
-              const date = new Date(ev.match_date)
-              const recConfig: Record<string, { label: string; color: string }> = {
-                fichar:           { label: 'Fichar',          color: 'text-emerald-500 border-emerald-500/30 bg-emerald-500/10' },
-                seguir_observando:{ label: 'Seguir',          color: 'text-blue-500 border-blue-500/30 bg-blue-500/10' },
-                descartar:        { label: 'Descartar',       color: 'text-red-500 border-red-500/30 bg-red-500/10' },
-              }
-              const rec = ev.recommendation ? recConfig[ev.recommendation] : null
-              const score = ev.overall_score ?? ev.technical_score
-              return (
-                <div key={ev.id} className="p-3 rounded-xl border border-apple-gray-100 dark:border-apple-gray-700/50 bg-apple-gray-50/50 dark:bg-apple-gray-800/30">
-                  <div className="flex items-center justify-between gap-2 mb-1">
-                    <div className="flex items-center gap-2">
-                      {score != null && <span className={`text-base font-bold ${getScoreColor(score)}`}>{score}</span>}
-                      <span className="text-xs text-apple-gray-500">{date.toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-                      {rec && <span className={`text-2xs font-medium px-2 py-0.5 rounded-full border ${rec.color}`}>{rec.label}</span>}
-                    </div>
-                    <span className="text-2xs text-apple-gray-400">{ev.scout_name}</span>
-                  </div>
-                  {ev.notes && <p className="text-sm text-apple-gray-600 dark:text-apple-gray-400 leading-relaxed">{ev.notes}</p>}
-                </div>
-              )
-            })}
+      {comments.length === 0 && !isAdding && (
+        <div className="text-center py-10 text-apple-gray-400">
+          <p className="text-sm">Sin notas del coach</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── SCORE SCOUT TIMELINE ─────────────────────────────────────────────────────
+
+function ScoreScoutTimeline({ evaluations }: { evaluations: ScoutEvaluation[] }) {
+  const [expanded, setExpanded] = useState(false)
+
+  if (evaluations.length === 0) return null
+
+  const sorted = [...evaluations].sort(
+    (a, b) => new Date(b.match_date).getTime() - new Date(a.match_date).getTime()
+  )
+
+  const scores = sorted
+    .map(e => e.overall_score ?? e.technical_score)
+    .filter((s): s is number => s != null)
+  const avgScore = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : null
+
+  const getScoreColor = (s: number) => {
+    if (s >= 8) return 'text-[#8C1430] dark:text-[#D45A72]'
+    if (s >= 6) return 'text-[#D4A843]'
+    if (s >= 4) return 'text-amber-500'
+    return 'text-red-500'
+  }
+  const getScoreBg = (s: number) => {
+    if (s >= 8) return 'bg-[#8C1430]/10 border-[#8C1430]/40 dark:bg-[#D45A72]/10 dark:border-[#D45A72]/30'
+    if (s >= 6) return 'bg-[#D4A843]/10 border-[#D4A843]/30'
+    if (s >= 4) return 'bg-amber-500/10 border-amber-500/30'
+    return 'bg-red-500/10 border-red-500/30'
+  }
+  const getRecommendationBadge = (rec: string | null) => {
+    switch (rec) {
+      case 'fichar':            return { label: 'Fichar',            color: 'bg-brand-green/10 text-brand-green border-brand-green/30' }
+      case 'seguir_observando': return { label: 'Seguir observando', color: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30' }
+      case 'descartar':         return { label: 'Descartar',         color: 'bg-red-500/10 text-red-500 border-red-500/30' }
+      default:                  return null
+    }
+  }
+
+  const displayEvaluations = expanded ? sorted : sorted.slice(0, 3)
+
+  return (
+    <div className="card-apple p-5 space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-apple-gray-700 dark:text-apple-gray-300">Score Scout</h3>
+        {avgScore !== null && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-apple-gray-500">Promedio:</span>
+            <span className={`text-lg font-bold ${getScoreColor(avgScore)}`}>{avgScore.toFixed(1)}</span>
           </div>
+        )}
+      </div>
+
+      {avgScore !== null && (
+        <div className="relative h-2 bg-apple-gray-200 dark:bg-apple-gray-700 rounded-full overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all duration-500 ${
+              avgScore >= 8 ? 'bg-[#8C1430] dark:bg-[#D45A72]' :
+              avgScore >= 6 ? 'bg-[#D4A843]' :
+              avgScore >= 4 ? 'bg-amber-500' : 'bg-red-500'
+            }`}
+            style={{ width: `${avgScore * 10}%` }}
+          />
         </div>
       )}
 
-      {comments.length === 0 && evaluations.length === 0 && !isAdding && (
-        <div className="text-center py-10 text-apple-gray-400">
-          <p className="text-sm">Sin notas ni evaluaciones</p>
+      <div className="relative">
+        <div className="absolute left-4 top-0 bottom-0 w-px bg-apple-gray-200 dark:bg-apple-gray-700" />
+        <div className="space-y-3">
+          {displayEvaluations.map(ev => {
+            const score = ev.overall_score ?? ev.technical_score
+            const recBadge = getRecommendationBadge(ev.recommendation)
+            const date = new Date(ev.match_date)
+            return (
+              <div key={ev.id} className="relative pl-10">
+                <div className={`absolute left-2 top-3 w-4 h-4 rounded-full border-2 ${
+                  score != null ? getScoreBg(score) : 'bg-apple-gray-100 border-apple-gray-300'
+                } flex items-center justify-center`}>
+                  {score != null && (
+                    <div className={`w-2 h-2 rounded-full ${
+                      score >= 8 ? 'bg-[#8C1430] dark:bg-[#D45A72]' :
+                      score >= 6 ? 'bg-[#D4A843]' :
+                      score >= 4 ? 'bg-amber-500' : 'bg-red-500'
+                    }`} />
+                  )}
+                </div>
+                <div className={`p-3 rounded-xl border transition-all ${
+                  score != null ? getScoreBg(score) : 'bg-apple-gray-50 dark:bg-apple-gray-800/50 border-apple-gray-200 dark:border-apple-gray-700'
+                }`}>
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {score != null && (
+                          <span className={`text-lg font-bold ${getScoreColor(score)}`}>{score}</span>
+                        )}
+                        <span className="text-xs text-apple-gray-500">
+                          {date.toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </span>
+                        {recBadge && (
+                          <span className={`text-2xs font-medium px-2 py-0.5 rounded-full border ${recBadge.color}`}>
+                            {recBadge.label}
+                          </span>
+                        )}
+                      </div>
+                      {(ev.competition || ev.rival) && (
+                        <p className="text-xs text-apple-gray-500 mt-1">
+                          {ev.competition && <span>{ev.competition}</span>}
+                          {ev.competition && ev.rival && <span> vs </span>}
+                          {ev.rival && <span>{ev.rival}</span>}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  {ev.notes && (
+                    <p className="text-sm text-apple-gray-600 dark:text-apple-gray-400 leading-relaxed">{ev.notes}</p>
+                  )}
+                  <div className="mt-2 flex items-center gap-2 text-2xs text-apple-gray-400">
+                    <span>{ev.scout_name}</span>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
         </div>
+      </div>
+
+      {sorted.length > 3 && (
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="w-full text-center text-sm text-brand-green hover:text-brand-green/80 font-medium py-2 transition-colors"
+        >
+          {expanded ? 'Ver menos' : `Ver ${sorted.length - 3} evaluaciones más`}
+        </button>
       )}
+
+      <p className="text-2xs text-apple-gray-400 text-center">
+        {sorted.length} evaluacion{sorted.length !== 1 ? 'es' : ''} de scouts
+      </p>
     </div>
   )
 }
@@ -837,8 +937,8 @@ export default function PlantelLayout({
                         {
                           label: 'Coach',
                           id: 'coach',
-                          value: evaluations.length > 0 ? `${evaluations.length} evaluaciones` : '→ Agregar nota',
-                          ok: evaluations.length > 0,
+                          value: '→ Agregar nota',
+                          ok: false,
                         },
                         { label: 'Nutrición',    id: 'nutricion',    value: 'Sin datos', ok: false },
                         { label: 'Psicología',   id: 'psicologia',   value: 'Sin datos', ok: false },
@@ -861,7 +961,23 @@ export default function PlantelLayout({
                       ))
                     })()}
                   </div>
+
+                  {/* Comparar jugador — estilo idéntico al de la ficha externa */}
+                  <div className="mt-4 flex">
+                    <Link
+                      to={`/comparacion?player=${encodeURIComponent(player.Jugador)}`}
+                      className="inline-flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg bg-apple-gray-100 dark:bg-apple-gray-800 hover:bg-apple-gray-200 dark:hover:bg-apple-gray-700 transition-colors group"
+                    >
+                      <span className="text-sm font-medium text-apple-gray-700 dark:text-apple-gray-200">Comparar jugador</span>
+                      <svg className="w-4 h-4 text-apple-gray-500 dark:text-apple-gray-400 group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                      </svg>
+                    </Link>
+                  </div>
                 </div>
+
+                {/* Score Scout — evaluaciones de scouts (dato futbolístico clave) */}
+                <ScoreScoutTimeline evaluations={evaluations} />
 
                 {/* Football pitch with position zone */}
                 {posKey && (
@@ -1044,7 +1160,7 @@ export default function PlantelLayout({
 
             {/* ══ COACH ══ */}
             {activeSection === 'coach' && (
-              <CoachSection playerKey={playerKey} evaluations={evaluations} />
+              <CoachSection playerKey={playerKey} />
             )}
 
           </div>

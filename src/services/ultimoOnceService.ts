@@ -20,26 +20,26 @@ export interface LineupData {
   result: string
 }
 
-// ─── Último 11 hardcodeado (vs Mirassol, Copa Libertadores · 2026-04-08) ─────
+// ─── Último 11 hardcodeado (vs Banfield, Liga · 2026-04-14) ─────────────────
 // Actualizar partido a partido. Formación: 4-2-3-1
 // Orden para PitchVisualization: GK, RB, CB, CB, LB, DM, DM, RAM, CAM, LAM, ST
 const HARDCODED_LINEUP: LineupData = {
   formation: '4-2-3-1',
-  matchDate: '2026-04-08',
-  opponent:  'Mirassol',
-  result:    '0-1', // Copa Libertadores – derrota ante Mirassol
+  matchDate: '2026-04-14',
+  opponent:  'Banfield',
+  result:    '1-0',
   players: [
-    { number: 26, name: 'Losada',     position: 'GK',  x: 50,  y: 131, formation: '4-2-3-1', match_date: '2026-04-08', opponent: 'Mirassol', result: '0-1' },
-    { number: 33, name: 'Guidara',    position: 'RB',  x: 82,  y: 113, formation: '4-2-3-1', match_date: '2026-04-08', opponent: 'Mirassol', result: '0-1' },
-    { number: 24, name: 'Izquierdoz', position: 'CB',  x: 62,  y: 114, formation: '4-2-3-1', match_date: '2026-04-08', opponent: 'Mirassol', result: '0-1' },
-    { number: 13, name: 'Canale',     position: 'CB',  x: 38,  y: 114, formation: '4-2-3-1', match_date: '2026-04-08', opponent: 'Mirassol', result: '0-1' },
-    { number:  6, name: 'Marcich',    position: 'LB',  x: 18,  y: 113, formation: '4-2-3-1', match_date: '2026-04-08', opponent: 'Mirassol', result: '0-1' },
-    { number:  8, name: 'Watson',     position: 'DM',  x: 65,  y: 92,  formation: '4-2-3-1', match_date: '2026-04-08', opponent: 'Mirassol', result: '0-1' },
-    { number: 30, name: 'Cardozo',    position: 'DM',  x: 35,  y: 92,  formation: '4-2-3-1', match_date: '2026-04-08', opponent: 'Mirassol', result: '0-1' },
-    { number: 23, name: 'Carrera',    position: 'RAM', x: 76,  y: 68,  formation: '4-2-3-1', match_date: '2026-04-08', opponent: 'Mirassol', result: '0-1' },
-    { number: 17, name: 'Medina',     position: 'CAM', x: 50,  y: 65,  formation: '4-2-3-1', match_date: '2026-04-08', opponent: 'Mirassol', result: '0-1' },
-    { number: 11, name: 'Salvio',     position: 'LAM', x: 24,  y: 68,  formation: '4-2-3-1', match_date: '2026-04-08', opponent: 'Mirassol', result: '0-1' },
-    { number: 16, name: 'Sepúlveda',  position: 'ST',  x: 50,  y: 35,  formation: '4-2-3-1', match_date: '2026-04-08', opponent: 'Mirassol', result: '0-1' },
+    { number: 26, name: 'Losada',     position: 'GK',  x: 50,  y: 131, formation: '4-2-3-1', match_date: '2026-04-14', opponent: 'Banfield', result: '1-0' },
+    { number: 33, name: 'Guidara',    position: 'RB',  x: 82,  y: 113, formation: '4-2-3-1', match_date: '2026-04-14', opponent: 'Banfield', result: '1-0' },
+    { number: 24, name: 'Izquierdoz', position: 'CB',  x: 62,  y: 114, formation: '4-2-3-1', match_date: '2026-04-14', opponent: 'Banfield', result: '1-0' },
+    { number: 13, name: 'Canale',     position: 'CB',  x: 38,  y: 114, formation: '4-2-3-1', match_date: '2026-04-14', opponent: 'Banfield', result: '1-0' },
+    { number:  6, name: 'Marcich',    position: 'LB',  x: 18,  y: 113, formation: '4-2-3-1', match_date: '2026-04-14', opponent: 'Banfield', result: '1-0' },
+    { number: 17, name: 'Medina',     position: 'DM',  x: 65,  y: 92,  formation: '4-2-3-1', match_date: '2026-04-14', opponent: 'Banfield', result: '1-0' },
+    { number: 30, name: 'Cardozo',    position: 'DM',  x: 35,  y: 92,  formation: '4-2-3-1', match_date: '2026-04-14', opponent: 'Banfield', result: '1-0' },
+    { number: 16, name: 'Sepúlveda',  position: 'RAM', x: 76,  y: 68,  formation: '4-2-3-1', match_date: '2026-04-14', opponent: 'Banfield', result: '1-0' },
+    { number:  8, name: 'Watson',     position: 'CAM', x: 50,  y: 65,  formation: '4-2-3-1', match_date: '2026-04-14', opponent: 'Banfield', result: '1-0' },
+    { number: 23, name: 'Carrera',    position: 'LAM', x: 24,  y: 68,  formation: '4-2-3-1', match_date: '2026-04-14', opponent: 'Banfield', result: '1-0' },
+    { number: 11, name: 'Salvio',     position: 'ST',  x: 50,  y: 35,  formation: '4-2-3-1', match_date: '2026-04-14', opponent: 'Banfield', result: '1-0' },
   ],
 }
 

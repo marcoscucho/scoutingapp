@@ -1226,6 +1226,16 @@ export default function DashboardPage() {
     setLoadingRival(true)
     fetchRivalDataFromCSV(oppName).then(async csvData => {
       if (!csvData) { setLoadingRival(false); return }
+      // Override manual por esta vez: Always Ready no tiene stats confiables en la hoja.
+      if (/always\s*ready/i.test(oppName)) {
+        csvData.recentForm = [
+          { date: '2026-04-10', partido: 'Club Aurora - Always Ready 1:1', competicion: 'Liga Bolivia', result: 'D', goalsFor: 1, goalsAgainst: 1, isHome: false, formation: '4-2-3-1' },
+          { date: '2026-04-04', partido: 'Always Ready - Liga de Quito 0:1', competicion: 'Copa Libertadores', result: 'L', goalsFor: 0, goalsAgainst: 1, isHome: true, formation: '4-2-3-1' },
+          { date: '2026-03-28', partido: 'Always Ready - Real Tomayapo 4:0', competicion: 'Liga Bolivia', result: 'W', goalsFor: 4, goalsAgainst: 0, isHome: true, formation: '4-2-3-1' },
+          { date: '2026-03-22', partido: 'Bolívar - Always Ready 2:1', competicion: 'Liga Bolivia', result: 'L', goalsFor: 1, goalsAgainst: 2, isHome: false, formation: '4-2-3-1' },
+          { date: '2026-03-15', partido: 'Always Ready - Bolívar 3:2', competicion: 'Liga Bolivia', result: 'W', goalsFor: 3, goalsAgainst: 2, isHome: true, formation: '4-2-3-1' },
+        ]
+      }
       setRivalData(csvData)
       setLoadingRival(false)
     })
@@ -1248,9 +1258,13 @@ export default function DashboardPage() {
     const warning: EnrichedPlayer[] = []
     const watch: EnrichedPlayer[] = []
 
+    // Por pedido del usuario: ocultar F. Acosta y N. Díaz de contratos (por ahora)
+    const HIDDEN_CONTRACTS = /(\bf\.?\s*acosta\b)|(\bn\.?\s*d[ií]az\b)/i
     for (const p of internal) {
       const m = (p as any).monthsRemaining as number | undefined
       if (m === undefined) continue
+      const name = String((p as any).Jugador ?? (p as any).name ?? '')
+      if (HIDDEN_CONTRACTS.test(name)) continue
       if (m < 6) critical.push(p)
       else if (m < 12) warning.push(p)
       else if (m < 24) watch.push(p)
@@ -1594,6 +1608,85 @@ export default function DashboardPage() {
               loading={loadingStandings}
               compSlug="libertadores"
             />
+          </div>
+        </section>
+
+        {/* ── Copa Argentina ── */}
+        <section className="relative overflow-hidden rounded-2xl border border-amber-500/20 bg-gradient-to-br from-amber-500/5 via-white to-white dark:from-amber-500/10 dark:via-apple-gray-900 dark:to-apple-gray-900">
+          {/* Sutil pattern de fondo */}
+          <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.06] pointer-events-none"
+               style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, currentColor 1px, transparent 0)', backgroundSize: '16px 16px' }} />
+          <div className="relative p-5">
+            {/* Header */}
+            <div className="flex items-center gap-2.5 mb-5">
+              <img src="/escudos/competiciones/copa-argentina.png" alt="Copa Argentina" className="w-6 h-6 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+              <h2 className="text-xs font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-widest">Copa Argentina</h2>
+              <span className="text-[10px] text-apple-gray-400 ml-auto">Camino Lanús</span>
+            </div>
+
+            {/* Bracket camino */}
+            <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-4 items-stretch">
+              {/* 16vos — Instituto confirmado */}
+              <div className="relative rounded-xl border border-amber-500/40 bg-white dark:bg-apple-gray-900 p-4 shadow-sm">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">16vos de final</span>
+                  <span className="text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold">Confirmado</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="flex flex-col items-center gap-1 flex-1">
+                    <ShieldImg team="Lanús" size={72} />
+                    <span className="text-xs font-semibold text-apple-gray-800 dark:text-white">Lanús</span>
+                  </div>
+                  <span className="text-[10px] font-bold text-apple-gray-400 px-2">VS</span>
+                  <div className="flex flex-col items-center gap-1 flex-1">
+                    <ShieldImg team="Instituto" size={72} />
+                    <span className="text-xs font-semibold text-apple-gray-800 dark:text-white">Instituto</span>
+                  </div>
+                </div>
+                <div className="mt-3 pt-3 border-t border-apple-gray-100 dark:border-apple-gray-800 flex items-center justify-between text-[10px] text-apple-gray-500">
+                  <span className="inline-flex items-center gap-1">
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                    Fecha por definir
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                    Sede por definir
+                  </span>
+                </div>
+              </div>
+
+              {/* Conector */}
+              <div className="hidden md:flex items-center justify-center">
+                <svg className="w-8 h-8 text-amber-500/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                </svg>
+              </div>
+
+              {/* Octavos — proyección */}
+              <div className="relative rounded-xl border border-apple-gray-200 dark:border-apple-gray-700 bg-apple-gray-50/60 dark:bg-apple-gray-800/40 p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-apple-gray-500 dark:text-apple-gray-400">Octavos de final</span>
+                  <span className="text-[9px] px-2 py-0.5 rounded-full bg-apple-gray-200 dark:bg-apple-gray-700 text-apple-gray-600 dark:text-apple-gray-300 font-semibold">Proyección</span>
+                </div>
+                <p className="text-[10px] text-apple-gray-500 dark:text-apple-gray-400 mb-3 leading-relaxed">
+                  Si Lanús avanza, se cruzaría con el ganador de:
+                </p>
+                <div className="flex items-center gap-3">
+                  <div className="flex flex-col items-center gap-1 flex-1">
+                    <ShieldImg team="Platense" size={64} />
+                    <span className="text-[11px] font-medium text-apple-gray-700 dark:text-apple-gray-200 text-center leading-tight">Platense</span>
+                  </div>
+                  <span className="text-[10px] font-bold text-apple-gray-400 px-1">vs</span>
+                  <div className="flex flex-col items-center gap-1 flex-1">
+                    <ShieldImg team="San Martín SJ" size={64} />
+                    <span className="text-[11px] font-medium text-apple-gray-700 dark:text-apple-gray-200 text-center leading-tight">San Martín (SJ)</span>
+                  </div>
+                </div>
+                <div className="mt-3 pt-3 border-t border-apple-gray-200 dark:border-apple-gray-700 text-[10px] text-apple-gray-400 italic">
+                  Fecha y sede por definir
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 
