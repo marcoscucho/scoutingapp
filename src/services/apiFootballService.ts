@@ -1,4 +1,4 @@
-const BASE = '/apifootball-proxy'
+const IS_DEV = import.meta.env.DEV
 const LANUS_ID = 446
 const CURRENT_SEASON = 2026
 
@@ -56,7 +56,16 @@ function mapFixture(raw: any): APIFixture {
 }
 
 async function apiFetch<T>(endpoint: string): Promise<T[]> {
-  const res = await fetch(`${BASE}${endpoint}`)
+  let url: string
+  if (IS_DEV) {
+    url = `/apifootball-proxy${endpoint}`
+  } else {
+    const [path, qs] = endpoint.split('?')
+    const params = new URLSearchParams(qs ?? '')
+    params.set('endpoint', path)
+    url = `/.netlify/functions/apifootball?${params.toString()}`
+  }
+  const res = await fetch(url)
   if (!res.ok) throw new Error(`API-Football ${res.status}`)
   const json = await res.json()
   return json.response ?? []
