@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'
+import { fetchLastLineup, type APILineupPlayer, type APIFixture } from './apiFootballService'
 
 export interface UltimoOncePlayer {
   number: number
@@ -14,62 +14,107 @@ export interface UltimoOncePlayer {
 
 export interface LineupData {
   players: UltimoOncePlayer[]
+  startXI: APILineupPlayer[]
   formation: string
   matchDate: string
   opponent: string
   result: string
 }
 
-// ─── Último 11 hardcodeado (vs Banfield, Liga · 2026-04-14) ─────────────────
-// Actualizar partido a partido. Formación: 4-2-3-1
-// Orden para PitchVisualization: GK, RB, CB, CB, LB, DM, DM, RAM, CAM, LAM, ST
-const HARDCODED_LINEUP: LineupData = {
-  formation: '4-2-3-1',
-  matchDate: '2026-04-14',
-  opponent:  'Banfield',
-  result:    '1-0',
-  players: [
-    { number: 26, name: 'Losada',     position: 'GK',  x: 50,  y: 131, formation: '4-2-3-1', match_date: '2026-04-14', opponent: 'Banfield', result: '1-0' },
-    { number: 33, name: 'Guidara',    position: 'RB',  x: 82,  y: 113, formation: '4-2-3-1', match_date: '2026-04-14', opponent: 'Banfield', result: '1-0' },
-    { number: 24, name: 'Izquierdoz', position: 'CB',  x: 62,  y: 114, formation: '4-2-3-1', match_date: '2026-04-14', opponent: 'Banfield', result: '1-0' },
-    { number: 13, name: 'Canale',     position: 'CB',  x: 38,  y: 114, formation: '4-2-3-1', match_date: '2026-04-14', opponent: 'Banfield', result: '1-0' },
-    { number:  6, name: 'Marcich',    position: 'LB',  x: 18,  y: 113, formation: '4-2-3-1', match_date: '2026-04-14', opponent: 'Banfield', result: '1-0' },
-    { number: 17, name: 'Medina',     position: 'DM',  x: 65,  y: 92,  formation: '4-2-3-1', match_date: '2026-04-14', opponent: 'Banfield', result: '1-0' },
-    { number: 30, name: 'Cardozo',    position: 'DM',  x: 35,  y: 92,  formation: '4-2-3-1', match_date: '2026-04-14', opponent: 'Banfield', result: '1-0' },
-    { number: 16, name: 'Sepúlveda',  position: 'RAM', x: 76,  y: 68,  formation: '4-2-3-1', match_date: '2026-04-14', opponent: 'Banfield', result: '1-0' },
-    { number:  8, name: 'Watson',     position: 'CAM', x: 50,  y: 65,  formation: '4-2-3-1', match_date: '2026-04-14', opponent: 'Banfield', result: '1-0' },
-    { number: 23, name: 'Carrera',    position: 'LAM', x: 24,  y: 68,  formation: '4-2-3-1', match_date: '2026-04-14', opponent: 'Banfield', result: '1-0' },
-    { number: 11, name: 'Salvio',     position: 'ST',  x: 50,  y: 35,  formation: '4-2-3-1', match_date: '2026-04-14', opponent: 'Banfield', result: '1-0' },
+const POSITION_COORDS: Record<string, [number, number][]> = {
+  '4-2-3-1': [
+    [50, 131],  // GK
+    [82, 113], [62, 114], [38, 114], [18, 113],  // RB CB CB LB
+    [65, 92], [35, 92],  // DM DM
+    [76, 68], [50, 65], [24, 68],  // RAM CAM LAM
+    [50, 35],  // ST
+  ],
+  '4-3-3': [
+    [50, 131],
+    [82, 113], [62, 114], [38, 114], [18, 113],
+    [70, 85], [50, 88], [30, 85],
+    [78, 43], [50, 28], [22, 43],
+  ],
+  '4-4-2': [
+    [50, 131],
+    [82, 113], [62, 114], [38, 114], [18, 113],
+    [78, 85], [58, 88], [42, 88], [22, 85],
+    [62, 38], [38, 38],
+  ],
+  '3-5-2': [
+    [50, 131],
+    [70, 114], [50, 116], [30, 114],
+    [85, 88], [65, 82], [50, 85], [35, 82], [15, 88],
+    [62, 38], [38, 38],
+  ],
+  '5-3-2': [
+    [50, 131],
+    [85, 108], [68, 114], [50, 116], [32, 114], [15, 108],
+    [70, 82], [50, 85], [30, 82],
+    [62, 38], [38, 38],
   ],
 }
 
-// Usa el hardcoded directamente — la fuente de verdad es este archivo.
-// Actualizar HARDCODED_LINEUP partido a partido.
-export async function fetchUltimoOnce(): Promise<LineupData | null> {
-  return HARDCODED_LINEUP
+const DEFAULT_COORDS: [number, number][] = [
+  [50, 131],
+  [82, 108], [63, 112], [37, 112], [18, 108],
+  [76, 77], [50, 81], [24, 77],
+  [78, 43], [50, 28], [22, 43],
+]
+
+function inferFormation(players: APILineupPlayer[]): string {
+  const counts = { D: 0, M: 0, F: 0 }
+  for (const p of players) {
+    if (p.pos !== 'G') counts[p.pos as 'D' | 'M' | 'F']++
+  }
+  return `${counts.D}-${counts.M}-${counts.F}`
 }
 
-/** Maps FotMob position string to x/y pitch coordinates.
- *  Positions come ordered: GK, RB, CB, CB, LB, MF, MF, MF, FW, FW, FW (for 4-3-3) */
+function getResult(fixture: APIFixture): string {
+  if (fixture.goalsHome === null || fixture.goalsAway === null) return ''
+  if (fixture.isHome) return `${fixture.goalsHome}-${fixture.goalsAway}`
+  return `${fixture.goalsAway}-${fixture.goalsHome}`
+}
+
+function getOpponent(fixture: APIFixture): string {
+  return fixture.isHome ? fixture.awayTeam.name : fixture.homeTeam.name
+}
+
+export async function fetchUltimoOnce(): Promise<LineupData | null> {
+  try {
+    const result = await fetchLastLineup()
+    if (!result) return null
+
+    const { lineup, fixture } = result
+    const formation = lineup.formation ?? inferFormation(lineup.startXI)
+    const coords = POSITION_COORDS[formation] ?? DEFAULT_COORDS
+    const opponent = getOpponent(fixture)
+    const matchResult = getResult(fixture)
+    const matchDate = fixture.date.split('T')[0]
+
+    const players: UltimoOncePlayer[] = lineup.startXI.map((p, i) => ({
+      number: p.number,
+      name: p.name.split(' ').pop() ?? p.name,
+      position: p.pos === 'G' ? 'GK' : p.pos,
+      x: coords[i]?.[0] ?? 50,
+      y: coords[i]?.[1] ?? 70,
+      formation,
+      match_date: matchDate,
+      opponent,
+      result: matchResult,
+    }))
+
+    return { players, startXI: lineup.startXI, formation, matchDate, opponent, result: matchResult }
+  } catch (err) {
+    console.warn('API-Football lineup fetch failed:', err)
+    return null
+  }
+}
+
 export function mapPlayersToPositions(players: {
   name: string; number: number; position: string
 }[]): Omit<UltimoOncePlayer, 'formation' | 'match_date' | 'opponent' | 'result'>[] {
-  // Fixed x/y grid for 11 positions based on role order as returned by FotMob
-  // Field: viewBox "0 0 100 140", team attacks upward (y=5), defends bottom (y≈133)
-  const coords: [number, number][] = [
-    [50, 126], // GK
-    [82, 107], // RB
-    [63, 108], // CB right
-    [37, 108], // CB left
-    [18, 107], // LB
-    [76,  77], // MF right
-    [50,  81], // MF center
-    [24,  77], // MF left
-    [78,  43], // FW right
-    [50,  28], // CF
-    [22,  43], // FW left
-  ]
-
+  const coords = DEFAULT_COORDS
   return players.slice(0, 11).map((p, i) => ({
     number: p.number,
     name: p.name,

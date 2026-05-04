@@ -13,7 +13,8 @@ import {
 } from 'recharts'
 import { useData } from '@/context/DataContext'
 import { LANUS_2026, DIVISIONS, avg, type MatchData, type Competition } from '@/data/lanus2026'
-import { fetchLanusCalendar } from '@/services/fotmobService'
+import { fetchCalendarCompat as fetchLanusCalendar, fetchLastMatchEvents, type MatchEventsData } from '@/services/apiFootballService'
+import MatchPitch from '@/components/match/MatchPitch'
 import { ShieldImg, CompBadge } from '@/components/ui/ShieldImg'
 import {
   loadSharedAnalysis, saveSharedAnalysis, getCachedSharedAnalysis,
@@ -2920,14 +2921,20 @@ function TabUltimoPartido() {
   const [sheetLoading, setSheetLoading] = useState(false)
   const [sheetError, setSheetError] = useState('')
 
+  // ── Datos desde API-Football (eventos, formación, cambios) ──
+  const [apiData, setApiData] = useState<MatchEventsData | null>(null)
+
   const loadSheet = useCallback(async () => {
     setSheetLoading(true)
     setSheetError('')
     try {
-      const data = await fetchUltimoPartidoData()
-      setSheetData(data)
-    } catch (e) {
-      setSheetError(e instanceof Error ? e.message : 'Error al cargar')
+      const [data, api] = await Promise.allSettled([
+        fetchUltimoPartidoData(),
+        fetchLastMatchEvents(),
+      ])
+      if (data.status === 'fulfilled') setSheetData(data.value)
+      else setSheetError(data.reason?.message ?? 'Error al cargar')
+      if (api.status === 'fulfilled') setApiData(api.value)
     } finally {
       setSheetLoading(false)
     }
@@ -2978,33 +2985,6 @@ function TabUltimoPartido() {
   const topFormation = matchData?.recentFormations?.[0]
   const topPlayers = topFormation?.players ?? []
 
-  // lanOnRight=true → Lanús en la derecha (cuando juega de visitante)
-  function StatRow({ label, lan, riv, higherBetter = true, fmt = (v: number) => v.toFixed(1), lanOnRight = false }: {
-    label: string; lan: number; riv: number; higherBetter?: boolean; fmt?: (v: number) => string; lanOnRight?: boolean
-  }) {
-    if (lan === 0 && riv === 0) return null
-    const total = lan + riv || 1
-    const lanWins = higherBetter ? lan >= riv : lan <= riv
-    // Valores visuales izquierda/derecha según perspectiva
-    const leftVal  = lanOnRight ? riv : lan
-    const rightVal = lanOnRight ? lan : riv
-    const leftPct  = Math.round((leftVal / total) * 100)
-    const rightPct = 100 - leftPct
-    // Lanús siempre en granate, rival en azul
-    const leftIsLanus  = !lanOnRight
-    const leftWins     = leftIsLanus ? lanWins : !lanWins
-    return (
-      <div className="flex items-center gap-2 py-1.5 border-b border-apple-gray-100 dark:border-apple-gray-800 last:border-0">
-        <span className={`text-xs font-bold tabular-nums w-10 text-right ${leftIsLanus ? (lanWins ? 'text-[#6F1929] dark:text-red-400' : 'text-apple-gray-400') : (!lanWins ? 'text-blue-400' : 'text-apple-gray-400')}`}>{fmt(leftVal)}</span>
-        <div className="flex-1 flex h-2 rounded-full overflow-hidden gap-px bg-apple-gray-200 dark:bg-apple-gray-800">
-          <div className={`h-full ${leftWins ? (leftIsLanus ? 'bg-[#6F1929]' : 'bg-blue-500') : 'bg-apple-gray-500 dark:bg-apple-gray-700'} rounded-l-full transition-all`} style={{ width: `${leftPct}%` }} />
-          <div className={`h-full ${!leftWins ? (!leftIsLanus ? 'bg-[#6F1929]' : 'bg-blue-500') : 'bg-apple-gray-500 dark:bg-apple-gray-700'} rounded-r-full transition-all`} style={{ width: `${rightPct}%` }} />
-        </div>
-        <span className={`text-xs font-bold tabular-nums w-10 ${!leftIsLanus ? (lanWins ? 'text-[#6F1929] dark:text-red-400' : 'text-apple-gray-400') : (!lanWins ? 'text-blue-400' : 'text-apple-gray-400')}`}>{fmt(rightVal)}</span>
-        <span className="text-[10px] text-apple-gray-500 w-36 truncate">{label}</span>
-      </div>
-    )
-  }
 
   return (
     <div className="space-y-5">
@@ -3093,24 +3073,194 @@ function TabUltimoPartido() {
               </div>
             </div>
 
-            {/* Estadísticas comparadas — Lanús siempre del lado de su escudo */}
-            <div>
-              <div className="flex items-center justify-between text-[10px] text-apple-gray-500 mb-2 px-0.5">
-                <span className={`font-semibold ${lanusIsHome ? 'text-[#6F1929] dark:text-red-400' : 'text-blue-400'}`}>{lanusIsHome ? 'Lanús' : sheetData.rival.team}</span>
-                <span className="uppercase tracking-wider">Estadísticas del partido</span>
-                <span className={`font-semibold ${lanusIsHome ? 'text-blue-400' : 'text-[#6F1929] dark:text-red-400'}`}>{lanusIsHome ? sheetData.rival.team : 'Lanús'}</span>
+            {/* Alineaciones en canchita (API-Football) */}
+            {apiData?.lineup && apiData.rivalLineup && (
+              <div>
+                <p className="text-[10px] text-apple-gray-500 uppercase tracking-wider mb-3">Alineaciones</p>
+                <div className="max-w-md mx-auto">
+                  <MatchPitch
+                    homePlayers={apiData.lineup.startXI}
+                    awayPlayers={apiData.rivalLineup.startXI}
+                    homeFormation={apiData.lineup.formation}
+                    awayFormation={apiData.rivalLineup.formation}
+                    homeTeam="Lanús"
+                    awayTeam={apiData.fixture.isHome ? apiData.fixture.awayTeam.name : apiData.fixture.homeTeam.name}
+                    homeColor="#6F1929"
+                    awayColor="#2563eb"
+                  />
+                </div>
               </div>
-              <StatRow label="Posesión %" lan={sheetData.lanus.posesion} riv={sheetData.rival.posesion} fmt={v => v.toFixed(1) + '%'} lanOnRight={!lanusIsHome} />
-              <StatRow label="xG" lan={sheetData.lanus.xG} riv={sheetData.rival.xG} fmt={v => v.toFixed(2)} lanOnRight={!lanusIsHome} />
-              <StatRow label="Tiros" lan={sheetData.lanus.tiros} riv={sheetData.rival.tiros} lanOnRight={!lanusIsHome} />
-              <StatRow label="Tiros a portería" lan={sheetData.lanus.tirosPorteria} riv={sheetData.rival.tirosPorteria} lanOnRight={!lanusIsHome} />
-              <StatRow label="Precisión pase %" lan={sheetData.lanus.pasesPct} riv={sheetData.rival.pasesPct} fmt={v => v.toFixed(0) + '%'} lanOnRight={!lanusIsHome} />
-              <StatRow label="Duelos ganados %" lan={sheetData.lanus.duelos_pct} riv={sheetData.rival.duelos_pct} fmt={v => v.toFixed(0) + '%'} lanOnRight={!lanusIsHome} />
-              <StatRow label="Duelos aéreos %" lan={sheetData.lanus.duelosAereos_pct} riv={sheetData.rival.duelosAereos_pct} fmt={v => v.toFixed(0) + '%'} lanOnRight={!lanusIsHome} />
-              <StatRow label="Corners" lan={sheetData.lanus.corners} riv={sheetData.rival.corners} fmt={v => String(Math.round(v))} lanOnRight={!lanusIsHome} />
-              <StatRow label="Interceptaciones" lan={sheetData.lanus.interceptaciones} riv={sheetData.rival.interceptaciones} fmt={v => String(Math.round(v))} lanOnRight={!lanusIsHome} />
-              <StatRow label="Faltas" lan={sheetData.lanus.faltas} riv={sheetData.rival.faltas} higherBetter={false} fmt={v => String(Math.round(v))} lanOnRight={!lanusIsHome} />
-              <StatRow label="PPDA" lan={sheetData.lanus.ppda} riv={sheetData.rival.ppda} higherBetter={false} fmt={v => v.toFixed(1)} lanOnRight={!lanusIsHome} />
+            )}
+            {apiData?.lineup && !apiData.rivalLineup && (
+              <div>
+                <p className="text-[10px] text-apple-gray-500 uppercase tracking-wider mb-2">Titulares — Lanús</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {apiData.lineup.startXI.map(p => (
+                    <span key={p.id} className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-[#6F1929]/10 dark:bg-[#6F1929]/20 text-xs">
+                      <span className="font-bold text-[#6F1929] dark:text-red-400">{p.number}</span>
+                      <span className="text-apple-gray-700 dark:text-apple-gray-300">{p.name.split(' ').pop()}</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Goles y tarjetas */}
+            {apiData && apiData.events.filter(e => e.type === 'goal' || e.type === 'card').length > 0 && (
+              <div>
+                <p className="text-[10px] text-apple-gray-500 uppercase tracking-wider mb-2">Goles y tarjetas</p>
+                <div className="space-y-1.5">
+                  {apiData.events
+                    .filter(e => e.type === 'goal' || e.type === 'card')
+                    .sort((a, b) => a.minute - b.minute)
+                    .map((ev, i) => {
+                      const isLanus = ev.team === 'lanus'
+                      const icon = ev.type === 'goal' ? '⚽' : ev.detail.includes('Red') ? '🟥' : '🟨'
+                      const label = ev.type === 'goal'
+                        ? `${ev.playerName}${ev.assistName ? ` (asist. ${ev.assistName})` : ''}`
+                        : `${ev.playerName} · ${ev.detail}`
+                      const min = ev.extraMinute ? `${ev.minute}+${ev.extraMinute}'` : `${ev.minute}'`
+                      return (
+                        <div key={i} className={`flex items-center gap-2 py-1.5 px-3 rounded-lg ${isLanus ? 'bg-[#6F1929]/5 dark:bg-[#6F1929]/10' : 'bg-blue-500/5 dark:bg-blue-500/10'}`}>
+                          <span className="text-[10px] text-apple-gray-400 w-10 text-right tabular-nums font-medium">{min}</span>
+                          <span className="text-sm">{icon}</span>
+                          <span className={`text-xs font-medium truncate ${isLanus ? 'text-[#6F1929] dark:text-red-400' : 'text-blue-600 dark:text-blue-400'}`}>{label}</span>
+                          {!isLanus && <span className="text-[9px] text-apple-gray-400 ml-auto flex-shrink-0">{ev.teamName}</span>}
+                        </div>
+                      )
+                    })}
+                </div>
+              </div>
+            )}
+
+            {/* Sustituciones */}
+            {apiData && apiData.events.filter(e => e.type === 'subst').length > 0 && (
+              <div>
+                <p className="text-[10px] text-apple-gray-500 uppercase tracking-wider mb-2">Sustituciones</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {/* Lanús subs */}
+                  {apiData.events.filter(e => e.type === 'subst' && e.team === 'lanus').length > 0 && (
+                    <div className="bg-[#6F1929]/5 dark:bg-[#6F1929]/10 rounded-xl p-3">
+                      <p className="text-[9px] font-bold text-[#6F1929] dark:text-red-400 uppercase tracking-wider mb-2">Lanús</p>
+                      <div className="space-y-2">
+                        {apiData.events
+                          .filter(e => e.type === 'subst' && e.team === 'lanus')
+                          .sort((a, b) => a.minute - b.minute)
+                          .map((ev, i) => {
+                            const min = ev.extraMinute ? `${ev.minute}+${ev.extraMinute}'` : `${ev.minute}'`
+                            return (
+                              <div key={i} className="flex items-center gap-2">
+                                <span className="text-[10px] text-apple-gray-400 w-8 text-right tabular-nums">{min}</span>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-red-400 text-[10px]">▼</span>
+                                  <span className="text-[11px] text-apple-gray-500 line-through">{ev.assistName?.split(' ').pop() ?? '?'}</span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-emerald-400 text-[10px]">▲</span>
+                                  <span className="text-[11px] font-medium text-apple-gray-800 dark:text-white">{ev.playerName.split(' ').pop()}</span>
+                                </div>
+                              </div>
+                            )
+                          })}
+                      </div>
+                    </div>
+                  )}
+                  {/* Rival subs */}
+                  {apiData.events.filter(e => e.type === 'subst' && e.team === 'rival').length > 0 && (
+                    <div className="bg-blue-500/5 dark:bg-blue-500/10 rounded-xl p-3">
+                      <p className="text-[9px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider mb-2">
+                        {apiData.fixture.isHome ? apiData.fixture.awayTeam.name : apiData.fixture.homeTeam.name}
+                      </p>
+                      <div className="space-y-2">
+                        {apiData.events
+                          .filter(e => e.type === 'subst' && e.team === 'rival')
+                          .sort((a, b) => a.minute - b.minute)
+                          .map((ev, i) => {
+                            const min = ev.extraMinute ? `${ev.minute}+${ev.extraMinute}'` : `${ev.minute}'`
+                            return (
+                              <div key={i} className="flex items-center gap-2">
+                                <span className="text-[10px] text-apple-gray-400 w-8 text-right tabular-nums">{min}</span>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-red-400 text-[10px]">▼</span>
+                                  <span className="text-[11px] text-apple-gray-500 line-through">{ev.assistName?.split(' ').pop() ?? '?'}</span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-emerald-400 text-[10px]">▲</span>
+                                  <span className="text-[11px] font-medium text-apple-gray-800 dark:text-white">{ev.playerName.split(' ').pop()}</span>
+                                </div>
+                              </div>
+                            )
+                          })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Estadísticas comparadas — Radar + Barras horizontales */}
+            <div className="space-y-4">
+              <p className="text-[10px] text-apple-gray-500 uppercase tracking-wider">Estadísticas del partido</p>
+
+              {/* Radar chart comparativo */}
+              <div className="bg-apple-gray-50 dark:bg-[#0a1218] border border-apple-gray-200 dark:border-apple-gray-800 rounded-xl p-4">
+                <div className="flex items-center justify-center gap-6 mb-2">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-3 h-3 rounded-full bg-[#6F1929]" />
+                    <span className="text-[10px] font-bold text-[#6F1929] dark:text-red-400">Lanús</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-3 h-3 rounded-full bg-blue-500" />
+                    <span className="text-[10px] font-bold text-blue-500">{sheetData.rival.team}</span>
+                  </div>
+                </div>
+                <ResponsiveContainer width="100%" height={240}>
+                  <RadarChart data={[
+                    { metric: 'Posesión', lan: sheetData.lanus.posesion, riv: sheetData.rival.posesion },
+                    { metric: 'xG', lan: Math.min(100, (sheetData.lanus.xG / Math.max(sheetData.lanus.xG, sheetData.rival.xG, 1)) * 100), riv: Math.min(100, (sheetData.rival.xG / Math.max(sheetData.lanus.xG, sheetData.rival.xG, 1)) * 100) },
+                    { metric: 'Precisión', lan: sheetData.lanus.pasesPct, riv: sheetData.rival.pasesPct },
+                    { metric: 'Duelos', lan: sheetData.lanus.duelos_pct, riv: sheetData.rival.duelos_pct },
+                    { metric: 'Aéreos', lan: sheetData.lanus.duelosAereos_pct, riv: sheetData.rival.duelosAereos_pct },
+                    { metric: 'Pressing', lan: Math.min(100, ((20 - sheetData.lanus.ppda) / 15) * 100), riv: Math.min(100, ((20 - sheetData.rival.ppda) / 15) * 100) },
+                  ]}>
+                    <PolarGrid stroke="rgba(255,255,255,0.1)" />
+                    <PolarAngleAxis dataKey="metric" tick={{ fill: '#94a3b8', fontSize: 10 }} />
+                    <Radar name="Lanús" dataKey="lan" stroke="#6F1929" fill="#6F1929" fillOpacity={0.25} strokeWidth={2} />
+                    <Radar name={sheetData.rival.team} dataKey="riv" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.15} strokeWidth={2} />
+                  </RadarChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Barras horizontales comparativas */}
+              <div className="bg-apple-gray-50 dark:bg-[#0a1218] border border-apple-gray-200 dark:border-apple-gray-800 rounded-xl p-4">
+                <ResponsiveContainer width="100%" height={320}>
+                  <BarChart
+                    layout="vertical"
+                    data={[
+                      { metric: 'Posesión %', lan: sheetData.lanus.posesion, riv: sheetData.rival.posesion },
+                      { metric: 'xG', lan: sheetData.lanus.xG, riv: sheetData.rival.xG },
+                      { metric: 'Tiros', lan: sheetData.lanus.tiros, riv: sheetData.rival.tiros },
+                      { metric: 'Tiros puerta', lan: sheetData.lanus.tirosPorteria, riv: sheetData.rival.tirosPorteria },
+                      { metric: 'Pase %', lan: sheetData.lanus.pasesPct, riv: sheetData.rival.pasesPct },
+                      { metric: 'Corners', lan: sheetData.lanus.corners, riv: sheetData.rival.corners },
+                      { metric: 'Intercept.', lan: sheetData.lanus.interceptaciones, riv: sheetData.rival.interceptaciones },
+                      { metric: 'PPDA', lan: sheetData.lanus.ppda, riv: sheetData.rival.ppda },
+                    ]}
+                    margin={{ top: 5, right: 20, left: 60, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                    <XAxis type="number" tick={{ fill: '#64748b', fontSize: 10 }} />
+                    <YAxis dataKey="metric" type="category" tick={{ fill: '#94a3b8', fontSize: 10 }} width={55} />
+                    <Tooltip
+                      contentStyle={{ background: '#1e293b', border: '1px solid #334155', borderRadius: '8px', fontSize: '11px' }}
+                      labelStyle={{ color: '#e2e8f0' }}
+                    />
+                    <Bar dataKey="lan" name="Lanús" fill="#6F1929" radius={[0, 4, 4, 0]} barSize={10} />
+                    <Bar dataKey="riv" name={sheetData.rival.team} fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={10} />
+                    <Legend wrapperStyle={{ fontSize: '10px' }} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             </div>
 
             {/* KPIs adicionales de Lanús */}

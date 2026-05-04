@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { fetchLanusCalendar, FotmobMatch } from '@/services/fotmobService'
+import { fetchCalendarCompat, type FotmobMatchCompat as FotmobMatch } from '@/services/apiFootballService'
 import { ShieldImg, CompBadge } from '@/components/ui/ShieldImg'
 
 const MONTH_NAMES = [
@@ -75,7 +75,7 @@ export default function CalendarPage() {
   const month = viewDate.getMonth()
 
   useEffect(() => {
-    fetchLanusCalendar().then(m => {
+    fetchCalendarCompat().then(m => {
       setMatches(m)
       setLoading(false)
     })

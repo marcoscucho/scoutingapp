@@ -3,12 +3,12 @@ import { Link } from 'react-router-dom'
 import { useData } from '@/context/DataContext'
 import { POSITION_MAP } from '@/constants/scoring'
 import { useAuth } from '@/context/AuthContext'
-import { fetchLanusCalendar, FotmobMatch } from '@/services/fotmobService'
+import { fetchCalendarCompat, fetchFormGuideFromAPI, type FotmobMatchCompat as FotmobMatch, type FormResult } from '@/services/apiFootballService'
 import { fetchUltimoOnce, LineupData } from '@/services/ultimoOnceService'
+import SingleTeamPitch from '@/components/match/SingleTeamPitch'
 import { computeStreak } from '@/services/formGuideService'
 import { fetchRivalDataFromCSV, fetchRivalLineup, RivalData } from '@/services/rivalService'
 import { getSeguimientoList } from '@/lib/supabase'
-import { LANUS_2026 } from '@/data/lanus2026'
 import { ShieldImg, CompBadge } from '@/components/ui/ShieldImg'
 import type { EnrichedPlayer } from '@/types'
 import Papa from 'papaparse'
@@ -22,21 +22,6 @@ import {
   type LanusTopStat,
 } from '@/services/standingsService'
 
-// Derive last-5 form directly from LANUS_2026 — single source of truth, no Supabase needed
-const COMP_LABEL: Record<string, string> = { liga: 'Liga Profesional', copa: 'Copa Argentina', internacional: 'Internacional' }
-const FORM = [...LANUS_2026]
-  .sort((a, b) => b.date.localeCompare(a.date))
-  .slice(0, 5)
-  .map(m => ({
-    id: m.id,
-    match_date: m.date,
-    opponent: m.rival,
-    was_home: m.isHome,
-    goals_for: m.golesAFavor,
-    goals_against: m.golesEnContra,
-    result: m.result,
-    competition: COMP_LABEL[m.competition] ?? m.competition,
-  }))
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -216,179 +201,6 @@ function UpcomingMatchRow({ match, index }: { match: FotmobMatch; index: number 
   )
 }
 
-// ─── Pitch (Último 11) ───────────────────────────────────────────────────────
-
-interface PitchPlayer {
-  number: number
-  name: string
-  x: number
-  y: number
-}
-
-// Formation coordinate maps — indexed by lineup position order.
-// FotMob order: GK → RB → CB → CB → LB → RM → CM → LM → RW → ST → LW
-// SVG: x increases LEFT→RIGHT, y increases TOP→BOTTOM.
-// Team defends bottom goal (y≈144), attacks toward top (y≈4).
-const FORMATION_COORDS: Record<string, [number, number][]> = {
-  '4-3-3': [
-    [50, 131], // 0 GK
-    [82, 113], // 1 RB  — right side
-    [62, 114], // 2 CB-R
-    [38, 114], // 3 CB-L
-    [18, 113], // 4 LB  — left side
-    [76,  83], // 5 RM
-    [50,  87], // 6 CM (pivot)
-    [24,  83], // 7 LM
-    [76,  47], // 8 RW  — right wing
-    [50,  35], // 9 ST  — striker
-    [24,  47], // 10 LW — left wing
-  ],
-  '4-4-2': [
-    [50, 131],
-    [82, 113], [62, 114], [38, 114], [18, 113],
-    [78,  83], [56,  83], [44,  83], [22,  83],
-    [65,  42], [35,  42],
-  ],
-  '4-2-3-1': [
-    [50, 131],
-    [82, 113], [62, 114], [38, 114], [18, 113],
-    [65,  92], [35,  92],
-    [76,  68], [50,  65], [24,  68],
-    [50,  35],
-  ],
-}
-
-// Default placeholder uses 4-3-3 coordinates
-const PLACEHOLDER_11: PitchPlayer[] = FORMATION_COORDS['4-3-3'].map(([x, y], i) => ({
-  number: [1,2,4,5,3,8,6,10,7,9,11][i],
-  name: '—',
-  x, y,
-}))
-
-function PitchVisualization({ players = PLACEHOLDER_11, isPlaceholder = true, formation = '4-3-3' }: {
-  players?: PitchPlayer[]
-  isPlaceholder?: boolean
-  formation?: string
-}) {
-  // Always compute positions from formation map (ignores stored x/y from DB).
-  // FotMob order: GK, RB, CB, CB, LB, RM, CM, LM, RW, ST, LW
-  const coords = FORMATION_COORDS[formation] ?? FORMATION_COORDS['4-3-3']
-  const positioned: PitchPlayer[] = isPlaceholder
-    ? players
-    : players.map((p, i) => ({ ...p, x: coords[i]?.[0] ?? p.x, y: coords[i]?.[1] ?? p.y }))
-  return (
-    <div className="relative w-full" style={{ paddingBottom: '148%' }}>
-      <svg
-        viewBox="0 0 100 148"
-        className="absolute inset-0 w-full h-full"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        {/* Grass base */}
-        <rect width="100" height="148" rx="6" fill="#1e7a35" />
-        {/* Alternating stripes */}
-        {[0,1,2,3,4,5,6,7].map(i => (
-          <rect key={i} x="2" y={2 + i * 18} width="96" height="9" rx="0" fill="#1a6b2e" opacity="0.45" />
-        ))}
-
-        {/* Outer boundary */}
-        <rect x="5" y="6" width="90" height="136" rx="2" fill="none" stroke="rgba(255,255,255,0.75)" strokeWidth="0.7" />
-        {/* Halfway line */}
-        <line x1="5" y1="74" x2="95" y2="74" stroke="rgba(255,255,255,0.75)" strokeWidth="0.7" />
-        {/* Center circle */}
-        <circle cx="50" cy="74" r="12" fill="none" stroke="rgba(255,255,255,0.75)" strokeWidth="0.7" />
-        <circle cx="50" cy="74" r="1.2" fill="rgba(255,255,255,0.8)" />
-
-        {/* Top penalty area */}
-        <rect x="25" y="6" width="50" height="19" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="0.6" />
-        {/* Top 6-yard box */}
-        <rect x="37" y="6" width="26" height="8" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="0.5" />
-        {/* Top goal */}
-        <rect x="41" y="2.5" width="18" height="4.5" rx="0.5" fill="rgba(255,255,255,0.12)" stroke="rgba(255,255,255,0.85)" strokeWidth="0.8" />
-        {/* Top penalty spot */}
-        <circle cx="50" cy="22" r="0.9" fill="rgba(255,255,255,0.65)" />
-
-        {/* Bottom penalty area */}
-        <rect x="25" y="123" width="50" height="19" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="0.6" />
-        {/* Bottom 6-yard box */}
-        <rect x="37" y="134" width="26" height="8" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="0.5" />
-        {/* Bottom goal */}
-        <rect x="41" y="141" width="18" height="4.5" rx="0.5" fill="rgba(255,255,255,0.12)" stroke="rgba(255,255,255,0.85)" strokeWidth="0.8" />
-        {/* Bottom penalty spot */}
-        <circle cx="50" cy="126" r="0.9" fill="rgba(255,255,255,0.65)" />
-
-        {/* Corner arcs */}
-        {[[5,6],[95,6],[5,142],[95,142]].map(([cx,cy], i) => (
-          <circle key={i} cx={cx} cy={cy} r="3" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="0.5" />
-        ))}
-
-        {/* Players */}
-        {positioned.map((p) => {
-          // Full last name — no truncation. Adjust font size for long names.
-          const lastName = p.name !== '—'
-            ? p.name.split(' ').filter(w => w.length > 1).slice(-1)[0] ?? p.name
-            : ''
-          const displayName = lastName
-          const fontSize = displayName.length > 9 ? 2.2 : displayName.length > 7 ? 2.4 : 2.6
-          const pillW = Math.max(displayName.length * (fontSize * 0.72), 9)
-
-          return (
-            <g key={p.number} transform={`translate(${p.x}, ${p.y})`}>
-              {/* Drop shadow */}
-              <circle r="5.8" fill="rgba(0,0,0,0.3)" cx="0.4" cy="0.8" />
-              {/* Player circle — Lanús granate */}
-              <circle r="5.8" fill="#6F1929" stroke="rgba(255,255,255,0.92)" strokeWidth="0.9" />
-              {/* Jersey number */}
-              <text
-                x="0" y="0.6"
-                textAnchor="middle"
-                dominantBaseline="middle"
-                fontSize="3.4"
-                fontWeight="bold"
-                fill="white"
-                stroke="#4a0f1a"
-                strokeWidth="0.5"
-                paintOrder="stroke fill"
-              >
-                {p.number}
-              </text>
-              {/* Name pill — always readable */}
-              {displayName && (
-                <>
-                  <rect
-                    x={-pillW / 2} y="7.2"
-                    width={pillW} height="4.8"
-                    rx="2"
-                    fill="rgba(0,0,0,0.68)"
-                  />
-                  <text
-                    x="0" y="9.7"
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                    fontSize={fontSize}
-                    fontWeight="600"
-                    fill="white"
-                    letterSpacing="0.03"
-                  >
-                    {displayName}
-                  </text>
-                </>
-              )}
-            </g>
-          )
-        })}
-      </svg>
-
-      {isPlaceholder && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="bg-black/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-center">
-            <p className="text-white text-xs font-semibold">Sin datos</p>
-            <p className="text-white/65 text-[10px] mt-0.5">Presioná "Actualizar 11"</p>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
 
 // ─── Rival Section ───────────────────────────────────────────────────────────
 
@@ -1154,12 +966,14 @@ export default function DashboardPage() {
   const [topScorers, setTopScorers] = useState<LanusTopStat[]>([])
   const [topAssisters, setTopAssisters] = useState<LanusTopStat[]>([])
   const [loadingTopStats, setLoadingTopStats] = useState(true)
+  const [formGuide, setFormGuide] = useState<FormResult[]>([])
 
   useEffect(() => {
-    fetchLanusCalendar().then(m => {
+    fetchCalendarCompat().then(m => {
       setMatches(m)
       setLoadingMatches(false)
     })
+    fetchFormGuideFromAPI(5).then(setFormGuide)
   }, [])
 
   const loadLineup = useCallback(async () => {
@@ -1318,7 +1132,7 @@ export default function DashboardPage() {
 
         {/* ── Forma reciente ── */}
         {(() => {
-          const streak = computeStreak(FORM)
+          const streak = computeStreak(formGuide)
           const streakLabel = streak
             ? streak.type === 'W'
               ? streak.count === 1 ? '1 victoria' : `${streak.count} victorias seguidas`
@@ -1345,9 +1159,9 @@ export default function DashboardPage() {
 
                 {/* Form dots */}
                 <div className="flex items-center gap-2">
-                  <p className="text-xs text-apple-gray-400 mr-1 hidden sm:block">Últimos {FORM.length}</p>
+                  <p className="text-xs text-apple-gray-400 mr-1 hidden sm:block">Últimos {formGuide.length}</p>
                   <div className="flex items-center gap-1.5">
-                    {[...FORM].reverse().map((m, i) => {
+                    {[...formGuide].reverse().map((m, i) => {
                       const dot = m.result === 'W'
                         ? 'bg-emerald-500 text-white'
                         : m.result === 'L'
@@ -1374,7 +1188,7 @@ export default function DashboardPage() {
                   {/* Stats compact */}
                   <div className="ml-3 pl-3 border-l border-apple-gray-200 dark:border-apple-gray-800 flex items-center gap-4 text-center">
                     {(['W','D','L'] as const).map(r => {
-                      const count = FORM.filter(m => m.result === r).length
+                      const count = formGuide.filter(m => m.result === r).length
                       const cls = r === 'W' ? 'text-emerald-600 dark:text-emerald-400' : r === 'L' ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400'
                       const lbl = r === 'W' ? 'G' : r === 'D' ? 'E' : 'P'
                       return (
@@ -1541,17 +1355,27 @@ export default function DashboardPage() {
             </div>
             <div className="p-4 sm:p-6 max-w-[480px] mx-auto">
               {loadingLineup ? (
-                <div className="relative w-full" style={{ paddingBottom: '148%' }}>
-                  <div className="absolute inset-0 flex items-center justify-center bg-[#1e7a35] rounded-lg">
+                <div className="relative w-full rounded-xl overflow-hidden" style={{ paddingBottom: '140%' }}>
+                  <div className="absolute inset-0 flex items-center justify-center bg-[#0f2a1a] rounded-xl">
                     <div className="w-6 h-6 border-2 border-white/60 border-t-white rounded-full animate-spin" />
                   </div>
                 </div>
-              ) : (
-                <PitchVisualization
-                  players={lineup ? lineup.players.map(p => ({ number: p.number, name: p.name, x: p.x, y: p.y })) : PLACEHOLDER_11}
-                  isPlaceholder={!lineup}
-                  formation={lineup?.formation ?? '4-2-3-1'}
+              ) : lineup ? (
+                <SingleTeamPitch
+                  players={lineup.startXI}
+                  formation={lineup.formation}
+                  teamName="Lanús"
+                  teamColor="#6F1929"
                 />
+              ) : (
+                <div className="relative w-full rounded-xl overflow-hidden" style={{ paddingBottom: '140%' }}>
+                  <div className="absolute inset-0 flex items-center justify-center bg-[#0f2a1a] rounded-xl">
+                    <div className="bg-black/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-center">
+                      <p className="text-white text-xs font-semibold">Sin datos</p>
+                      <p className="text-white/65 text-[10px] mt-0.5">No se encontró la alineación</p>
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
           </div>

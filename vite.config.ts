@@ -104,6 +104,14 @@ export default defineConfig(({ mode }) => {
           'Accept-Language': 'es-AR,es;q=0.9',
         },
       },
+      '/apifootball-proxy': {
+        target: 'https://v3.football.api-sports.io',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/apifootball-proxy/, ''),
+        headers: {
+          'x-apisports-key': env.API_FOOTBALL_KEY ?? '',
+        },
+      },
     },
   },
   build: {
