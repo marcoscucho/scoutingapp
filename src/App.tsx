@@ -16,6 +16,8 @@ import RadarAnalysisPage from '@/pages/RadarAnalysisPage'
 import EquipoPage from '@/pages/EquipoPage'
 import DashboardPage from '@/pages/DashboardPage'
 import CalendarPage from '@/pages/CalendarPage'
+import VideoanalisisPage from '@/pages/VideoanalisisPage'
+import VideoanalisisDetailPage from '@/pages/VideoanalisisDetailPage'
 import { PDFBuilderProvider } from '@/context/PDFBuilderContext'
 import PDFBuilderModal from '@/components/pdf/PDFBuilderModal'
 import { PDFAddedToast } from '@/components/pdf/AddToReportButton'
@@ -42,6 +44,8 @@ export default function App() {
             <Route path="/analisis" element={<EquipoPage />} />
             <Route path="/calendario" element={<CalendarPage />} />
             <Route path="/inferiores/equipos" element={<ArmadoEquiposPage />} />
+            <Route path="/videoanalisis" element={<VideoanalisisPage />} />
+            <Route path="/videoanalisis/:id" element={<VideoanalisisDetailPage />} />
           </Route>
         </Routes>
         <PDFBuilderModal />

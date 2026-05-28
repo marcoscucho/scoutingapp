@@ -42,6 +42,7 @@ function NavIcon({ icon, className = "w-5 h-5" }: { icon: string; className?: st
     scatter: <><circle cx="7" cy="17" r="2" strokeWidth={1.5} /><circle cx="12" cy="7" r="2" strokeWidth={1.5} /><circle cx="17" cy="12" r="2" strokeWidth={1.5} /><circle cx="7" cy="7" r="2" strokeWidth={1.5} /><circle cx="17" cy="17" r="2" strokeWidth={1.5} /></>,
     radar: <><circle cx="12" cy="12" r="9" strokeWidth={1.5} /><circle cx="12" cy="12" r="5" strokeWidth={1.5} /><line x1="12" y1="3" x2="12" y2="21" strokeWidth={1.5} /><line x1="3" y1="12" x2="21" y2="12" strokeWidth={1.5} /></>,
     clipboard: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />,
+    video: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />,
   }
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -280,6 +281,20 @@ export default function Navbar() {
             >
               Reporte
             </NavLink>
+
+            {/* Videoanálisis */}
+            <NavLink
+              to="/videoanalisis"
+              className={({ isActive }) =>
+                `px-3.5 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
+                  isActive
+                    ? 'bg-brand-green text-white shadow-sm'
+                    : 'text-apple-gray-600 dark:text-apple-gray-300 hover:text-apple-gray-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-apple-gray-700/50'
+                }`
+              }
+            >
+              Videoanálisis
+            </NavLink>
           </nav>
 
           {/* Right side */}
@@ -512,6 +527,19 @@ export default function Navbar() {
             >
               <NavIcon icon="clipboard" className="w-5 h-5" />
               Reporte
+            </NavLink>
+            <NavLink
+              to="/videoanalisis"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all duration-200 ${
+                  isActive
+                    ? 'bg-brand-green text-white'
+                    : 'text-apple-gray-700 dark:text-apple-gray-300 hover:bg-apple-gray-100 dark:hover:bg-apple-gray-800'
+                }`
+              }
+            >
+              <NavIcon icon="video" className="w-5 h-5" />
+              Videoanálisis
             </NavLink>
           </div>
 
