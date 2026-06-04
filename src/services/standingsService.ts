@@ -59,7 +59,11 @@ function groupTitle(raw: string): string {
 }
 
 async function fetchStandings(leagueId: number): Promise<StandingsGroup[]> {
-  const res = await fetch(`${BASE}/standings?league=${leagueId}&season=${CURRENT_SEASON}`)
+  // Dev: Vite proxy injecta la key. Prod: Netlify function (no hay redirect para /apifootball-proxy)
+  const url = import.meta.env.DEV
+    ? `${BASE}/standings?league=${leagueId}&season=${CURRENT_SEASON}`
+    : `/.netlify/functions/apifootball?endpoint=/standings&league=${leagueId}&season=${CURRENT_SEASON}`
+  const res = await fetch(url)
   if (!res.ok) throw new Error(`API-Football standings HTTP ${res.status}`)
   const json = await res.json()
   const league = json.response?.[0]?.league
