@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { getVideoAnalysisById } from '@/services/videoAnalysisSupabase'
+import { getVideoAnalysisById, deleteVideoAnalysis, createVideoAnalysis } from '@/services/videoAnalysisSupabase'
+import { parseXml } from '@/services/xmlParserService'
 import { generateInsights } from '@/services/videoInsightsService'
 import type { VideoAnalysis } from '@/services/videoAnalysisTypes'
 import { CATEGORY_LABELS } from '@/services/videoAnalysisTypes'
@@ -23,6 +24,7 @@ export default function VideoanalisisDetailPage() {
   const navigate = useNavigate()
   const [analysis, setAnalysis] = useState<VideoAnalysis | null>(null)
   const [loading, setLoading] = useState(true)
+  const [replacing, setReplacing] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -34,6 +36,33 @@ export default function VideoanalisisDetailPage() {
     const data = await getVideoAnalysisById(id!)
     setAnalysis(data)
     setLoading(false)
+  }
+
+  async function handleReplaceXml(file: File) {
+    if (!analysis) return
+    setReplacing(true)
+    const content = await file.text()
+    let parsedData
+    try {
+      parsedData = parseXml(content)
+    } catch {
+      setReplacing(false)
+      return
+    }
+    await deleteVideoAnalysis(analysis.id)
+    const result = await createVideoAnalysis({
+      category: analysis.category,
+      type: analysis.type,
+      rival: analysis.rival,
+      matchDay: analysis.match_day,
+      description: analysis.description,
+      date: analysis.date,
+      parsedData,
+    })
+    setReplacing(false)
+    if (result.success && result.id) {
+      navigate(`/videoanalisis/${result.id}`, { replace: true })
+    }
   }
 
   if (loading) {
@@ -73,8 +102,8 @@ export default function VideoanalisisDetailPage() {
           Volver
         </button>
 
-        <div className="flex items-start justify-between">
-          <div>
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1 min-w-0">
             <h1 className="text-2xl font-bold text-apple-gray-800 dark:text-white">{title}</h1>
             <div className="flex items-center gap-2 mt-1.5 flex-wrap">
               <span className={`text-2xs px-2 py-0.5 rounded-full font-medium ${
@@ -97,6 +126,36 @@ export default function VideoanalisisDetailPage() {
             <p className="text-xs text-apple-gray-400 mt-1.5">
               Subido por <span className="font-medium text-apple-gray-600 dark:text-apple-gray-300">{analysis.user_name}</span> · {timeAgo(analysis.created_at)}
             </p>
+          </div>
+          <div className="flex-shrink-0">
+            <input
+              type="file"
+              accept=".xml"
+              className="hidden"
+              id="replace-xml"
+              onChange={e => {
+                const f = e.target.files?.[0]
+                if (f) handleReplaceXml(f)
+                e.target.value = ''
+              }}
+            />
+            <label
+              htmlFor="replace-xml"
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-medium cursor-pointer transition-colors ${
+                replacing
+                  ? 'bg-apple-gray-100 dark:bg-apple-gray-700 text-apple-gray-400 pointer-events-none'
+                  : 'bg-apple-gray-100 dark:bg-apple-gray-700 text-apple-gray-600 dark:text-apple-gray-300 hover:bg-apple-gray-200 dark:hover:bg-apple-gray-600'
+              }`}
+            >
+              {replacing ? (
+                <div className="w-3.5 h-3.5 border-2 border-apple-gray-300 border-t-brand-green rounded-full animate-spin" />
+              ) : (
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+              )}
+              {replacing ? 'Reemplazando...' : 'Reemplazar XML'}
+            </label>
           </div>
         </div>
       </div>

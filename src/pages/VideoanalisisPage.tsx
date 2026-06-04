@@ -37,20 +37,9 @@ export default function VideoanalisisPage() {
   return (
     <div className="max-w-screen-xl mx-auto px-4 sm:px-6 py-6 space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-apple-gray-800 dark:text-white">Videoanálisis</h1>
-          <p className="text-sm text-apple-gray-500 mt-1">Análisis de partidos y entrenamientos por categoría</p>
-        </div>
-        <button
-          onClick={() => setShowUpload(true)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-brand-green text-white hover:bg-brand-greenHover transition-colors"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          Subir XML
-        </button>
+      <div>
+        <h1 className="text-2xl font-bold text-apple-gray-800 dark:text-white">Video Análisis</h1>
+        <p className="text-sm text-apple-gray-500 mt-1">Análisis de partidos y entrenamientos por categoría</p>
       </div>
 
       {/* Category tabs (level 1) */}
@@ -110,7 +99,7 @@ export default function VideoanalisisPage() {
               onClick={() => setShowUpload(true)}
               className="mt-3 text-sm font-medium text-brand-green hover:text-brand-greenHover transition-colors"
             >
-              Subir el primero
+              Subir XML
             </button>
           </div>
         ) : (
@@ -160,6 +149,15 @@ export default function VideoanalisisPage() {
                 ))}
               </tbody>
             </table>
+            <button
+              onClick={() => setShowUpload(true)}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-brand-green hover:bg-brand-green/5 transition-colors border-t border-apple-gray-100 dark:border-apple-gray-800/50"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Subir nuevo XML
+            </button>
           </div>
         )}
       </div>

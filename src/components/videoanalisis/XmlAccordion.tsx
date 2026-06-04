@@ -83,6 +83,15 @@ function computeHalfSplit(events: ParsedEvent[]): HalfSplit | null {
 /*  Sub-component: Inline bar chart (for "Salida desde el fondo")     */
 /* ================================================================== */
 
+const BAR_COLORS = [
+  '#6F1929',
+  '#2563eb',
+  '#16a34a',
+  '#d97706',
+  '#9333ea',
+  '#0891b2',
+]
+
 function InlineBarChart({ zones }: { zones: ZoneData[] }) {
   const total = zones.reduce((s, z) => s + z.count, 0)
   if (total === 0) return null
@@ -90,23 +99,21 @@ function InlineBarChart({ zones }: { zones: ZoneData[] }) {
   return (
     <div className="px-5 py-4 space-y-3">
       {/* Stacked bar */}
-      <div className="flex h-8 rounded-lg overflow-hidden bg-apple-gray-100 dark:bg-apple-gray-700/40">
+      <div className="flex h-9 rounded-lg overflow-hidden bg-apple-gray-100 dark:bg-apple-gray-700/40">
         {zones.map((z, i) => {
           const width = total > 0 ? (z.count / total) * 100 : 0
           if (width === 0) return null
-          // Vary opacity per zone for visual distinction
-          const opacity = 0.5 + z.intensity * 0.5
           return (
             <div
               key={i}
               className="flex items-center justify-center text-white relative transition-all duration-500"
               style={{
                 width: `${width}%`,
-                backgroundColor: `rgba(111,25,41,${opacity})`,
-                minWidth: width > 0 ? '32px' : undefined,
+                backgroundColor: BAR_COLORS[i % BAR_COLORS.length],
+                minWidth: width > 0 ? '36px' : undefined,
               }}
             >
-              <span className="text-[10px] font-bold leading-none drop-shadow-sm">
+              <span className="text-[11px] font-bold leading-none drop-shadow-sm">
                 {z.count}
               </span>
             </div>
@@ -116,23 +123,20 @@ function InlineBarChart({ zones }: { zones: ZoneData[] }) {
 
       {/* Legend */}
       <div className="flex flex-wrap gap-x-5 gap-y-1">
-        {zones.map((z, i) => {
-          const opacity = 0.5 + z.intensity * 0.5
-          return (
-            <div key={i} className="flex items-center gap-1.5">
-              <span
-                className="w-2.5 h-2.5 rounded-sm flex-shrink-0"
-                style={{ backgroundColor: `rgba(111,25,41,${opacity})` }}
-              />
-              <span className="text-xs text-apple-gray-600 dark:text-apple-gray-300">
-                {z.label}
-              </span>
-              <span className="text-xs font-semibold text-apple-gray-800 dark:text-white tabular-nums">
-                {z.pct}%
-              </span>
-            </div>
-          )
-        })}
+        {zones.map((z, i) => (
+          <div key={i} className="flex items-center gap-1.5">
+            <span
+              className="w-2.5 h-2.5 rounded-sm flex-shrink-0"
+              style={{ backgroundColor: BAR_COLORS[i % BAR_COLORS.length] }}
+            />
+            <span className="text-xs text-apple-gray-600 dark:text-apple-gray-300">
+              {z.label}
+            </span>
+            <span className="text-xs font-semibold text-apple-gray-800 dark:text-white tabular-nums">
+              {z.pct}%
+            </span>
+          </div>
+        ))}
       </div>
     </div>
   )

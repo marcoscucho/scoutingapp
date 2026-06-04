@@ -1,4 +1,5 @@
 import { useState, useRef, type DragEvent } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { parseXml, validateXml } from '@/services/xmlParserService'
@@ -107,14 +108,15 @@ export default function UploadXmlModal({ isOpen, onClose, defaultCategory = 'pri
 
   const isValid = validation?.valid && date && (type === 'partido' ? rival.trim() : description.trim())
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-white dark:bg-apple-gray-800 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto animate-scale-in">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-apple-gray-200/50 dark:border-apple-gray-700/50">
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] overflow-y-auto">
+      <div className="fixed inset-0 bg-black/60" onClick={onClose} />
+      <div className="flex min-h-full items-center justify-center p-4">
+        <div className="relative bg-white dark:bg-apple-gray-800 rounded-2xl shadow-2xl w-full max-w-lg">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-apple-gray-200/50 dark:border-apple-gray-700/50">
           <div>
             <h2 className="text-lg font-semibold text-apple-gray-800 dark:text-white">Subir análisis</h2>
-            <p className="text-xs text-apple-gray-500 mt-0.5">Arrastrá tu archivo XML de videoanálisis</p>
+            <p className="text-xs text-apple-gray-500 mt-0.5">Arrastrá tu archivo XML de video análisis</p>
           </div>
           <button onClick={onClose} className="p-2 rounded-lg hover:bg-apple-gray-100 dark:hover:bg-apple-gray-700 transition-colors text-apple-gray-500">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -269,8 +271,10 @@ export default function UploadXmlModal({ isOpen, onClose, defaultCategory = 'pri
               {saving ? 'Subiendo...' : 'Subir análisis'}
             </button>
           </div>
+          </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

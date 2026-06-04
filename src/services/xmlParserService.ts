@@ -108,6 +108,10 @@ function parseEvents(parentEl: Element): ParsedEvent[] {
       })
 
       const coords = findCoordinates(el)
+      el.querySelectorAll('instance, row, event').forEach(inst => {
+        const ic = parseCoordinate(inst)
+        if (ic) coords.push(ic)
+      })
       const player = getTextContent(el, 'player') || getTextContent(el, 'jugador') || el.getAttribute('player') || null
 
       events.push({

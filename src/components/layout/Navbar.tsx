@@ -282,7 +282,7 @@ export default function Navbar() {
               Reporte
             </NavLink>
 
-            {/* Videoanálisis */}
+            {/* Video Análisis */}
             <NavLink
               to="/videoanalisis"
               className={({ isActive }) =>
@@ -293,7 +293,7 @@ export default function Navbar() {
                 }`
               }
             >
-              Videoanálisis
+              Video Análisis
             </NavLink>
           </nav>
 
@@ -539,7 +539,7 @@ export default function Navbar() {
               }
             >
               <NavIcon icon="video" className="w-5 h-5" />
-              Videoanálisis
+              Video Análisis
             </NavLink>
           </div>
 

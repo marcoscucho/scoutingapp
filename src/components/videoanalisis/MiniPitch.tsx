@@ -147,60 +147,67 @@ function HeatmapOverlay({ coordinates }: { coordinates: EventCoordinate[] }) {
 }
 
 /* ------------------------------------------------------------------ */
-/*  MODE: lateral  — 3 vertical bands (Izq / Centro / Der)           */
+/*  MODE: lateral  — 3 horizontal bands (Izq / Centro / Der)         */
 /* ------------------------------------------------------------------ */
 
 function LateralOverlay({ zones }: { zones: ZoneData[] }) {
-  // Expect 3 zones: izquierda, centro, derecha
   const padded = [
     zones[0] ?? { label: 'Izq', count: 0, pct: 0, intensity: 0 },
     zones[1] ?? { label: 'Centro', count: 0, pct: 0, intensity: 0 },
     zones[2] ?? { label: 'Der', count: 0, pct: 0, intensity: 0 },
   ]
 
-  const bandW = 101 / 3
-  const bandH = 64
+  const bandH = 64 / 3
 
   return (
     <>
       {padded.map((z, i) => {
-        const x = 2 + i * bandW
-        const centerX = x + bandW / 2
-        const centerY = 2 + bandH / 2
+        const y = 2 + i * bandH
+        const centerY = y + bandH / 2
         const opacity = z.count === 0 ? 0 : 0.15 + z.intensity * 0.55
         return (
           <g key={i}>
+            {/* Zone highlight — only attacking half */}
             <rect
-              x={x} y={2}
-              width={bandW} height={bandH}
+              x={52.5} y={y}
+              width={50.5} height={bandH}
               fill="#6F1929"
               opacity={opacity}
               rx="1"
             />
-            {/* Subtle vertical separator */}
+            {/* Horizontal separator */}
             {i > 0 && (
               <line
-                x1={x} y1={2} x2={x} y2={66}
+                x1={2} y1={y} x2={103} y2={y}
                 stroke="rgba(255,255,255,0.12)"
                 strokeWidth="0.4"
                 strokeDasharray="2,2"
               />
             )}
+            {/* Label on the right side — compact single line */}
             {z.count > 0 && (
-              <>
-                <ZoneLabel x={centerX} y={centerY - 2} count={z.count} pct={z.pct} />
-                <text
-                  x={centerX} y={centerY + 14}
-                  textAnchor="middle"
-                  fill="rgba(255,255,255,0.5)"
-                  fontSize="3.5"
-                  fontWeight="500"
-                  letterSpacing="0.5"
-                >
-                  {z.label.toUpperCase()}
-                </text>
-              </>
+              <text
+                x={78} y={centerY + 1.5}
+                textAnchor="middle"
+                fill="white"
+                fontSize="5"
+                fontWeight="700"
+                style={{ textShadow: '0 1px 3px rgba(0,0,0,0.6)' }}
+              >
+                {z.count} — {z.pct}%
+              </text>
             )}
+            {/* Zone name on the left (defensive half) */}
+            <text
+              x={27} y={centerY + 1.5}
+              textAnchor="middle"
+              fill="rgba(255,255,255,0.35)"
+              fontSize="3.5"
+              fontWeight="500"
+              letterSpacing="0.5"
+            >
+              {z.label.toUpperCase()}
+            </text>
           </g>
         )
       })}
