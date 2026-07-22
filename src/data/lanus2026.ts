@@ -466,6 +466,22 @@ export const LANUS_2026: MatchData[] = [
     pasesProgresivos: 67, pasesProgresivosLogrados: 42, pasesProgresivos_pct: 62.69,
     ppda: 14.05, intensidadPaso: 15.07,
   },
+  {
+    id: 26, date: '2026-05-30', rival: 'Instituto', isHome: false, competition: 'copa',
+    result: 'L', golesAFavor: 1, golesEnContra: 2, duration: 104, formation: '4-2-3-1',
+    xG: 2.03, tiros: 17, tirosPorteria: 5, tirosPorteria_pct: 29.41,
+    posesion: 64.2, pases: 564, pasesLogrados: 482, pases_pct: 85.46,
+    duelos: 188, duelosGanados: 92, duelos_pct: 48.94,
+    ataquesPositionales: 41, ataquesPositionalesRemate: 10, contraataques: 0, contraataquesRemate: 0,
+    balonParado: 23, balonParadoRemate: 6, corners: 7, centros: 23, centrosPrecisos: 6, pasesEnProfundidad: 7,
+    golesRecibidos: 2, tirosContra: 11, tirosContraPorteria: 5,
+    duelosDefensivos: 43, duelosDefensivosGanados: 28, duelosDefensivos_pct: 65.12,
+    duelosAereos: 40, duelosAereosGanados: 19, duelosAereos_pct: 47.5,
+    interceptaciones: 32, despejes: 16, faltas: 10, amarillas: 2, rojas: 2,
+    pasesUltimoTercio: 77, pasesUltimoTercioLogrados: 60, pasesUltimoTercio_pct: 77.92,
+    pasesProgresivos: 88, pasesProgresivosLogrados: 70, pasesProgresivos_pct: 79.55,
+    ppda: 13.5, intensidadPaso: 16.35,
+  },
 ]
 
 export const DIVISIONS = [
