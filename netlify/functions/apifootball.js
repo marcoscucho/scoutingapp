@@ -2,7 +2,7 @@
  * Netlify function: GET /.netlify/functions/apifootball?endpoint=/fixtures&team=446&season=2026
  * Proxies API-Football requests, injecting the API key from env.
  */
-exports.handler = async function (event) {
+export const handler = async function (event) {
   const endpoint = event.queryStringParameters?.endpoint
   if (!endpoint) {
     return { statusCode: 400, body: JSON.stringify({ error: 'endpoint required' }) }

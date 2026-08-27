@@ -21,7 +21,7 @@ const POSITION_COORDS = [
   [80, 25], // FW
 ]
 
-exports.handler = async function (event) {
+export const handler = async function (event) {
   // Allow POST (manual button) and GET/undefined (scheduled trigger)
   if (event.httpMethod && !['GET', 'POST'].includes(event.httpMethod)) {
     return { statusCode: 405, body: 'Method Not Allowed' }

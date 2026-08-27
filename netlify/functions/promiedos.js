@@ -3,7 +3,7 @@
  * Fetches a Promiedos page and extracts the __NEXT_DATA__ JSON payload.
  * Used for the tabla anual (acumulada) and other standings not in FotMob.
  */
-exports.handler = async function (event) {
+export const handler = async function (event) {
   const path = event.queryStringParameters?.path ?? 'league/liga-profesional/hc'
 
   try {

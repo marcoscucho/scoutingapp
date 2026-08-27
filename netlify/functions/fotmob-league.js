@@ -2,7 +2,7 @@
  * Netlify function: GET /.netlify/functions/fotmob-league?id={leagueId}
  * Proxies FotMob leagues API to avoid CORS issues in production.
  */
-exports.handler = async function (event) {
+export const handler = async function (event) {
   const id = event.queryStringParameters?.id
   if (!id) {
     return { statusCode: 400, body: JSON.stringify({ error: 'id required' }) }

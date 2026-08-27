@@ -40,7 +40,7 @@ Devolvé ÚNICAMENTE JSON válido con esta estructura (usá null para campos no 
 Para recentMatches, "isHome" y "result" son SIEMPRE desde la perspectiva del equipo analizado (teamName).
 Respondé SOLO con JSON válido, sin markdown, sin explicaciones adicionales.`
 
-exports.handler = async (event) => {
+export const handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: JSON.stringify({ error: 'Method not allowed' }) }
   }

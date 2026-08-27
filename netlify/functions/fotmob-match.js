@@ -2,7 +2,7 @@
  * Netlify function: GET /.netlify/functions/fotmob-match?matchId={id}
  * Proxies FotMob matchDetails API to avoid CORS issues in production.
  */
-exports.handler = async function (event) {
+export const handler = async function (event) {
   const matchId = event.queryStringParameters?.matchId
   if (!matchId) {
     return { statusCode: 400, body: JSON.stringify({ error: 'matchId required' }) }

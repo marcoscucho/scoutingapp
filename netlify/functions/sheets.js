@@ -1,4 +1,4 @@
-exports.handler = async (event) => {
+export const handler = async (event) => {
   const url = event.queryStringParameters?.url
 
   if (!url) {

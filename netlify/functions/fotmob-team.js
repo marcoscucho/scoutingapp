@@ -2,7 +2,7 @@
  * Netlify function: GET /.netlify/functions/fotmob-team?teamId={id}
  * Proxies FotMob team API to avoid CORS issues in production.
  */
-exports.handler = async function (event) {
+export const handler = async function (event) {
   const teamId = event.queryStringParameters?.teamId
   if (!teamId) {
     return { statusCode: 400, body: JSON.stringify({ error: 'teamId required' }) }
