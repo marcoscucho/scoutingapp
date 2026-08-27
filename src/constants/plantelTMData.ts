@@ -66,7 +66,7 @@ const TM_DATA: Record<string, TMPlayerData> = {
     representante: null,
     valor_mercado: 450_000,
     valor_mercado_fmt: '€450K',
-    fin_contrato: '30/06/2026',
+    fin_contrato: '30/06/2027',
   },
   'T. Guidara': {
     nombre_completo: 'Tomás Ezequiel Guidara',
