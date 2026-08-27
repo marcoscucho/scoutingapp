@@ -161,6 +161,12 @@ export async function fetchLanusTopStats(): Promise<{
 }
 
 export function findGroup(groups: StandingsGroup[], keyword: string): StandingsGroup | null {
-  const kw = keyword.toLowerCase()
-  return groups.find(g => g.title.toLowerCase().includes(kw)) ?? null
+  // Coincidencia de palabra completa (no substring) para no confundir "A" con "Apertura"/"Clausura".
+  // Recorre de atrás para adelante: la API devuelve las etapas en orden cronologico,
+  // asi que el ultimo grupo que matchea es el de la etapa vigente (ej: Clausura antes que Apertura).
+  const re = new RegExp(`\\b${keyword}\\b`, 'i')
+  for (let i = groups.length - 1; i >= 0; i--) {
+    if (re.test(groups[i].title)) return groups[i]
+  }
+  return null
 }
